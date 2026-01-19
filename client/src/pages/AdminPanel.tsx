@@ -19,16 +19,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { products as initialProducts } from "@/lib/products";
 import { cn } from "@/lib/utils";
 
 export default function AdminPanel() {
-  const { user, adminLogin } = useAuth();
+  const { user, login, admins, addAdmin } = useAuth();
   const [, setLocation] = useLocation();
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("Products");
   const [products, setProducts] = useState(initialProducts);
+
+  // New Admin Form State
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [newAdminName, setNewAdminName] = useState("");
 
   // Simulated Orders
   const [orders, setOrders] = useState([
@@ -41,27 +48,38 @@ export default function AdminPanel() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md rounded-none shadow-none border-border">
           <CardHeader className="text-center">
-            <h1 className="text-2xl font-serif">Admin Access</h1>
-            <p className="text-sm text-muted-foreground">Please enter your password to continue</p>
+            <h1 className="text-2xl font-serif">Admin Login</h1>
+            <p className="text-sm text-muted-foreground">Secure access required</p>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Input 
-                type="password" 
-                placeholder="Password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="rounded-none h-12"
-              />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Input 
+                  type="email" 
+                  placeholder="Email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="rounded-none h-12"
+                />
+              </div>
+              <div className="space-y-2">
+                <Input 
+                  type="password" 
+                  placeholder="Password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="rounded-none h-12"
+                />
+              </div>
               {error && <p className="text-xs text-destructive">{error}</p>}
             </div>
             <Button 
               className="w-full h-12 rounded-none uppercase tracking-widest font-bold"
               onClick={() => {
-                if (adminLogin(password)) {
+                if (login(email, password)) {
                   setError("");
                 } else {
-                  setError("Invalid password");
+                  setError("Invalid credentials");
                 }
               }}
             >
@@ -81,7 +99,7 @@ export default function AdminPanel() {
     { icon: ShoppingBag, label: "Products" },
     { icon: Package, label: "Orders" },
     { icon: Tag, label: "Coupons" },
-    { icon: Settings, label: "Settings" },
+    { icon: Settings, label: "Admin Management" },
   ];
 
   const updateOrderStatus = (orderId: string, newStatus: string) => {
@@ -178,7 +196,9 @@ export default function AdminPanel() {
                             <span className="font-bold">{order.id}</span>
                             <span className={cn(
                               "text-[10px] uppercase font-bold px-2 py-0.5 border",
-                              order.status === "payment_verification" ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-blue-100 text-blue-700 border-blue-200"
+                              order.status === "payment_verification" ? "bg-amber-100 text-amber-700 border-amber-200" : 
+                              order.status === "delivered" ? "bg-green-100 text-green-700 border-green-200" :
+                              "bg-blue-100 text-blue-700 border-blue-200"
                             )}>
                               {order.status.replace("_", " ")}
                             </span>
@@ -187,17 +207,42 @@ export default function AdminPanel() {
                           <p className="text-sm font-medium">MVR {order.total} via {order.payment.toUpperCase()}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          {order.status === "payment_verification" && (
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="rounded-none text-xs border-green-200 text-green-700 hover:bg-green-50"
-                              onClick={() => updateOrderStatus(order.id, "processing")}
-                            >
-                              Verify Payment
-                            </Button>
-                          )}
-                          <Button size="sm" variant="outline" className="rounded-none text-xs">View Details</Button>
+                          <div className="flex flex-col gap-2">
+                            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Update Status</p>
+                            <div className="flex gap-2">
+                              {order.status === "payment_verification" && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="rounded-none text-xs border-green-200 text-green-700 hover:bg-green-50"
+                                  onClick={() => updateOrderStatus(order.id, "processing")}
+                                >
+                                  Verify Payment
+                                </Button>
+                              )}
+                              {order.status === "processing" && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="rounded-none text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                                  onClick={() => updateOrderStatus(order.id, "shipped")}
+                                >
+                                  Mark Shipped
+                                </Button>
+                              )}
+                              {order.status === "shipped" && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="rounded-none text-xs border-green-200 text-green-700 hover:bg-green-50"
+                                  onClick={() => updateOrderStatus(order.id, "delivered")}
+                                >
+                                  Mark Delivered
+                                </Button>
+                              )}
+                              <Button size="sm" variant="ghost" className="rounded-none text-xs">View Details</Button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -207,7 +252,88 @@ export default function AdminPanel() {
             </div>
           )}
 
-          {(activeTab === "Overview" || activeTab === "Coupons" || activeTab === "Settings") && (
+          {activeTab === "Admin Management" && (
+            <div className="animate-in fade-in duration-500 max-w-2xl">
+              <div className="mb-8">
+                <h1 className="text-3xl font-serif">Admin Management</h1>
+                <p className="text-muted-foreground">Add and manage administrative users</p>
+              </div>
+
+              <Card className="rounded-none border-border shadow-none mb-8">
+                <CardHeader>
+                  <CardTitle className="text-sm uppercase tracking-widest">Add New Admin</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-widest font-bold">Name</Label>
+                      <Input 
+                        placeholder="Admin Name" 
+                        value={newAdminName}
+                        onChange={(e) => setNewAdminName(e.target.value)}
+                        className="rounded-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-widest font-bold">Email</Label>
+                      <Input 
+                        placeholder="admin@example.com" 
+                        value={newAdminEmail}
+                        onChange={(e) => setNewAdminEmail(e.target.value)}
+                        className="rounded-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs uppercase tracking-widest font-bold">Password</Label>
+                    <Input 
+                      type="password"
+                      placeholder="Secure Password" 
+                      value={newAdminPassword}
+                      onChange={(e) => setNewAdminPassword(e.target.value)}
+                      className="rounded-none"
+                    />
+                  </div>
+                  <Button 
+                    className="w-full rounded-none"
+                    onClick={() => {
+                      if (newAdminEmail && newAdminPassword && newAdminName) {
+                        addAdmin(newAdminEmail, newAdminPassword, newAdminName);
+                        setNewAdminEmail("");
+                        setNewAdminPassword("");
+                        setNewAdminName("");
+                      }
+                    }}
+                  >
+                    Add Administrator
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-none border-border shadow-none">
+                <CardHeader>
+                  <CardTitle className="text-sm uppercase tracking-widest">Active Administrators</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-border">
+                    {admins.map((admin) => (
+                      <div key={admin.email} className="p-4 flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{admin.name}</p>
+                          <p className="text-xs text-muted-foreground">{admin.email}</p>
+                        </div>
+                        <div className="text-[10px] uppercase font-bold text-muted-foreground bg-secondary/20 px-2 py-1">
+                          Active
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {(activeTab === "Overview" || activeTab === "Coupons") && (
             <div className="h-64 flex flex-col items-center justify-center text-muted-foreground animate-in fade-in duration-500">
               <LayoutDashboard size={48} className="mb-4 opacity-10" />
               <p>{activeTab} module is coming soon in the full implementation.</p>
