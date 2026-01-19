@@ -12,6 +12,7 @@ interface AuthStore {
   user: User | null;
   isAuthenticated: boolean;
   login: (email: string, role?: "user" | "admin") => void;
+  adminLogin: (password: string) => boolean;
   logout: () => void;
 }
 
@@ -30,6 +31,22 @@ export const useAuth = create<AuthStore>()(
           },
           isAuthenticated: true,
         });
+      },
+      adminLogin: (password: string) => {
+        // Simple password protection for mockup mode
+        if (password === "admin123") {
+          set({
+            user: {
+              id: "0",
+              name: "Admin",
+              email: "admin@infinitehome.mv",
+              role: "admin",
+            },
+            isAuthenticated: true,
+          });
+          return true;
+        }
+        return false;
       },
       logout: () => set({ user: null, isAuthenticated: false }),
     }),
