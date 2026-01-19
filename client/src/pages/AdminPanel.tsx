@@ -14,14 +14,34 @@ import {
   Trash2,
   CheckCircle2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  FileText,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "@/components/ui/dialog";
 import { products as initialProducts } from "@/lib/products";
 import { cn } from "@/lib/utils";
+import paymentSlip from "@assets/generated_images/bank_transfer_payment_slip_mockup.png";
 
 export default function AdminPanel() {
   const { user, login, admins, addAdmin } = useAuth();
@@ -31,6 +51,7 @@ export default function AdminPanel() {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("Products");
   const [products, setProducts] = useState(initialProducts);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
   // New Admin Form State
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -39,9 +60,42 @@ export default function AdminPanel() {
 
   // Simulated Orders
   const [orders, setOrders] = useState([
-    { id: "IH-12345", customer: "Ahmed", date: "Jan 18, 2026", total: 4500, status: "processing", payment: "cod" },
-    { id: "IH-12346", customer: "Mariyam", date: "Jan 19, 2026", total: 1200, status: "payment_verification", payment: "bank" },
+    { 
+      id: "IH-12345", 
+      customer: "Ahmed", 
+      email: "ahmed@example.com",
+      phone: "7771234",
+      address: "H. Orchid, Male'",
+      date: "Jan 18, 2026", 
+      total: 4500, 
+      status: "processing", 
+      payment: "cod",
+      items: [{ name: "Bamboo Sheet Set", qty: 1, price: 4500 }]
+    },
+    { 
+      id: "IH-12346", 
+      customer: "Mariyam", 
+      email: "mariyam@example.com",
+      phone: "7785678",
+      address: "M. Rose, Male'",
+      date: "Jan 19, 2026", 
+      total: 1200, 
+      status: "payment_verification", 
+      payment: "bank",
+      slip: paymentSlip,
+      items: [{ name: "Premium Waffle Bath Towel", qty: 1, price: 1200 }]
+    },
   ]);
+
+  const orderStatuses = [
+    "ordered",
+    "payment_verification",
+    "processing",
+    "shipped",
+    "delivered",
+    "cancelled",
+    "refunded"
+  ];
 
   if (!user || user.role !== "admin") {
     return (
@@ -183,7 +237,7 @@ export default function AdminPanel() {
             <div className="animate-in fade-in duration-500">
               <div className="mb-8">
                 <h1 className="text-3xl font-serif">Orders</h1>
-                <p className="text-muted-foreground">Track and fulfill customer orders</p>
+                <p className="text-muted-foreground">Manage and track customer orders</p>
               </div>
 
               <Card className="rounded-none border-border shadow-none">
@@ -198,6 +252,7 @@ export default function AdminPanel() {
                               "text-[10px] uppercase font-bold px-2 py-0.5 border",
                               order.status === "payment_verification" ? "bg-amber-100 text-amber-700 border-amber-200" : 
                               order.status === "delivered" ? "bg-green-100 text-green-700 border-green-200" :
+                              order.status === "cancelled" ? "bg-red-100 text-red-700 border-red-200" :
                               "bg-blue-100 text-blue-700 border-blue-200"
                             )}>
                               {order.status.replace("_", " ")}
@@ -206,43 +261,98 @@ export default function AdminPanel() {
                           <p className="text-sm text-muted-foreground">{order.customer} — {order.date}</p>
                           <p className="text-sm font-medium">MVR {order.total} via {order.payment.toUpperCase()}</p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-4">
                           <div className="flex flex-col gap-2">
                             <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Update Status</p>
-                            <div className="flex gap-2">
-                              {order.status === "payment_verification" && (
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  className="rounded-none text-xs border-green-200 text-green-700 hover:bg-green-50"
-                                  onClick={() => updateOrderStatus(order.id, "processing")}
-                                >
-                                  Verify Payment
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="rounded-none text-xs gap-2 min-w-[140px] justify-between">
+                                  {order.status.replace("_", " ")}
+                                  <ChevronDown size={14} />
                                 </Button>
-                              )}
-                              {order.status === "processing" && (
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  className="rounded-none text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
-                                  onClick={() => updateOrderStatus(order.id, "shipped")}
-                                >
-                                  Mark Shipped
-                                </Button>
-                              )}
-                              {order.status === "shipped" && (
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  className="rounded-none text-xs border-green-200 text-green-700 hover:bg-green-50"
-                                  onClick={() => updateOrderStatus(order.id, "delivered")}
-                                >
-                                  Mark Delivered
-                                </Button>
-                              )}
-                              <Button size="sm" variant="ghost" className="rounded-none text-xs">View Details</Button>
-                            </div>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent className="rounded-none">
+                                {orderStatuses.map(status => (
+                                  <DropdownMenuItem 
+                                    key={status} 
+                                    onClick={() => updateOrderStatus(order.id, status)}
+                                    className="text-xs uppercase tracking-widest cursor-pointer"
+                                  >
+                                    {status.replace("_", " ")}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
+
+                          <div className="h-12 w-px bg-border mx-2 hidden md:block" />
+
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="rounded-none text-xs gap-2"
+                                onClick={() => setSelectedOrder(order)}
+                              >
+                                <Eye size={14} /> Details
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl rounded-none font-body">
+                              <DialogHeader>
+                                <DialogTitle className="font-serif text-2xl">Order Details: {selectedOrder?.id}</DialogTitle>
+                                <DialogDescription className="uppercase tracking-widest text-[10px] font-bold">
+                                  Placed on {selectedOrder?.date}
+                                </DialogDescription>
+                              </DialogHeader>
+                              
+                              <div className="grid md:grid-cols-2 gap-8 py-4">
+                                <div className="space-y-6">
+                                  <div>
+                                    <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Customer Info</h4>
+                                    <p className="font-medium">{selectedOrder?.customer}</p>
+                                    <p className="text-sm text-muted-foreground">{selectedOrder?.email}</p>
+                                    <p className="text-sm text-muted-foreground">{selectedOrder?.phone}</p>
+                                  </div>
+                                  <div>
+                                    <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Shipping Address</h4>
+                                    <p className="text-sm leading-relaxed">{selectedOrder?.address}</p>
+                                  </div>
+                                  <div>
+                                    <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Payment Info</h4>
+                                    <p className="text-sm">Method: {selectedOrder?.payment.toUpperCase()}</p>
+                                    <p className="text-sm font-bold">Total: MVR {selectedOrder?.total}</p>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                  {selectedOrder?.slip && (
+                                    <div>
+                                      <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Payment Slip</h4>
+                                      <div className="aspect-[4/3] bg-secondary/20 overflow-hidden border border-border">
+                                        <img src={selectedOrder.slip} alt="Payment Slip" className="w-full h-full object-cover" />
+                                      </div>
+                                      <Button variant="link" className="p-0 h-auto text-xs text-primary mt-2">
+                                        <FileText size={12} className="mr-1" /> View Full Image
+                                      </Button>
+                                    </div>
+                                  )}
+                                  
+                                  <div>
+                                    <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Items</h4>
+                                    <div className="space-y-2">
+                                      {selectedOrder?.items.map((item: any, i: number) => (
+                                        <div key={i} className="flex justify-between text-sm">
+                                          <span>{item.name} x {item.qty}</span>
+                                          <span>MVR {item.price}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                         </div>
                       </div>
                     ))}
