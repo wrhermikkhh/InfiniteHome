@@ -2,11 +2,12 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
-import { Package, Truck, CheckCircle2, Search, Clock, MapPin } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Package, Truck, CheckCircle2, Search, Clock, MapPin, ReceiptText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSearch } from "wouter";
 
-type Status = "ordered" | "processing" | "shipped" | "delivered";
+type Status = "ordered" | "processing" | "shipped" | "delivered" | "payment_verification";
 
 interface TrackingStep {
   status: Status;
@@ -20,26 +21,49 @@ interface TrackingStep {
 export default function OrderTracking() {
   const [orderId, setOrderId] = useState("");
   const [trackingData, setTrackingData] = useState<TrackingStep[] | null>(null);
+  const search = useSearch();
 
-  const mockTrack = () => {
-    if (!orderId) return;
-    
-    setTrackingData([
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const id = params.get("id");
+    const status = params.get("status") as Status;
+    if (id) {
+      setOrderId(id);
+      generateTracking(id, status || "ordered");
+    }
+  }, [search]);
+
+  const generateTracking = (id: string, currentStatus: Status) => {
+    const steps: TrackingStep[] = [
       {
         status: "ordered",
         label: "Order Placed",
         date: "Jan 18, 2026",
         description: "We've received your order and it's being prepared.",
         isCompleted: true,
-        isCurrent: false,
+        isCurrent: currentStatus === "ordered",
       },
+    ];
+
+    if (currentStatus === "payment_verification") {
+      steps.push({
+        status: "payment_verification",
+        label: "Payment Verification",
+        date: "Jan 19, 2026",
+        description: "We are verifying your bank transfer. This usually takes 1-2 hours.",
+        isCompleted: false,
+        isCurrent: true,
+      });
+    }
+
+    steps.push(
       {
         status: "processing",
         label: "Processing",
-        date: "Jan 19, 2026",
+        date: currentStatus === "processing" ? "Jan 19, 2026" : "Pending",
         description: "Your items are being carefully packed and quality checked.",
-        isCompleted: true,
-        isCurrent: true,
+        isCompleted: currentStatus !== "ordered" && currentStatus !== "payment_verification",
+        isCurrent: currentStatus === "processing",
       },
       {
         status: "shipped",
@@ -47,7 +71,7 @@ export default function OrderTracking() {
         date: "Pending",
         description: "Your package is on its way to your destination.",
         isCompleted: false,
-        isCurrent: false,
+        isCurrent: currentStatus === "shipped",
       },
       {
         status: "delivered",
@@ -55,9 +79,16 @@ export default function OrderTracking() {
         date: "Pending",
         description: "Package has been delivered to your address.",
         isCompleted: false,
-        isCurrent: false,
-      },
-    ]);
+        isCurrent: currentStatus === "delivered",
+      }
+    );
+    
+    setTrackingData(steps);
+  };
+
+  const mockTrack = () => {
+    if (!orderId) return;
+    generateTracking(orderId, "processing");
   };
 
   return (

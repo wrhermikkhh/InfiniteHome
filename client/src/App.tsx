@@ -9,6 +9,8 @@ import Shop from "@/pages/Shop";
 import ProductPage from "@/pages/ProductPage";
 import Consultation from "@/pages/Consultation";
 import OrderTracking from "@/pages/OrderTracking";
+import AdminPanel from "@/pages/AdminPanel";
+import Checkout from "@/pages/Checkout";
 
 function Router() {
   return (
@@ -18,6 +20,8 @@ function Router() {
       <Route path="/product/:id" component={ProductPage} />
       <Route path="/consultation" component={Consultation} />
       <Route path="/track" component={OrderTracking} />
+      <Route path="/admin" component={AdminPanel} />
+      <Route path="/checkout" component={Checkout} />
       <Route component={NotFound} />
     </Switch>
   );

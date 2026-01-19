@@ -1,17 +1,20 @@
 import { Link, useLocation } from "wouter";
-import { Search, ShoppingBag, User, Menu, X, Trash2, Plus, Minus } from "lucide-react";
+import { Search, ShoppingBag, User, Menu, X, Trash2, Plus, Minus, LogOut, Shield } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/cart";
+import { useAuth } from "@/lib/auth";
 import { formatCurrency } from "@/lib/products";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from "@/components/ui/sheet";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [location] = useLocation();
   const cart = useCart();
+  const { user, login, logout, isAuthenticated } = useAuth();
   const items = cart.items || [];
   const removeItem = cart.removeItem;
   const updateQuantity = cart.updateQuantity;
@@ -74,9 +77,42 @@ export function Navbar() {
           <button className="p-2 hover:opacity-70 transition-opacity">
             <Search size={20} />
           </button>
-          <button className="hidden sm:block p-2 hover:opacity-70 transition-opacity">
-            <User size={20} />
-          </button>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="p-2 hover:opacity-70 transition-opacity">
+                <User size={20} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 rounded-none">
+              {isAuthenticated ? (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-bold uppercase tracking-widest text-muted-foreground border-b border-border mb-1">
+                    Hi, {user?.name}
+                  </div>
+                  {user?.role === "admin" && (
+                    <Link href="/admin">
+                      <DropdownMenuItem className="cursor-pointer gap-2">
+                        <Shield size={14} /> Admin Panel
+                      </DropdownMenuItem>
+                    </Link>
+                  )}
+                  <DropdownMenuItem onClick={() => logout()} className="cursor-pointer gap-2 text-destructive focus:text-destructive">
+                    <LogOut size={14} /> Sign Out
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem onClick={() => login("customer@example.com", "user")} className="cursor-pointer">
+                    Sign In
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => login("admin@infinitehome.mv", "admin")} className="cursor-pointer font-bold">
+                    Admin Access
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           
           <Sheet>
             <SheetTrigger asChild>
@@ -155,15 +191,18 @@ export function Navbar() {
                   <p className="text-xs text-muted-foreground text-center">
                     Shipping and taxes calculated at checkout.
                   </p>
-                  <Button className="w-full h-12 rounded-none uppercase tracking-widest font-bold">
-                    Checkout
-                  </Button>
+                  <Link href="/checkout">
+                    <Button className="w-full h-12 rounded-none uppercase tracking-widest font-bold">
+                      Checkout
+                    </Button>
+                  </Link>
                 </SheetFooter>
               )}
             </SheetContent>
           </Sheet>
         </div>
       </div>
+
       
       {mobileMenuOpen && (
         <div className="absolute top-full left-0 w-full bg-background border-b border-border p-4 flex flex-col space-y-4 lg:hidden animate-in slide-in-from-top-5">
