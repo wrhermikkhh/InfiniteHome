@@ -34,7 +34,6 @@ export function Navbar() {
     { name: "Bedding", href: "/shop?category=Bedding" },
     { name: "Bath", href: "/shop?category=Bath" },
     { name: "Apparel", href: "/shop?category=Apparel" },
-    { name: "Track Order", href: "/track" },
   ];
 
   return (
@@ -105,9 +104,6 @@ export function Navbar() {
                 <>
                   <DropdownMenuItem onClick={() => login("customer@example.com", "user")} className="cursor-pointer">
                     Sign In
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => login("admin@infinitehome.mv", "admin")} className="cursor-pointer font-bold">
-                    Admin Access
                   </DropdownMenuItem>
                 </>
               )}
