@@ -6,12 +6,14 @@ import { useRoute } from "wouter";
 import { Star, Truck, ShieldCheck, RefreshCcw, Minus, Plus } from "lucide-react";
 import { useState } from "react";
 import NotFound from "@/pages/not-found";
+import { useCart } from "@/lib/cart";
 
 export default function ProductPage() {
   const [match, params] = useRoute("/product/:id");
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState("White");
   const [selectedSize, setSelectedSize] = useState("Queen");
+  const { addItem } = useCart();
 
   if (!match || !params) return <NotFound />;
 
@@ -111,7 +113,10 @@ export default function ProductPage() {
                     <Plus size={16} />
                   </button>
                 </div>
-                <Button className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90">
+                <Button 
+                  onClick={() => addItem(product, quantity)}
+                  className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90"
+                >
                   Add to Bag - {formatCurrency(product.price * quantity)}
                 </Button>
               </div>
