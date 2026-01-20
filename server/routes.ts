@@ -2,11 +2,15 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema } from "@shared/schema";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  
+  // Register object storage routes for file uploads
+  registerObjectStorageRoutes(app);
   
   // ============ ADMIN AUTH ============
   app.post("/api/admin/login", async (req, res) => {
@@ -135,7 +139,7 @@ export async function registerRoutes(
     try {
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       const randomId = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-      const orderNumber = `IH-${randomId}`;
+      const orderNumber = randomId;
       const data = insertOrderSchema.parse({ ...req.body, orderNumber });
       const order = await storage.createOrder(data);
       res.json(order);

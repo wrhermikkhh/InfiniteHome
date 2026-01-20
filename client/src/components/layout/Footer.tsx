@@ -19,7 +19,7 @@ export function Footer() {
               <a href="https://youtube.com/infinitehome" className="text-foreground hover:text-primary/70 transition-colors"><Youtube size={20} /></a>
             </div>
             <div className="pt-2 text-sm text-muted-foreground">
-              <p>Email: support@infinitehome.mv</p>
+              <p>Email: info@infinitehome.mv</p>
               <p>Phone: 7840001</p>
             </div>
           </div>
@@ -28,10 +28,10 @@ export function Footer() {
           <div>
             <h4 className="font-sans font-bold text-sm uppercase tracking-wider mb-6">Shop</h4>
             <ul className="space-y-3 text-sm text-muted-foreground">
-              <li><Link href="/shop?category=Bedding"><a className="hover:text-foreground transition-colors">Bedding</a></Link></li>
-              <li><Link href="/shop?category=Furniture"><a className="hover:text-foreground transition-colors">Furniture</a></Link></li>
-              <li><Link href="/shop?category=Appliances"><a className="hover:text-foreground transition-colors">Appliances</a></Link></li>
-              <li><Link href="/shop"><a className="hover:text-foreground transition-colors">All Products</a></Link></li>
+              <li><Link href="/shop?category=Bedding" className="hover:text-foreground transition-colors">Bedding</Link></li>
+              <li><Link href="/shop?category=Furniture" className="hover:text-foreground transition-colors">Furniture</Link></li>
+              <li><Link href="/shop?category=Appliances" className="hover:text-foreground transition-colors">Appliances</Link></li>
+              <li><Link href="/shop" className="hover:text-foreground transition-colors">All Products</Link></li>
             </ul>
           </div>
 
@@ -39,10 +39,10 @@ export function Footer() {
           <div>
             <h4 className="font-sans font-bold text-sm uppercase tracking-wider mb-6">Support</h4>
             <ul className="space-y-3 text-sm text-muted-foreground">
-              <li><Link href="/track"><a className="hover:text-foreground transition-colors">Track Order</a></Link></li>
-              <li><Link href="/returns"><a className="hover:text-foreground transition-colors">Returns & Exchanges</a></Link></li>
-              <li><Link href="/shipping"><a className="hover:text-foreground transition-colors">Shipping Info</a></Link></li>
-              <li><Link href="/contact"><a className="hover:text-foreground transition-colors">Contact Us</a></Link></li>
+              <li><Link href="/track" className="hover:text-foreground transition-colors">Track Order</Link></li>
+              <li><Link href="/returns" className="hover:text-foreground transition-colors">Returns & Exchanges</Link></li>
+              <li><Link href="/shipping" className="hover:text-foreground transition-colors">Shipping Info</Link></li>
+              <li><Link href="/contact" className="hover:text-foreground transition-colors">Contact Us</Link></li>
             </ul>
           </div>
 
@@ -68,9 +68,9 @@ export function Footer() {
         <div className="border-t border-border pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} INFINITE HOME. All rights reserved.</p>
           <div className="flex flex-wrap justify-center gap-4 md:gap-6 mt-4 md:mt-0">
-            <Link href="/privacy"><a className="hover:text-foreground">Privacy Policy</a></Link>
-            <Link href="/terms"><a className="hover:text-foreground">Terms of Service</a></Link>
-            <Link href="/returns"><a className="hover:text-foreground">Returns</a></Link>
+            <Link href="/privacy" className="hover:text-foreground">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-foreground">Terms of Service</Link>
+            <Link href="/returns" className="hover:text-foreground">Returns</Link>
           </div>
         </div>
       </div>

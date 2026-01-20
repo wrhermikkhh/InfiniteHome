@@ -13,8 +13,12 @@ import {
   Edit, 
   Trash2,
   Eye,
-  ChevronDown
+  ChevronDown,
+  Upload,
+  CheckCircle,
+  Image
 } from "lucide-react";
+import { useUpload } from "@/hooks/use-upload";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -414,11 +418,10 @@ export default function AdminPanel() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs uppercase tracking-widest font-bold">Image URL</Label>
-                        <Input 
-                          value={productForm.image}
-                          onChange={(e) => setProductForm({...productForm, image: e.target.value})}
-                          className="rounded-none"
+                        <Label className="text-xs uppercase tracking-widest font-bold">Product Image</Label>
+                        <ProductImageUploader
+                          currentImage={productForm.image}
+                          onImageUploaded={(path) => setProductForm({...productForm, image: path})}
                         />
                       </div>
                       <div className="space-y-2">
@@ -808,6 +811,61 @@ export default function AdminPanel() {
           )}
         </main>
       </div>
+    </div>
+  );
+}
+
+function ProductImageUploader({ 
+  currentImage, 
+  onImageUploaded 
+}: { 
+  currentImage: string; 
+  onImageUploaded: (path: string) => void;
+}) {
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (response) => {
+      onImageUploaded(response.objectPath);
+    },
+  });
+
+  return (
+    <div className="space-y-2">
+      <label className="block">
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) uploadFile(file);
+          }}
+          disabled={isUploading}
+        />
+        <div className={`flex items-center justify-center gap-2 p-4 border-2 border-dashed cursor-pointer hover:bg-secondary/30 transition-colors ${currentImage ? 'border-green-500' : 'border-border'}`}>
+          {isUploading ? (
+            <span className="text-sm">Uploading...</span>
+          ) : currentImage ? (
+            <div className="flex items-center gap-2">
+              <CheckCircle size={16} className="text-green-600" />
+              <span className="text-sm text-green-700">Image uploaded</span>
+            </div>
+          ) : (
+            <>
+              <Upload size={20} />
+              <span className="text-sm">Click to upload product image</span>
+            </>
+          )}
+        </div>
+      </label>
+      {currentImage && (
+        <div className="mt-2">
+          <img 
+            src={currentImage} 
+            alt="Product preview" 
+            className="h-24 w-24 object-cover border border-border"
+          />
+        </div>
+      )}
     </div>
   );
 }

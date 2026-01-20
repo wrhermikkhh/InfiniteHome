@@ -9,7 +9,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { CreditCard, Truck, ShieldCheck, Wallet } from "lucide-react";
+import { CreditCard, Truck, ShieldCheck, Wallet, Upload, CheckCircle } from "lucide-react";
+import { useUpload } from "@/hooks/use-upload";
 
 export default function Checkout() {
   const { items, clearCart } = useCart();
@@ -19,6 +20,12 @@ export default function Checkout() {
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentSlipPath, setPaymentSlipPath] = useState("");
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (response) => {
+      setPaymentSlipPath(response.objectPath);
+    },
+  });
   
   const [formData, setFormData] = useState({
     customerName: "",
@@ -75,8 +82,9 @@ export default function Checkout() {
         shipping,
         total,
         paymentMethod: paymentMethod as "cod" | "bank",
+        paymentSlip: paymentSlipPath || undefined,
         couponCode: appliedCoupon?.code,
-        status: paymentMethod === "bank" ? "payment_verification" : "ordered"
+        status: paymentMethod === "bank" ? "payment_verification" : "pending"
       };
 
       const order = await api.createOrder(orderData);
@@ -179,12 +187,47 @@ export default function Checkout() {
               </RadioGroup>
               
               {paymentMethod === "bank" && (
-                <div className="mt-4 p-4 bg-secondary/20 border border-dashed border-border text-sm space-y-2">
-                  <p className="font-bold uppercase tracking-widest text-[10px]">Bank Details</p>
-                  <p>Bank: Bank of Maldives (BML)</p>
-                  <p>Account Name: INFINITE HOME PVT LTD</p>
-                  <p>Account Number: 7730000012345 (MVR)</p>
-                  <p className="text-muted-foreground text-xs">Please include your order ID as the transfer remark.</p>
+                <div className="mt-4 p-4 bg-secondary/20 border border-dashed border-border text-sm space-y-4">
+                  <div className="space-y-2">
+                    <p className="font-bold uppercase tracking-widest text-[10px]">Bank Details</p>
+                    <p>Bank: Bank of Maldives (BML)</p>
+                    <p>Account Name: INFINITE HOME PVT LTD</p>
+                    <p>Account Number: 7730000012345 (MVR)</p>
+                    <p className="text-muted-foreground text-xs">Please include your order ID as the transfer remark.</p>
+                  </div>
+                  <div className="pt-4 border-t border-border space-y-2">
+                    <p className="font-bold uppercase tracking-widest text-[10px]">Upload Payment Slip</p>
+                    <div className="flex items-center gap-3">
+                      <label className="flex-1">
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file);
+                          }}
+                          disabled={isUploading}
+                        />
+                        <div className={`flex items-center justify-center gap-2 p-3 border border-dashed cursor-pointer hover:bg-secondary/30 transition-colors ${paymentSlipPath ? 'border-green-500 bg-green-50' : 'border-border'}`}>
+                          {isUploading ? (
+                            <span className="text-xs">Uploading...</span>
+                          ) : paymentSlipPath ? (
+                            <>
+                              <CheckCircle size={16} className="text-green-600" />
+                              <span className="text-xs text-green-700">Payment slip uploaded</span>
+                            </>
+                          ) : (
+                            <>
+                              <Upload size={16} />
+                              <span className="text-xs">Click to upload payment slip</span>
+                            </>
+                          )}
+                        </div>
+                      </label>
+                    </div>
+                    <p className="text-muted-foreground text-xs">Upload a screenshot or PDF of your bank transfer receipt.</p>
+                  </div>
                 </div>
               )}
             </section>
