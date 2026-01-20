@@ -73,15 +73,18 @@ export default function AdminPanel() {
     description: "",
     image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80",
     colors: "",
-    sizes: ""
+    variants: [{ size: "", price: "" }]
   });
 
   const handleSaveProduct = () => {
     const formattedProduct = {
       ...productForm,
-      price: Number(productForm.price),
+      price: productForm.variants.length > 0 ? Number(productForm.variants[0].price) : Number(productForm.price),
       colors: productForm.colors.split(",").map(c => c.trim()).filter(Boolean),
-      sizes: productForm.sizes.split(",").map(s => s.trim()).filter(Boolean)
+      variants: productForm.variants.filter(v => v.size && v.price).map(v => ({
+        size: v.size.trim(),
+        price: Number(v.price)
+      }))
     };
 
     if (editingProduct) {
@@ -97,7 +100,15 @@ export default function AdminPanel() {
     }
     setIsProductDialogOpen(false);
     setEditingProduct(null);
-    setProductForm({ name: "", price: "", category: "", description: "", image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80", colors: "", sizes: "" });
+    setProductForm({ 
+      name: "", 
+      price: "", 
+      category: "", 
+      description: "", 
+      image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80", 
+      colors: "", 
+      variants: [{ size: "", price: "" }] 
+    });
   };
 
   const handleEditProduct = (product: any) => {
@@ -109,7 +120,9 @@ export default function AdminPanel() {
       description: product.description || "",
       image: product.image,
       colors: (product.colors || []).join(", "),
-      sizes: (product.sizes || []).join(", ")
+      variants: product.variants && product.variants.length > 0 
+        ? product.variants.map((v: any) => ({ size: v.size, price: v.price.toString() }))
+        : [{ size: "", price: product.price.toString() }]
     });
     setIsProductDialogOpen(true);
   };
@@ -318,25 +331,70 @@ export default function AdminPanel() {
                           className="rounded-none"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-xs uppercase tracking-widest font-bold">Colors (comma separated)</Label>
-                          <Input 
-                            placeholder="Cloud, Sand, Slate"
-                            value={productForm.colors}
-                            onChange={(e) => setProductForm({...productForm, colors: e.target.value})}
-                            className="rounded-none"
-                          />
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-widest font-bold">Colors (comma separated)</Label>
+                        <Input 
+                          placeholder="Cloud, Sand, Slate"
+                          value={productForm.colors}
+                          onChange={(e) => setProductForm({...productForm, colors: e.target.value})}
+                          className="rounded-none"
+                        />
+                      </div>
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <Label className="text-xs uppercase tracking-widest font-bold">Size Variations & Prices</Label>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] rounded-none uppercase tracking-widest"
+                            onClick={() => setProductForm({
+                              ...productForm, 
+                              variants: [...productForm.variants, { size: "", price: "" }]
+                            })}
+                          >
+                            <Plus size={12} className="mr-1" /> Add Size
+                          </Button>
                         </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs uppercase tracking-widest font-bold">Sizes (comma separated)</Label>
-                          <Input 
-                            placeholder="Twin, Queen, King"
-                            value={productForm.sizes}
-                            onChange={(e) => setProductForm({...productForm, sizes: e.target.value})}
-                            className="rounded-none"
-                          />
-                        </div>
+                        {productForm.variants.map((variant, index) => (
+                          <div key={index} className="flex gap-2 items-end">
+                            <div className="flex-1 space-y-1">
+                              <Input 
+                                placeholder="Size (e.g. Queen)" 
+                                value={variant.size}
+                                onChange={(e) => {
+                                  const newVariants = [...productForm.variants];
+                                  newVariants[index].size = e.target.value;
+                                  setProductForm({...productForm, variants: newVariants});
+                                }}
+                                className="rounded-none h-9 text-xs"
+                              />
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              <Input 
+                                type="number"
+                                placeholder="Price" 
+                                value={variant.price}
+                                onChange={(e) => {
+                                  const newVariants = [...productForm.variants];
+                                  newVariants[index].price = e.target.value;
+                                  setProductForm({...productForm, variants: newVariants});
+                                }}
+                                className="rounded-none h-9 text-xs"
+                              />
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-9 w-9 text-destructive"
+                              onClick={() => {
+                                const newVariants = productForm.variants.filter((_, i) => i !== index);
+                                setProductForm({...productForm, variants: newVariants.length > 0 ? newVariants : [{ size: "", price: "" }]});
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
                       <Button onClick={handleSaveProduct} className="w-full rounded-none">
                         {editingProduct ? "Update Product" : "Create Product"}
