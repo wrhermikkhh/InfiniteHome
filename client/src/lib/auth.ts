@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { api } from "./api";
 
 interface User {
   id: string;
@@ -11,56 +12,30 @@ interface User {
 interface AuthStore {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password?: string) => boolean;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  admins: { email: string; password: string; name: string }[];
-  addAdmin: (email: string, password: string, name: string) => void;
 }
 
 export const useAuth = create<AuthStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
       isAuthenticated: false,
-      admins: [
-        { email: "admin@infinitehome.mv", password: "admin123", name: "Super Admin" }
-      ],
-      login: (email, password) => {
-        // Check admin list first
-        const admin = get().admins.find(a => a.email === email && a.password === password);
-        if (admin) {
+      login: async (email, password) => {
+        const result = await api.adminLogin(email, password);
+        if (result.success && result.admin) {
           set({
             user: {
-              id: Math.random().toString(36).substr(2, 9),
-              name: admin.name,
-              email: admin.email,
+              id: result.admin.id,
+              name: result.admin.name,
+              email: result.admin.email,
               role: "admin",
             },
             isAuthenticated: true,
           });
           return true;
         }
-
-        // Regular user login (no password for mockup)
-        if (!password) {
-          set({
-            user: {
-              id: Math.random().toString(36).substr(2, 9),
-              name: email.split("@")[0],
-              email,
-              role: "user",
-            },
-            isAuthenticated: true,
-          });
-          return true;
-        }
-        
         return false;
-      },
-      addAdmin: (email, password, name) => {
-        set({
-          admins: [...get().admins, { email, password, name }]
-        });
       },
       logout: () => set({ user: null, isAuthenticated: false }),
     }),

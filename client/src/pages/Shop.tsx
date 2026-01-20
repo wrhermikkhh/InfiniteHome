@@ -1,17 +1,17 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ProductCard } from "@/components/ui/product-card";
-import { products } from "@/lib/products";
+import { useProducts } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
 import { useLocation, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
-import heroImage from "@assets/generated_images/luxury_bright_bedroom_with_white_bamboo_sheets.png";
 
 export default function Shop() {
   const [location] = useLocation();
   const search = useSearch();
   const params = new URLSearchParams(search);
   const category = params.get("category");
+  const { products, loading } = useProducts();
 
   const filteredProducts = category && category !== "Shop All" && category !== "Sale"
     ? products.filter(p => p.category === category)
@@ -54,13 +54,17 @@ export default function Shop() {
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-12">
-          {filteredProducts.map(product => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="text-center py-24 text-muted-foreground">Loading products...</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-12">
+            {filteredProducts.map(product => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
 
-        {filteredProducts.length === 0 && (
+        {!loading && filteredProducts.length === 0 && (
           <div className="text-center py-24">
             <h3 className="text-2xl font-serif text-muted-foreground">No products found in this category.</h3>
           </div>
@@ -72,7 +76,6 @@ export default function Shop() {
   );
 }
 
-// Helper Link component since wouter link doesn't accept all props directly nicely sometimes
 function Link({ href, children }: { href: string; children: React.ReactNode }) {
   const [_, setLocation] = useLocation();
   return (

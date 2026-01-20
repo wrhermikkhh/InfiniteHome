@@ -102,9 +102,11 @@ export function Navbar() {
                 </>
               ) : (
                 <>
-                  <DropdownMenuItem onClick={() => login("customer@example.com", "user")} className="cursor-pointer">
-                    Sign In
-                  </DropdownMenuItem>
+                  <Link href="/admin">
+                    <DropdownMenuItem className="cursor-pointer">
+                      Sign In
+                    </DropdownMenuItem>
+                  </Link>
                 </>
               )}
             </DropdownMenuContent>

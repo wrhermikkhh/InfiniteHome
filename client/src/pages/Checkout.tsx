@@ -1,7 +1,8 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { useCart } from "@/lib/cart";
-import { formatCurrency, products } from "@/lib/products";
+import { formatCurrency } from "@/lib/products";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -17,6 +18,15 @@ export default function Checkout() {
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    customerName: "",
+    shippingAddress: "",
+    city: "",
+    customerPhone: "",
+    customerEmail: ""
+  });
 
   const subtotal = items.reduce((sum, item) => sum + item.price * (item.quantity || 0), 0);
   const discount = appliedCoupon 
@@ -25,30 +35,58 @@ export default function Checkout() {
   const shipping = subtotal > 1500 ? 0 : 150;
   const total = Math.max(0, subtotal - discount + shipping);
 
-  const handleApplyCoupon = () => {
-    // In a real app, this would check against a database
-    const validCoupons: Record<string, { discount: number, type: string }> = {
-      "WELCOME10": { discount: 10, type: "percentage" },
-      "INFINITE20": { discount: 20, type: "percentage" },
-      "SAVE50": { discount: 50, type: "percentage" },
-      "FLAT100": { discount: 100, type: "flat" }
-    };
-
-    const coupon = validCoupons[couponCode.toUpperCase()];
-    if (coupon) {
-      setAppliedCoupon({ code: couponCode.toUpperCase(), ...coupon });
-      setCouponError("");
-    } else {
-      setCouponError("Invalid coupon code");
+  const handleApplyCoupon = async () => {
+    try {
+      const result = await api.validateCoupon(couponCode);
+      if (result.valid && result.coupon) {
+        setAppliedCoupon(result.coupon);
+        setCouponError("");
+      } else {
+        setCouponError("Invalid coupon code");
+        setAppliedCoupon(null);
+      }
+    } catch (error) {
+      setCouponError("Failed to validate coupon");
       setAppliedCoupon(null);
     }
   };
 
-  const handlePlaceOrder = () => {
-    // In a real app, this would create an order record
-    const orderId = `IH-${Math.floor(10000 + Math.random() * 90000)}`;
-    clearCart();
-    setLocation(`/track?id=${orderId}&status=${paymentMethod === "bank" ? "payment_verification" : "ordered"}`);
+  const handlePlaceOrder = async () => {
+    if (!formData.customerName || !formData.shippingAddress || !formData.customerPhone) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const orderData = {
+        customerName: formData.customerName,
+        customerEmail: formData.customerEmail || `${formData.customerName.toLowerCase().replace(/\s+/g, '')}@customer.mv`,
+        customerPhone: formData.customerPhone,
+        shippingAddress: `${formData.shippingAddress}, ${formData.city}`,
+        items: items.map(item => ({
+          name: item.name,
+          qty: item.quantity,
+          price: item.price,
+          color: item.selectedColor,
+          size: item.selectedSize
+        })),
+        subtotal,
+        discount,
+        shipping,
+        total,
+        paymentMethod: paymentMethod as "cod" | "bank",
+        couponCode: appliedCoupon?.code,
+        status: paymentMethod === "bank" ? "payment_verification" : "ordered"
+      };
+
+      const order = await api.createOrder(orderData);
+      clearCart();
+      setLocation(`/track?id=${order.orderNumber}&status=${order.status}`);
+    } catch (error) {
+      console.error("Failed to create order:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (items.length === 0) {
@@ -66,13 +104,47 @@ export default function Checkout() {
               <h2 className="text-2xl font-serif mb-6">Delivery Information</h2>
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <Input placeholder="Full Name" className="rounded-none h-12" />
+                  <Input 
+                    placeholder="Full Name" 
+                    className="rounded-none h-12"
+                    value={formData.customerName}
+                    onChange={(e) => setFormData({...formData, customerName: e.target.value})}
+                    data-testid="input-name"
+                  />
                 </div>
                 <div className="col-span-2">
-                  <Input placeholder="Shipping Address" className="rounded-none h-12" />
+                  <Input 
+                    placeholder="Email (optional)" 
+                    type="email"
+                    className="rounded-none h-12"
+                    value={formData.customerEmail}
+                    onChange={(e) => setFormData({...formData, customerEmail: e.target.value})}
+                    data-testid="input-email"
+                  />
                 </div>
-                <Input placeholder="City" className="rounded-none h-12" />
-                <Input placeholder="Phone" className="rounded-none h-12" />
+                <div className="col-span-2">
+                  <Input 
+                    placeholder="Shipping Address" 
+                    className="rounded-none h-12"
+                    value={formData.shippingAddress}
+                    onChange={(e) => setFormData({...formData, shippingAddress: e.target.value})}
+                    data-testid="input-address"
+                  />
+                </div>
+                <Input 
+                  placeholder="City" 
+                  className="rounded-none h-12"
+                  value={formData.city}
+                  onChange={(e) => setFormData({...formData, city: e.target.value})}
+                  data-testid="input-city"
+                />
+                <Input 
+                  placeholder="Phone" 
+                  className="rounded-none h-12"
+                  value={formData.customerPhone}
+                  onChange={(e) => setFormData({...formData, customerPhone: e.target.value})}
+                  data-testid="input-phone"
+                />
               </div>
             </section>
 
@@ -81,6 +153,7 @@ export default function Checkout() {
               <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid gap-4">
                 <Label
                   className={`flex items-center justify-between p-4 border cursor-pointer transition-colors ${paymentMethod === "cod" ? "border-primary bg-secondary/10" : "border-border"}`}
+                  data-testid="payment-cod"
                 >
                   <div className="flex items-center gap-3">
                     <RadioGroupItem value="cod" />
@@ -92,6 +165,7 @@ export default function Checkout() {
                 </Label>
                 <Label
                   className={`flex items-center justify-between p-4 border cursor-pointer transition-colors ${paymentMethod === "bank" ? "border-primary bg-secondary/10" : "border-border"}`}
+                  data-testid="payment-bank"
                 >
                   <div className="flex items-center gap-3">
                     <RadioGroupItem value="bank" />
@@ -128,11 +202,13 @@ export default function Checkout() {
                     className="rounded-none h-10 bg-background" 
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value)}
+                    data-testid="input-coupon"
                   />
                   <Button 
                     variant="outline" 
                     className="rounded-none h-10 px-4 uppercase text-xs font-bold tracking-widest"
                     onClick={handleApplyCoupon}
+                    data-testid="button-apply-coupon"
                   >
                     Apply
                   </Button>
@@ -175,14 +251,16 @@ export default function Checkout() {
                 </div>
                 <div className="flex justify-between text-lg font-bold pt-2">
                   <span>Total</span>
-                  <span>{formatCurrency(total)}</span>
+                  <span data-testid="text-total">{formatCurrency(total)}</span>
                 </div>
               </div>
               <Button 
                 onClick={handlePlaceOrder}
                 className="w-full h-12 rounded-none mt-6 uppercase tracking-widest font-bold"
+                disabled={isSubmitting || !formData.customerName || !formData.shippingAddress || !formData.customerPhone}
+                data-testid="button-place-order"
               >
-                Place Order
+                {isSubmitting ? "Processing..." : "Place Order"}
               </Button>
             </div>
           </aside>

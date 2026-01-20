@@ -1,7 +1,7 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ProductCard } from "@/components/ui/product-card";
-import { products } from "@/lib/products";
+import { useProducts } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Video, CheckCircle } from "lucide-react";
 import { Link } from "wouter";
@@ -12,6 +12,7 @@ import bathImage from "@assets/generated_images/plush_white_towels_in_spa_bathro
 import apparelImage from "@assets/generated_images/woman_in_beige_loungewear_reading.png";
 
 export default function Home() {
+  const { products, loading } = useProducts();
   const bestSellers = products.filter(p => p.isBestSeller);
 
   return (
@@ -146,9 +147,13 @@ export default function Home() {
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {products.slice(0, 4).map(product => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+            {loading ? (
+              <div className="col-span-4 text-center py-12 text-muted-foreground">Loading products...</div>
+            ) : (
+              products.slice(0, 4).map(product => (
+                <ProductCard key={product.id} product={product} />
+              ))
+            )}
           </div>
         </div>
       </section>

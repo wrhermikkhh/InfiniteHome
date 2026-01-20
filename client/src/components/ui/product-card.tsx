@@ -57,11 +57,11 @@ export function ProductCard({ product }: ProductCardProps) {
                   <Star 
                     key={i} 
                     size={12} 
-                    className={i < Math.floor(product.rating) ? "fill-primary text-primary" : "text-muted-foreground"} 
+                    className={i < Math.floor(product.rating || 5) ? "fill-primary text-primary" : "text-muted-foreground"} 
                   />
                 ))}
               </div>
-              <span className="text-[10px] text-muted-foreground">({product.reviews})</span>
+              <span className="text-[10px] text-muted-foreground">({product.reviews || 0})</span>
             </div>
             <h3 className="font-serif text-lg text-foreground group-hover:underline decoration-1 underline-offset-4 decoration-muted-foreground/50">
               {product.name}
