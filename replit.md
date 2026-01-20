@@ -103,9 +103,25 @@ Preferred communication style: Simple, everyday language.
 - **Currency**: MVR (Maldivian Rufiyaa)
 - **Payment Methods**: Cash on Delivery (COD), Bank Transfer
 
+## Order Status Flow
+Professional shipping statuses matching major carriers:
+- **pending**: Order received, awaiting confirmation
+- **confirmed**: Order confirmed, payment verified
+- **payment_verification**: Bank transfer pending verification
+- **processing**: Being prepared for shipment
+- **shipped**: Handed to delivery partner
+- **in_transit**: Package moving through delivery network
+- **out_for_delivery**: With delivery driver, arriving today
+- **delivered**: Successfully delivered
+- **delivery_exception**: Delivery issue requiring attention
+- **cancelled**: Order cancelled
+- **refunded**: Order refunded
+
 ## Recent Changes
 - Converted prototype to full-stack application with PostgreSQL database
 - Implemented complete API layer for products, orders, coupons, and admin users
 - Connected all frontend pages to real API endpoints
 - Added coupon validation and order tracking functionality
 - Created admin panel with product/order/coupon management
+- Enhanced order tracking with professional shipping statuses (In Transit, Out for Delivery, Delivery Exception)
+- Improved tracking page design with carrier-style timeline and status badges
