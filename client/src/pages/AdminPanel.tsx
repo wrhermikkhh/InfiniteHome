@@ -52,6 +52,55 @@ export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState("Products");
   const [products, setProducts] = useState(initialProducts);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
+
+  // Coupons State
+  const [coupons, setCoupons] = useState([
+    { code: "WELCOME10", discount: 10, type: "percentage", status: "active" },
+    { code: "INFINITE20", discount: 20, type: "percentage", status: "active" },
+  ]);
+  const [newCouponCode, setNewCouponCode] = useState("");
+  const [newCouponDiscount, setNewCouponDiscount] = useState("");
+
+  // Product Form State
+  const [productForm, setProductForm] = useState({
+    name: "",
+    price: "",
+    category: "",
+    description: "",
+    image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80"
+  });
+
+  const handleSaveProduct = () => {
+    if (editingProduct) {
+      setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...productForm, price: Number(productForm.price) } : p));
+    } else {
+      const newProduct = {
+        ...productForm,
+        id: (products.length + 1).toString(),
+        price: Number(productForm.price),
+        rating: 5,
+        reviews: 0
+      };
+      setProducts([...products, newProduct]);
+    }
+    setIsProductDialogOpen(false);
+    setEditingProduct(null);
+    setProductForm({ name: "", price: "", category: "", description: "", image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80" });
+  };
+
+  const handleEditProduct = (product: any) => {
+    setEditingProduct(product);
+    setProductForm({
+      name: product.name,
+      price: product.price.toString(),
+      category: product.category,
+      description: product.description || "",
+      image: product.image
+    });
+    setIsProductDialogOpen(true);
+  };
 
   // New Admin Form State
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -197,9 +246,72 @@ export default function AdminPanel() {
                   <h1 className="text-3xl font-serif">Products</h1>
                   <p className="text-muted-foreground">Manage your storefront inventory</p>
                 </div>
-                <Button className="rounded-none uppercase tracking-widest font-bold">
-                  <Plus className="mr-2" size={18} /> Add Product
-                </Button>
+                <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      className="rounded-none uppercase tracking-widest font-bold"
+                      onClick={() => {
+                        setEditingProduct(null);
+                        setProductForm({ name: "", price: "", category: "", description: "", image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80" });
+                      }}
+                    >
+                      <Plus className="mr-2" size={18} /> Add Product
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md rounded-none">
+                    <DialogHeader>
+                      <DialogTitle className="font-serif text-2xl">{editingProduct ? "Edit Product" : "Add New Product"}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-widest font-bold">Product Name</Label>
+                        <Input 
+                          value={productForm.name}
+                          onChange={(e) => setProductForm({...productForm, name: e.target.value})}
+                          className="rounded-none"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs uppercase tracking-widest font-bold">Price (MVR)</Label>
+                          <Input 
+                            type="number"
+                            value={productForm.price}
+                            onChange={(e) => setProductForm({...productForm, price: e.target.value})}
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs uppercase tracking-widest font-bold">Category</Label>
+                          <Input 
+                            value={productForm.category}
+                            onChange={(e) => setProductForm({...productForm, category: e.target.value})}
+                            className="rounded-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-widest font-bold">Description</Label>
+                        <Input 
+                          value={productForm.description}
+                          onChange={(e) => setProductForm({...productForm, description: e.target.value})}
+                          className="rounded-none"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-widest font-bold">Image URL</Label>
+                        <Input 
+                          value={productForm.image}
+                          onChange={(e) => setProductForm({...productForm, image: e.target.value})}
+                          className="rounded-none"
+                        />
+                      </div>
+                      <Button onClick={handleSaveProduct} className="w-full rounded-none">
+                        {editingProduct ? "Update Product" : "Create Product"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               <Card className="rounded-none border-border shadow-none">
@@ -215,7 +327,14 @@ export default function AdminPanel() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="icon" className="h-8 w-8"><Edit size={14} /></Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => handleEditProduct(product)}
+                          >
+                            <Edit size={14} />
+                          </Button>
                           <Button 
                             variant="ghost" 
                             size="icon" 
@@ -443,10 +562,89 @@ export default function AdminPanel() {
             </div>
           )}
 
-          {(activeTab === "Overview" || activeTab === "Coupons") && (
+          {activeTab === "Coupons" && (
+            <div className="animate-in fade-in duration-500 max-w-2xl">
+              <div className="mb-8">
+                <h1 className="text-3xl font-serif">Coupons</h1>
+                <p className="text-muted-foreground">Manage discount codes and promotions</p>
+              </div>
+
+              <Card className="rounded-none border-border shadow-none mb-8">
+                <CardHeader>
+                  <CardTitle className="text-sm uppercase tracking-widest">Create Coupon</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-widest font-bold">Coupon Code</Label>
+                      <Input 
+                        placeholder="SUMMER20" 
+                        value={newCouponCode}
+                        onChange={(e) => setNewCouponCode(e.target.value.toUpperCase())}
+                        className="rounded-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-widest font-bold">Discount (%)</Label>
+                      <Input 
+                        type="number"
+                        placeholder="20" 
+                        value={newCouponDiscount}
+                        onChange={(e) => setNewCouponDiscount(e.target.value)}
+                        className="rounded-none"
+                      />
+                    </div>
+                  </div>
+                  <Button 
+                    className="w-full rounded-none"
+                    onClick={() => {
+                      if (newCouponCode && newCouponDiscount) {
+                        setCoupons([...coupons, { code: newCouponCode, discount: Number(newCouponDiscount), type: "percentage", status: "active" }]);
+                        setNewCouponCode("");
+                        setNewCouponDiscount("");
+                      }
+                    }}
+                  >
+                    Create Coupon
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-none border-border shadow-none">
+                <CardHeader>
+                  <CardTitle className="text-sm uppercase tracking-widest">Active Coupons</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-border">
+                    {coupons.map((coupon) => (
+                      <div key={coupon.code} className="p-4 flex items-center justify-between">
+                        <div>
+                          <p className="font-bold tracking-widest">{coupon.code}</p>
+                          <p className="text-xs text-muted-foreground">{coupon.discount}% Off Entire Order</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-[10px] uppercase font-bold text-green-700 bg-green-100 px-2 py-1">Active</span>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => setCoupons(coupons.filter(c => c.code !== coupon.code))}
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {activeTab === "Overview" && (
             <div className="h-64 flex flex-col items-center justify-center text-muted-foreground animate-in fade-in duration-500">
               <LayoutDashboard size={48} className="mb-4 opacity-10" />
-              <p>{activeTab} module is coming soon in the full implementation.</p>
+              <p>Overview module is coming soon in the full implementation.</p>
             </div>
           )}
         </main>

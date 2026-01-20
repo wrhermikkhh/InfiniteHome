@@ -14,10 +14,31 @@ export default function Checkout() {
   const { items, clearCart } = useCart();
   const [, setLocation] = useLocation();
   const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponError, setCouponError] = useState("");
 
   const subtotal = items.reduce((sum, item) => sum + item.price * (item.quantity || 0), 0);
+  const discount = appliedCoupon ? (subtotal * appliedCoupon.discount) / 100 : 0;
   const shipping = subtotal > 1500 ? 0 : 150;
-  const total = subtotal + shipping;
+  const total = subtotal - discount + shipping;
+
+  const handleApplyCoupon = () => {
+    // In a real app, this would check against a database
+    const validCoupons: Record<string, number> = {
+      "WELCOME10": 10,
+      "INFINITE20": 20,
+      "SAVE50": 50
+    };
+
+    if (validCoupons[couponCode.toUpperCase()]) {
+      setAppliedCoupon({ code: couponCode.toUpperCase(), discount: validCoupons[couponCode.toUpperCase()] });
+      setCouponError("");
+    } else {
+      setCouponError("Invalid coupon code");
+      setAppliedCoupon(null);
+    }
+  };
 
   const handlePlaceOrder = () => {
     // In a real app, this would create an order record
@@ -94,6 +115,32 @@ export default function Checkout() {
           <aside>
             <div className="bg-secondary/10 p-8 border border-border sticky top-32">
               <h2 className="text-xl font-serif mb-6">Order Summary</h2>
+              
+              <div className="mb-6 space-y-2">
+                <Label className="text-xs uppercase tracking-widest font-bold">Promo Code</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Enter code" 
+                    className="rounded-none h-10 bg-background" 
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value)}
+                  />
+                  <Button 
+                    variant="outline" 
+                    className="rounded-none h-10 px-4 uppercase text-xs font-bold tracking-widest"
+                    onClick={handleApplyCoupon}
+                  >
+                    Apply
+                  </Button>
+                </div>
+                {couponError && <p className="text-[10px] text-destructive">{couponError}</p>}
+                {appliedCoupon && (
+                  <p className="text-[10px] text-green-700 font-bold uppercase tracking-widest">
+                    Code {appliedCoupon.code} applied! ({appliedCoupon.discount}% off)
+                  </p>
+                )}
+              </div>
+
               <div className="space-y-4 mb-6">
                 {items.map((item) => (
                   <div key={item.id} className="flex justify-between text-sm">
@@ -107,6 +154,12 @@ export default function Checkout() {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatCurrency(subtotal)}</span>
                 </div>
+                {appliedCoupon && (
+                  <div className="flex justify-between text-sm text-green-700">
+                    <span>Discount ({appliedCoupon.code})</span>
+                    <span>-{formatCurrency(discount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Shipping</span>
                   <span>{shipping === 0 ? "FREE" : formatCurrency(shipping)}</span>
