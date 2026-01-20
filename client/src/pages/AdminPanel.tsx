@@ -401,7 +401,7 @@ export default function AdminPanel() {
                             value={productForm.category}
                             onChange={(e) => setProductForm({...productForm, category: e.target.value})}
                             className="rounded-none"
-                            placeholder="Bedding, Bath, Apparel"
+                            placeholder="Bedding, Furniture, Appliances"
                           />
                         </div>
                       </div>

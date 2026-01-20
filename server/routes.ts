@@ -133,7 +133,9 @@ export async function registerRoutes(
 
   app.post("/api/orders", async (req, res) => {
     try {
-      const orderNumber = `IH-${Math.floor(10000 + Math.random() * 90000)}`;
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      const randomId = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+      const orderNumber = `IH-${randomId}`;
       const data = insertOrderSchema.parse({ ...req.body, orderNumber });
       const order = await storage.createOrder(data);
       res.json(order);

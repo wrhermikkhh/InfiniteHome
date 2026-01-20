@@ -17,7 +17,7 @@ export default function Shop() {
     ? products.filter(p => p.category === category)
     : products;
 
-  const categories = ["Shop All", "Bedding", "Bath", "Apparel", "Sale"];
+  const categories = ["Shop All", "Bedding", "Furniture", "Appliances"];
 
   return (
     <div className="min-h-screen bg-background font-body">
@@ -28,7 +28,7 @@ export default function Shop() {
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-serif mb-4">{category || "Shop All"}</h1>
           <p className="text-muted-foreground max-w-lg mx-auto">
-            Discover the pinnacle of comfort with our sustainable bamboo collection.
+            Discover premium home essentials - from luxury bedding to modern furniture and appliances.
           </p>
         </div>
       </div>

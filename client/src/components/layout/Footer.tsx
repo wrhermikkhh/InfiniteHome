@@ -8,15 +8,19 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
           {/* Brand */}
           <div className="space-y-4">
-            <h3 className="font-serif text-xl font-bold tracking-widest uppercase">Infinite Home</h3>
+            <h3 className="font-serif text-xl font-bold tracking-widest uppercase whitespace-nowrap">INFINITE HOME</h3>
             <p className="text-muted-foreground text-sm leading-relaxed max-w-xs">
-              Luxury bedding, bath, and apparel made from the finest sustainable materials. Experience the softest fabrics on Earth.
+              Premium home essentials including luxury bedding, furniture, and appliances. Transform your living space with our curated collection.
             </p>
             <div className="flex space-x-4 pt-2">
-              <a href="#" className="text-foreground hover:text-primary/70 transition-colors"><Instagram size={20} /></a>
-              <a href="#" className="text-foreground hover:text-primary/70 transition-colors"><Facebook size={20} /></a>
-              <a href="#" className="text-foreground hover:text-primary/70 transition-colors"><Twitter size={20} /></a>
-              <a href="#" className="text-foreground hover:text-primary/70 transition-colors"><Youtube size={20} /></a>
+              <a href="https://instagram.com/infinitehome" className="text-foreground hover:text-primary/70 transition-colors"><Instagram size={20} /></a>
+              <a href="https://facebook.com/infinitehome" className="text-foreground hover:text-primary/70 transition-colors"><Facebook size={20} /></a>
+              <a href="https://twitter.com/infinitehome" className="text-foreground hover:text-primary/70 transition-colors"><Twitter size={20} /></a>
+              <a href="https://youtube.com/infinitehome" className="text-foreground hover:text-primary/70 transition-colors"><Youtube size={20} /></a>
+            </div>
+            <div className="pt-2 text-sm text-muted-foreground">
+              <p>Email: support@infinitehome.mv</p>
+              <p>Phone: 7840001</p>
             </div>
           </div>
 
@@ -25,10 +29,9 @@ export function Footer() {
             <h4 className="font-sans font-bold text-sm uppercase tracking-wider mb-6">Shop</h4>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li><Link href="/shop?category=Bedding"><a className="hover:text-foreground transition-colors">Bedding</a></Link></li>
-              <li><Link href="/shop?category=Bath"><a className="hover:text-foreground transition-colors">Bath</a></Link></li>
-              <li><Link href="/shop?category=Apparel"><a className="hover:text-foreground transition-colors">Apparel</a></Link></li>
-              <li><Link href="/shop?category=Accessories"><a className="hover:text-foreground transition-colors">Accessories</a></Link></li>
-              <li><Link href="/shop?category=Sale"><a className="hover:text-foreground transition-colors">Sale</a></Link></li>
+              <li><Link href="/shop?category=Furniture"><a className="hover:text-foreground transition-colors">Furniture</a></Link></li>
+              <li><Link href="/shop?category=Appliances"><a className="hover:text-foreground transition-colors">Appliances</a></Link></li>
+              <li><Link href="/shop"><a className="hover:text-foreground transition-colors">All Products</a></Link></li>
             </ul>
           </div>
 
@@ -37,10 +40,9 @@ export function Footer() {
             <h4 className="font-sans font-bold text-sm uppercase tracking-wider mb-6">Support</h4>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li><Link href="/track"><a className="hover:text-foreground transition-colors">Track Order</a></Link></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Help Center</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Returns & Exchanges</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Shipping Info</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Warranty</a></li>
+              <li><Link href="/returns"><a className="hover:text-foreground transition-colors">Returns & Exchanges</a></Link></li>
+              <li><Link href="/shipping"><a className="hover:text-foreground transition-colors">Shipping Info</a></Link></li>
+              <li><Link href="/contact"><a className="hover:text-foreground transition-colors">Contact Us</a></Link></li>
             </ul>
           </div>
 
@@ -64,11 +66,11 @@ export function Footer() {
         </div>
 
         <div className="border-t border-border pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Infinite Home. All rights reserved.</p>
-          <div className="flex space-x-6 mt-4 md:mt-0">
-            <a href="#" className="hover:text-foreground">Privacy Policy</a>
-            <a href="#" className="hover:text-foreground">Terms of Service</a>
-            <a href="#" className="hover:text-foreground">Accessibility</a>
+          <p>&copy; {new Date().getFullYear()} INFINITE HOME. All rights reserved.</p>
+          <div className="flex flex-wrap justify-center gap-4 md:gap-6 mt-4 md:mt-0">
+            <Link href="/privacy"><a className="hover:text-foreground">Privacy Policy</a></Link>
+            <Link href="/terms"><a className="hover:text-foreground">Terms of Service</a></Link>
+            <Link href="/returns"><a className="hover:text-foreground">Returns</a></Link>
           </div>
         </div>
       </div>

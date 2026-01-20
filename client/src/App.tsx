@@ -11,6 +11,11 @@ import Consultation from "@/pages/Consultation";
 import OrderTracking from "@/pages/OrderTracking";
 import AdminPanel from "@/pages/AdminPanel";
 import Checkout from "@/pages/Checkout";
+import Terms from "@/pages/Terms";
+import Privacy from "@/pages/Privacy";
+import Returns from "@/pages/Returns";
+import Shipping from "@/pages/Shipping";
+import Contact from "@/pages/Contact";
 
 function Router() {
   return (
@@ -22,6 +27,11 @@ function Router() {
       <Route path="/track" component={OrderTracking} />
       <Route path="/admin" component={AdminPanel} />
       <Route path="/checkout" component={Checkout} />
+      <Route path="/terms" component={Terms} />
+      <Route path="/privacy" component={Privacy} />
+      <Route path="/returns" component={Returns} />
+      <Route path="/shipping" component={Shipping} />
+      <Route path="/contact" component={Contact} />
       <Route component={NotFound} />
     </Switch>
   );

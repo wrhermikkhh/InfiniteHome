@@ -8,8 +8,8 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import heroImage from "@assets/generated_images/luxury_bright_bedroom_with_white_bamboo_sheets.png";
 import beddingImage from "@assets/generated_images/stack_of_folded_premium_white_bedding.png";
-import bathImage from "@assets/generated_images/plush_white_towels_in_spa_bathroom.png";
-import apparelImage from "@assets/generated_images/woman_in_beige_loungewear_reading.png";
+import furnitureImage from "@assets/generated_images/plush_white_towels_in_spa_bathroom.png";
+import appliancesImage from "@assets/generated_images/woman_in_beige_loungewear_reading.png";
 
 export default function Home() {
   const { products, loading } = useProducts();
@@ -85,7 +85,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-serif mb-4 text-foreground">Shop by Category</h2>
-            <p className="text-muted-foreground max-w-lg mx-auto">Discover our collection of premium bamboo viscose products tailored for your home.</p>
+            <p className="text-muted-foreground max-w-lg mx-auto">Discover our curated collection of premium home essentials tailored for your lifestyle.</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -102,27 +102,31 @@ export default function Home() {
               </div>
             </Link>
             
-            <Link href="/shop?category=Bath">
+            <Link href="/shop?category=Furniture">
               <div className="group cursor-pointer space-y-4">
-                <div className="aspect-[4/5] overflow-hidden relative">
-                  <img src={bathImage} alt="Bath" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
+                <div className="aspect-[4/5] overflow-hidden relative bg-secondary/30 flex items-center justify-center">
+                  <div className="text-center p-8">
+                    <div className="text-6xl mb-4">🛋️</div>
+                    <p className="text-muted-foreground text-sm">Premium Furniture</p>
+                  </div>
                 </div>
                 <div className="text-center">
-                  <h3 className="font-serif text-2xl mb-1 group-hover:text-primary/80 transition-colors">Bath</h3>
+                  <h3 className="font-serif text-2xl mb-1 group-hover:text-primary/80 transition-colors">Furniture</h3>
                   <span className="text-xs font-bold uppercase tracking-widest border-b border-transparent group-hover:border-foreground transition-all">Shop Now</span>
                 </div>
               </div>
             </Link>
             
-            <Link href="/shop?category=Apparel">
+            <Link href="/shop?category=Appliances">
               <div className="group cursor-pointer space-y-4">
-                <div className="aspect-[4/5] overflow-hidden relative">
-                  <img src={apparelImage} alt="Apparel" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
+                <div className="aspect-[4/5] overflow-hidden relative bg-secondary/30 flex items-center justify-center">
+                  <div className="text-center p-8">
+                    <div className="text-6xl mb-4">🏠</div>
+                    <p className="text-muted-foreground text-sm">Home Appliances</p>
+                  </div>
                 </div>
                 <div className="text-center">
-                  <h3 className="font-serif text-2xl mb-1 group-hover:text-primary/80 transition-colors">Apparel</h3>
+                  <h3 className="font-serif text-2xl mb-1 group-hover:text-primary/80 transition-colors">Appliances</h3>
                   <span className="text-xs font-bold uppercase tracking-widest border-b border-transparent group-hover:border-foreground transition-all">Shop Now</span>
                 </div>
               </div>
@@ -181,7 +185,7 @@ export default function Home() {
              </div>
           </div>
           <div className="relative aspect-video rounded-lg overflow-hidden bg-black/20 backdrop-blur-sm border border-white/10 flex items-center justify-center">
-             <img src={apparelImage} alt="Video Call Preview" className="absolute inset-0 w-full h-full object-cover opacity-50" />
+             <img src={appliancesImage} alt="Video Call Preview" className="absolute inset-0 w-full h-full object-cover opacity-50" />
              <div className="relative z-10 bg-white/10 backdrop-blur-md p-6 rounded-lg text-center border border-white/20">
                <p className="font-serif text-xl mb-2">Next Available Slot</p>
                <p className="text-2xl font-bold">Today, 3:00 PM</p>

@@ -32,8 +32,8 @@ export function Navbar() {
   const navLinks = [
     { name: "Shop All", href: "/shop" },
     { name: "Bedding", href: "/shop?category=Bedding" },
-    { name: "Bath", href: "/shop?category=Bath" },
-    { name: "Apparel", href: "/shop?category=Apparel" },
+    { name: "Furniture", href: "/shop?category=Furniture" },
+    { name: "Appliances", href: "/shop?category=Appliances" },
   ];
 
   return (
@@ -54,8 +54,8 @@ export function Navbar() {
         </button>
 
         <Link href="/">
-          <a className="text-2xl font-serif font-bold tracking-widest uppercase cursor-pointer">
-            Infinite Home
+          <a className="text-xl md:text-2xl font-serif font-bold tracking-widest uppercase cursor-pointer whitespace-nowrap">
+            INFINITE HOME
           </a>
         </Link>
 
