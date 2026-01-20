@@ -2,7 +2,7 @@
 
 ## Overview
 
-INFINITE HOME is a luxury e-commerce platform specializing in premium bedding, bath products, and loungewear. The application features a full-stack architecture with a React frontend and Express backend, using PostgreSQL for data persistence. Key features include product catalog management, shopping cart functionality, order processing with coupon support, admin dashboard, and order tracking.
+INFINITE HOME is a luxury e-commerce platform specializing in premium bedding, furniture, and home appliances. The application features a full-stack architecture with a React frontend and Express backend, using PostgreSQL for data persistence. Key features include product catalog management, shopping cart functionality, order processing with coupon support, admin dashboard, and order tracking.
 
 ## User Preferences
 
@@ -117,6 +117,27 @@ Professional shipping statuses matching major carriers:
 - **cancelled**: Order cancelled
 - **refunded**: Order refunded
 
+## Product Categories
+- Bedding (sheets, pillowcases, duvet covers, mattresses)
+- Furniture (sofas, dining tables, beds, office chairs)
+- Appliances (air purifiers, vacuums, espresso machines, mixers)
+
+## Content Pages
+- `/terms` - Terms of Service
+- `/privacy` - Privacy Policy
+- `/returns` - Returns & Exchanges (30-day return policy)
+- `/shipping` - Shipping Information (free over MVR 1,500)
+- `/contact` - Contact Us with form
+
+## Contact Information
+- **Email**: support@infinitehome.mv
+- **Phone**: 7840001
+- **Location**: Male', Maldives
+- **Hours**: Sunday - Thursday, 9:00 AM - 6:00 PM
+
+## Order ID Format
+Alphanumeric 6-character format: IH-XXXXXX (e.g., IH-A3K7M9)
+
 ## Recent Changes
 - Converted prototype to full-stack application with PostgreSQL database
 - Implemented complete API layer for products, orders, coupons, and admin users
@@ -125,3 +146,9 @@ Professional shipping statuses matching major carriers:
 - Created admin panel with product/order/coupon management
 - Enhanced order tracking with professional shipping statuses (In Transit, Out for Delivery, Delivery Exception)
 - Improved tracking page design with carrier-style timeline and status badges
+- Updated product categories from Bedding/Bath/Apparel to Bedding/Furniture/Appliances
+- Added 10+ sample products across all categories with color and size variants
+- Created comprehensive content pages (Terms, Privacy, Returns, Shipping, Contact)
+- Updated order ID format to alphanumeric 6-character format (IH-XXXXXX)
+- Enhanced product color selection to display as text buttons with color indicators
+- Added more color options support (Navy, Emerald, Blush, Natural Oak, etc.)
