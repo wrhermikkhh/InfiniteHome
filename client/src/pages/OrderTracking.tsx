@@ -91,9 +91,15 @@ const statusConfig: Record<OrderStatus, { label: string; description: string; ic
   },
 };
 
-const normalFlow: OrderStatus[] = ["confirmed", "processing", "shipped", "in_transit", "out_for_delivery", "delivered"];
+const normalFlow: OrderStatus[] = ["pending", "confirmed", "processing", "shipped", "in_transit", "out_for_delivery", "delivered"];
 
-function getTrackingSteps(currentStatus: OrderStatus): TrackingStep[] {
+function normalizeStatus(status: string): OrderStatus {
+  if (status === "ordered") return "pending";
+  return status as OrderStatus;
+}
+
+function getTrackingSteps(rawStatus: string): TrackingStep[] {
+  const currentStatus = normalizeStatus(rawStatus);
   const steps: TrackingStep[] = [];
   
   if (currentStatus === "payment_verification") {
@@ -103,7 +109,7 @@ function getTrackingSteps(currentStatus: OrderStatus): TrackingStep[] {
       isCompleted: false,
       isCurrent: true,
     });
-    normalFlow.forEach((status) => {
+    normalFlow.slice(1).forEach((status) => {
       steps.push({
         status,
         ...statusConfig[status],
@@ -115,7 +121,7 @@ function getTrackingSteps(currentStatus: OrderStatus): TrackingStep[] {
   }
 
   if (currentStatus === "delivery_exception") {
-    const preExceptionFlow: OrderStatus[] = ["confirmed", "processing", "shipped", "in_transit"];
+    const preExceptionFlow: OrderStatus[] = ["pending", "confirmed", "processing", "shipped", "in_transit"];
     preExceptionFlow.forEach((status) => {
       steps.push({
         status,
@@ -217,7 +223,7 @@ export default function OrderTracking() {
       } else {
         const orderData = await res.json();
         setOrder(orderData);
-        setTrackingSteps(getTrackingSteps(orderData.status as OrderStatus));
+        setTrackingSteps(getTrackingSteps(orderData.status));
       }
     } catch (err) {
       setError("Unable to fetch order details. Please try again later.");

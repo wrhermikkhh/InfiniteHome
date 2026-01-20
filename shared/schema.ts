@@ -66,7 +66,7 @@ export const orders = pgTable("orders", {
   total: real("total").notNull(),
   paymentMethod: text("payment_method").notNull(), // "cod" or "bank"
   paymentSlip: text("payment_slip"), // URL to uploaded slip
-  status: text("status").notNull().default("ordered"),
+  status: text("status").notNull().default("pending"),
   couponCode: text("coupon_code"),
   createdAt: timestamp("created_at").defaultNow(),
 });
