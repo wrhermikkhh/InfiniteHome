@@ -88,15 +88,16 @@ export default function ProductPage() {
               {/* Color */}
               <div className="space-y-3">
                 <span className="text-sm font-bold uppercase tracking-widest">Color: <span className="text-muted-foreground font-normal normal-case">{selectedColor}</span></span>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-2">
                   {colors.map((color: string) => (
                     <button
                       key={color}
                       onClick={() => setSelectedColor(color)}
-                      className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${selectedColor === color ? 'border-primary ring-1 ring-offset-2 ring-primary' : 'border-transparent hover:border-border'}`}
+                      className={`px-4 py-2 text-sm border flex items-center gap-2 ${selectedColor === color ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:border-primary/50'}`}
                       data-testid={`color-${color.toLowerCase()}`}
                     >
-                      <div className={`w-8 h-8 rounded-full border border-black/10`} style={{ backgroundColor: getColorCode(color) }}></div>
+                      <div className="w-4 h-4 rounded-full border border-black/20" style={{ backgroundColor: getColorCode(color) }}></div>
+                      {color}
                     </button>
                   ))}
                 </div>
@@ -183,6 +184,17 @@ function getColorCode(name: string) {
     case "Sand": return "#c2b280";
     case "Slate": return "#708090";
     case "Champagne": return "#f7e7ce";
+    case "Navy": return "#1e3a5f";
+    case "Emerald": return "#2e8b57";
+    case "Blush": return "#de98ab";
+    case "Natural Oak": return "#c8a876";
+    case "Walnut": return "#5d432c";
+    case "Beige": return "#f5f5dc";
+    case "Gray": return "#808080";
+    case "Black": return "#1a1a1a";
+    case "Red": return "#b91c1c";
+    case "Silver": return "#c0c0c0";
+    case "Ivory": return "#fffff0";
     default: return "#eeeeee";
   }
 }
