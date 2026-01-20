@@ -53,21 +53,24 @@ export function Navbar() {
           {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
 
-        <Link href="/">
-          <a className="text-xl md:text-2xl font-serif font-bold tracking-widest uppercase cursor-pointer whitespace-nowrap">
-            INFINITE HOME
-          </a>
+        <Link 
+          href="/"
+          className="text-xl md:text-2xl font-serif font-bold tracking-widest uppercase cursor-pointer whitespace-nowrap"
+        >
+          INFINITE HOME
         </Link>
 
         <nav className="hidden lg:flex items-center space-x-8">
           {navLinks.map((link) => (
-            <Link key={link.name} href={link.href}>
-              <a className={cn(
+            <Link 
+              key={link.name} 
+              href={link.href}
+              className={cn(
                 "text-sm font-medium tracking-wide hover:opacity-70 transition-opacity uppercase",
                 isScrolled || location !== "/" ? "text-foreground" : "text-white"
-              )}>
-                {link.name}
-              </a>
+              )}
+            >
+              {link.name}
             </Link>
           ))}
         </nav>
@@ -205,13 +208,13 @@ export function Navbar() {
       {mobileMenuOpen && (
         <div className="absolute top-full left-0 w-full bg-background border-b border-border p-4 flex flex-col space-y-4 lg:hidden animate-in slide-in-from-top-5">
           {navLinks.map((link) => (
-            <Link key={link.name} href={link.href}>
-              <a 
-                className="text-foreground font-medium py-2 border-b border-border/50 uppercase text-sm"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {link.name}
-              </a>
+            <Link 
+              key={link.name} 
+              href={link.href}
+              className="text-foreground font-medium py-2 border-b border-border/50 uppercase text-sm"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              {link.name}
             </Link>
           ))}
           <div className="pt-4 flex flex-col space-y-3">
