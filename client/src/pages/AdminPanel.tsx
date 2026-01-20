@@ -77,20 +77,21 @@ export default function AdminPanel() {
   });
 
   const handleSaveProduct = () => {
-    const formattedProduct = {
+    const formattedProduct: any = {
       ...productForm,
-      price: productForm.variants.length > 0 ? Number(productForm.variants[0].price) : Number(productForm.price),
-      colors: productForm.colors.split(",").map(c => c.trim()).filter(Boolean),
-      variants: productForm.variants.filter(v => v.size && v.price).map(v => ({
+      price: productForm.variants && productForm.variants.length > 0 ? Number(productForm.variants[0].price) : Number(productForm.price),
+      colors: typeof productForm.colors === 'string' ? productForm.colors.split(",").map(c => c.trim()).filter(Boolean) : productForm.colors,
+      category: productForm.category as any,
+      variants: productForm.variants ? productForm.variants.filter(v => v.size && v.price).map(v => ({
         size: v.size.trim(),
         price: Number(v.price)
-      }))
+      })) : []
     };
 
     if (editingProduct) {
       setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...formattedProduct } : p));
     } else {
-      const newProduct = {
+      const newProduct: any = {
         ...formattedProduct,
         id: (products.length + 1).toString(),
         rating: 5,
@@ -277,7 +278,15 @@ export default function AdminPanel() {
                       className="rounded-none uppercase tracking-widest font-bold"
                       onClick={() => {
                         setEditingProduct(null);
-                        setProductForm({ name: "", price: "", category: "", description: "", image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80" });
+                        setProductForm({ 
+                          name: "", 
+                          price: "", 
+                          category: "", 
+                          description: "", 
+                          image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80",
+                          colors: "",
+                          variants: [{ size: "", price: "" }]
+                        });
                       }}
                     >
                       <Plus className="mr-2" size={18} /> Add Product
