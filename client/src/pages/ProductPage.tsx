@@ -11,8 +11,8 @@ import { useCart } from "@/lib/cart";
 export default function ProductPage() {
   const [match, params] = useRoute("/product/:id");
   const [quantity, setQuantity] = useState(1);
-  const [selectedColor, setSelectedColor] = useState("White");
-  const [selectedSize, setSelectedSize] = useState("Queen");
+  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedSize, setSelectedSize] = useState("");
   const { addItem } = useCart();
 
   if (!match || !params) return <NotFound />;
@@ -20,8 +20,16 @@ export default function ProductPage() {
   const product = products.find(p => p.id === params.id);
   if (!product) return <NotFound />;
 
-  const colors = ["White", "Oat", "Charcoal", "Driftwood", "Olive"];
-  const sizes = ["Twin", "Full", "Queen", "King", "Cali King"];
+  // Default values from product data
+  const colors = product.colors && product.colors.length > 0 ? product.colors : ["White"];
+  const variants = product.variants && product.variants.length > 0 ? product.variants : [{ size: "Standard", price: product.price }];
+
+  // Initialize selections if not set
+  if (!selectedColor && colors.length > 0) setSelectedColor(colors[0]);
+  if (!selectedSize && variants.length > 0) setSelectedSize(variants[0].size);
+
+  const currentVariant = variants.find(v => v.size === selectedSize) || variants[0];
+  const currentPrice = currentVariant.price;
 
   return (
     <div className="min-h-screen bg-background font-body">
@@ -55,11 +63,11 @@ export default function ProductPage() {
                  <span className="text-sm text-muted-foreground underline">{product.reviews} Reviews</span>
               </div>
               <h1 className="text-4xl md:text-5xl font-serif mb-4 text-foreground leading-tight">{product.name}</h1>
-              <p className="text-2xl font-medium text-foreground">{formatCurrency(product.price)}</p>
+              <p className="text-2xl font-medium text-foreground">{formatCurrency(currentPrice)}</p>
             </div>
 
             <p className="text-muted-foreground text-lg leading-relaxed">
-              {product.description} Experience the difference of our premium bamboo viscose fabric. Cooler than cotton, softer than silk.
+              {product.description || "Experience the difference of our premium bamboo viscose fabric. Cooler than cotton, softer than silk."}
             </p>
 
             {/* Configurator */}
@@ -84,13 +92,13 @@ export default function ProductPage() {
               <div className="space-y-3">
                  <span className="text-sm font-bold uppercase tracking-widest">Size: <span className="text-muted-foreground font-normal normal-case">{selectedSize}</span></span>
                  <div className="flex flex-wrap gap-2">
-                   {sizes.map(size => (
+                   {variants.map(v => (
                      <button
-                       key={size}
-                       onClick={() => setSelectedSize(size)}
-                       className={`px-4 py-2 text-sm border ${selectedSize === size ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:border-primary/50'}`}
+                       key={v.size}
+                       onClick={() => setSelectedSize(v.size)}
+                       className={`px-4 py-2 text-sm border ${selectedSize === v.size ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:border-primary/50'}`}
                      >
-                       {size}
+                       {v.size}
                      </button>
                    ))}
                  </div>
@@ -114,10 +122,10 @@ export default function ProductPage() {
                   </button>
                 </div>
                 <Button 
-                  onClick={() => addItem(product, quantity)}
+                  onClick={() => addItem(product, quantity, selectedColor, selectedSize, currentPrice)}
                   className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90"
                 >
-                  Add to Bag - {formatCurrency(product.price * quantity)}
+                  Add to Bag - {formatCurrency(currentPrice * quantity)}
                 </Button>
               </div>
             </div>

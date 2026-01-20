@@ -146,9 +146,14 @@ export default function Checkout() {
               </div>
 
               <div className="space-y-4 mb-6">
-                {items.map((item) => (
-                  <div key={item.id} className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">{item.name} x {item.quantity}</span>
+                {items.map((item, index) => (
+                  <div key={`${item.id}-${index}`} className="flex justify-between text-sm">
+                    <div className="flex flex-col">
+                      <span className="text-muted-foreground font-medium">{item.name} x {item.quantity}</span>
+                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        {item.selectedColor}{item.selectedSize ? ` / ${item.selectedSize}` : ''}
+                      </span>
+                    </div>
                     <span>{formatCurrency(item.price * (item.quantity || 0))}</span>
                   </div>
                 ))}
