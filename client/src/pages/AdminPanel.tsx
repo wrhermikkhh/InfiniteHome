@@ -59,9 +59,11 @@ export default function AdminPanel() {
   const [coupons, setCoupons] = useState([
     { code: "WELCOME10", discount: 10, type: "percentage", status: "active" },
     { code: "INFINITE20", discount: 20, type: "percentage", status: "active" },
+    { code: "FLAT50", discount: 50, type: "flat", status: "active" },
   ]);
   const [newCouponCode, setNewCouponCode] = useState("");
   const [newCouponDiscount, setNewCouponDiscount] = useState("");
+  const [newCouponType, setNewCouponType] = useState("percentage");
 
   // Product Form State
   const [productForm, setProductForm] = useState({
@@ -69,17 +71,25 @@ export default function AdminPanel() {
     price: "",
     category: "",
     description: "",
-    image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80"
+    image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80",
+    colors: "",
+    sizes: ""
   });
 
   const handleSaveProduct = () => {
+    const formattedProduct = {
+      ...productForm,
+      price: Number(productForm.price),
+      colors: productForm.colors.split(",").map(c => c.trim()).filter(Boolean),
+      sizes: productForm.sizes.split(",").map(s => s.trim()).filter(Boolean)
+    };
+
     if (editingProduct) {
-      setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...productForm, price: Number(productForm.price) } : p));
+      setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...formattedProduct } : p));
     } else {
       const newProduct = {
-        ...productForm,
+        ...formattedProduct,
         id: (products.length + 1).toString(),
-        price: Number(productForm.price),
         rating: 5,
         reviews: 0
       };
@@ -87,7 +97,7 @@ export default function AdminPanel() {
     }
     setIsProductDialogOpen(false);
     setEditingProduct(null);
-    setProductForm({ name: "", price: "", category: "", description: "", image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80" });
+    setProductForm({ name: "", price: "", category: "", description: "", image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80", colors: "", sizes: "" });
   };
 
   const handleEditProduct = (product: any) => {
@@ -97,7 +107,9 @@ export default function AdminPanel() {
       price: product.price.toString(),
       category: product.category,
       description: product.description || "",
-      image: product.image
+      image: product.image,
+      colors: (product.colors || []).join(", "),
+      sizes: (product.sizes || []).join(", ")
     });
     setIsProductDialogOpen(true);
   };
@@ -305,6 +317,26 @@ export default function AdminPanel() {
                           onChange={(e) => setProductForm({...productForm, image: e.target.value})}
                           className="rounded-none"
                         />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs uppercase tracking-widest font-bold">Colors (comma separated)</Label>
+                          <Input 
+                            placeholder="Cloud, Sand, Slate"
+                            value={productForm.colors}
+                            onChange={(e) => setProductForm({...productForm, colors: e.target.value})}
+                            className="rounded-none"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs uppercase tracking-widest font-bold">Sizes (comma separated)</Label>
+                          <Input 
+                            placeholder="Twin, Queen, King"
+                            value={productForm.sizes}
+                            onChange={(e) => setProductForm({...productForm, sizes: e.target.value})}
+                            className="rounded-none"
+                          />
+                        </div>
                       </div>
                       <Button onClick={handleSaveProduct} className="w-full rounded-none">
                         {editingProduct ? "Update Product" : "Create Product"}
@@ -585,21 +617,36 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-widest font-bold">Discount (%)</Label>
-                      <Input 
-                        type="number"
-                        placeholder="20" 
-                        value={newCouponDiscount}
-                        onChange={(e) => setNewCouponDiscount(e.target.value)}
-                        className="rounded-none"
-                      />
+                      <Label className="text-xs uppercase tracking-widest font-bold">Type</Label>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="w-full rounded-none justify-between h-10">
+                            {newCouponType === "percentage" ? "Percentage (%)" : "Flat Amount (MVR)"}
+                            <ChevronDown size={14} />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="rounded-none w-56">
+                          <DropdownMenuItem onClick={() => setNewCouponType("percentage")}>Percentage (%)</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setNewCouponType("flat")}>Flat Amount (MVR)</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs uppercase tracking-widest font-bold">Discount Value</Label>
+                    <Input 
+                      type="number"
+                      placeholder={newCouponType === "percentage" ? "20" : "100"} 
+                      value={newCouponDiscount}
+                      onChange={(e) => setNewCouponDiscount(e.target.value)}
+                      className="rounded-none"
+                    />
                   </div>
                   <Button 
                     className="w-full rounded-none"
                     onClick={() => {
                       if (newCouponCode && newCouponDiscount) {
-                        setCoupons([...coupons, { code: newCouponCode, discount: Number(newCouponDiscount), type: "percentage", status: "active" }]);
+                        setCoupons([...coupons, { code: newCouponCode, discount: Number(newCouponDiscount), type: newCouponType, status: "active" }]);
                         setNewCouponCode("");
                         setNewCouponDiscount("");
                       }
@@ -620,7 +667,9 @@ export default function AdminPanel() {
                       <div key={coupon.code} className="p-4 flex items-center justify-between">
                         <div>
                           <p className="font-bold tracking-widest">{coupon.code}</p>
-                          <p className="text-xs text-muted-foreground">{coupon.discount}% Off Entire Order</p>
+                          <p className="text-xs text-muted-foreground">
+                            {coupon.type === "percentage" ? `${coupon.discount}% Off Entire Order` : `MVR ${coupon.discount} Off Entire Order`}
+                          </p>
                         </div>
                         <div className="flex items-center gap-4">
                           <span className="text-[10px] uppercase font-bold text-green-700 bg-green-100 px-2 py-1">Active</span>

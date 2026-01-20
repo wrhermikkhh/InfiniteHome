@@ -19,20 +19,24 @@ export default function Checkout() {
   const [couponError, setCouponError] = useState("");
 
   const subtotal = items.reduce((sum, item) => sum + item.price * (item.quantity || 0), 0);
-  const discount = appliedCoupon ? (subtotal * appliedCoupon.discount) / 100 : 0;
+  const discount = appliedCoupon 
+    ? (appliedCoupon.type === "percentage" ? (subtotal * appliedCoupon.discount) / 100 : appliedCoupon.discount) 
+    : 0;
   const shipping = subtotal > 1500 ? 0 : 150;
-  const total = subtotal - discount + shipping;
+  const total = Math.max(0, subtotal - discount + shipping);
 
   const handleApplyCoupon = () => {
     // In a real app, this would check against a database
-    const validCoupons: Record<string, number> = {
-      "WELCOME10": 10,
-      "INFINITE20": 20,
-      "SAVE50": 50
+    const validCoupons: Record<string, { discount: number, type: string }> = {
+      "WELCOME10": { discount: 10, type: "percentage" },
+      "INFINITE20": { discount: 20, type: "percentage" },
+      "SAVE50": { discount: 50, type: "percentage" },
+      "FLAT100": { discount: 100, type: "flat" }
     };
 
-    if (validCoupons[couponCode.toUpperCase()]) {
-      setAppliedCoupon({ code: couponCode.toUpperCase(), discount: validCoupons[couponCode.toUpperCase()] });
+    const coupon = validCoupons[couponCode.toUpperCase()];
+    if (coupon) {
+      setAppliedCoupon({ code: couponCode.toUpperCase(), ...coupon });
       setCouponError("");
     } else {
       setCouponError("Invalid coupon code");
@@ -136,7 +140,7 @@ export default function Checkout() {
                 {couponError && <p className="text-[10px] text-destructive">{couponError}</p>}
                 {appliedCoupon && (
                   <p className="text-[10px] text-green-700 font-bold uppercase tracking-widest">
-                    Code {appliedCoupon.code} applied! ({appliedCoupon.discount}% off)
+                    Code {appliedCoupon.code} applied! ({appliedCoupon.type === "percentage" ? `${appliedCoupon.discount}%` : `MVR ${appliedCoupon.discount}`} off)
                   </p>
                 )}
               </div>
