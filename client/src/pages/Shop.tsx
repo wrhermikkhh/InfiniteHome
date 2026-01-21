@@ -5,6 +5,9 @@ import { useProducts } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
 import { useLocation, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { api, type Category } from "@/lib/api";
+import { useEffect } from "react";
 
 export default function Shop() {
   const [location] = useLocation();
@@ -13,7 +16,17 @@ export default function Shop() {
   const category = params.get("category");
   const { products, loading } = useProducts();
 
-  const categories = ["Shop All", "Bedding", "Furniture", "Appliances"];
+  const { data: dynamicCategories = [], refetch } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => refetch();
+    window.addEventListener('category-updated', handleUpdate);
+    return () => window.removeEventListener('category-updated', handleUpdate);
+  }, [refetch]);
+
+  const categories = ["Shop All", ...dynamicCategories.map(c => c.name)];
 
   const filteredProducts = category && category !== "Shop All" && category !== "Sale"
     ? products.filter(p => p.category.toLowerCase() === category.toLowerCase())
