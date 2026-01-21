@@ -16,7 +16,10 @@ export default function ProductPage() {
   const [selectedSize, setSelectedSize] = useState("");
   const { addItem } = useCart();
 
-  const [mainImage, setMainImage] = useState(product?.image || "");
+  const productId = params?.id || "";
+  const { product, loading, error } = useProduct(productId);
+
+  const [mainImage, setMainImage] = useState("");
 
   useEffect(() => {
     if (product?.image) setMainImage(product.image);
