@@ -25,7 +25,8 @@ import {
   CheckCircle,
   Image,
   Menu,
-  X
+  X,
+  Printer
 } from "lucide-react";
 import { useUpload } from "@/hooks/use-upload";
 import { Button } from "@/components/ui/button";
@@ -128,6 +129,82 @@ export default function AdminPanel() {
     } catch (error) {
       console.error("Failed to load data:", error);
     }
+  };
+
+  const handlePrintLabel = () => {
+    if (!selectedOrder) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const itemsHtml = selectedOrder.items.map((item: any) => `
+      <tr>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name} x ${item.qty}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.price * item.qty)}</td>
+      </tr>
+    `).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Shipping Label - ${selectedOrder.orderNumber}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; color: #333; }
+            .label-container { border: 2px solid #000; padding: 30px; max-width: 500px; margin: 0 auto; }
+            .header { border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+            .order-no { font-size: 24px; font-weight: bold; }
+            .section { margin-bottom: 20px; }
+            .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 5px; }
+            .address { font-size: 18px; line-height: 1.4; }
+            .footer { border-top: 1px solid #eee; pt: 20px; mt: 20px; font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            @media print { .no-print { display: none; } }
+          </style>
+        </head>
+        <body>
+          <div class="label-container">
+            <div class="header">
+              <div class="order-no">${selectedOrder.orderNumber}</div>
+              <div style="text-align: right;">
+                <div style="font-weight: bold; font-size: 14px;">INFINITE HOME</div>
+                <div style="font-size: 10px;">Male', Maldives</div>
+              </div>
+            </div>
+            
+            <div class="section">
+              <div class="section-title">Ship To:</div>
+              <div class="address">
+                <strong>${selectedOrder.customerName}</strong><br>
+                ${selectedOrder.shippingAddress}<br>
+                Tel: ${selectedOrder.customerPhone}
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Order Details:</div>
+              <table>
+                ${itemsHtml}
+                <tr>
+                  <td style="padding: 8px; font-weight: bold;">Total</td>
+                  <td style="padding: 8px; font-weight: bold; text-align: right;">${formatCurrency(selectedOrder.total)}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div class="footer">
+              <p>Payment Method: ${selectedOrder.paymentMethod.toUpperCase()}</p>
+              <p>Thank you for shopping with INFINITE HOME!</p>
+            </div>
+          </div>
+          <script>
+            window.onload = () => {
+              window.print();
+              setTimeout(() => window.close(), 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   const handleCreateCategory = async () => {
@@ -921,7 +998,15 @@ export default function AdminPanel() {
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex justify-end pt-4 border-t border-border mt-4">
+                                <div className="flex justify-end pt-4 border-t border-border mt-4 gap-4">
+                                  <Button 
+                                    variant="outline" 
+                                    className="rounded-none uppercase tracking-widest text-xs font-bold px-8 h-10 gap-2"
+                                    onClick={() => handlePrintLabel()}
+                                    data-testid="button-print-label"
+                                  >
+                                    <Printer size={16} /> Print Label
+                                  </Button>
                                   <Button 
                                     variant="outline" 
                                     className="rounded-none uppercase tracking-widest text-xs font-bold px-8 h-10"
