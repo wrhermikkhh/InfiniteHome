@@ -40,9 +40,9 @@
 
 :root {
   /* Luxury, Soft, Clean Palette */
-  /* Background: Warm Off-White / Cream */
-  --background: 40 20% 97%; 
-  /* Foreground: Deep Charcoal / Soft Black */
+  /* Background: Warm Cream / Cozy vibe */
+  --background: 36 33% 94%; 
+  /* Foreground: Soft Charcoal */
   --foreground: 220 10% 15%;
 
   /* Primary: Elegant Forest Green/Charcoal mix for buttons/headers */
@@ -50,11 +50,11 @@
   --primary-foreground: 40 20% 98%;
 
   /* Secondary: Soft Sand/Beige */
-  --secondary: 35 30% 90%;
+  --secondary: 35 30% 88%;
   --secondary-foreground: 220 10% 15%;
 
-  /* Muted: Warm Gray */
-  --muted: 35 15% 92%;
+  /* Muted: Warm Gray / Cream */
+  --muted: 36 30% 92%;
   --muted-foreground: 220 5% 40%;
 
   /* Accent: Muted Sage or Gold touches */
@@ -62,12 +62,16 @@
   --accent-foreground: 220 10% 15%;
 
   /* Borders: Very subtle warm gray */
-  --border: 35 10% 85%;
-  --input: 35 10% 85%;
+  --border: 35 15% 85%;
+  --input: 35 15% 85%;
   --ring: 220 10% 15%;
 
-  --card: 40 20% 99%;
+  /* Card and Popover: Cream/Cozy */
+  --card: 36 33% 96%;
   --card-foreground: 220 10% 15%;
+  
+  --popover: 36 33% 96%;
+  --popover-foreground: 220 10% 15%;
 
   --radius: 0rem; /* Sharp or very slightly rounded for luxury feel */
 }

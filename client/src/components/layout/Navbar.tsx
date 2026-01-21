@@ -177,7 +177,7 @@ export function Navbar() {
                 <User size={20} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 rounded-none bg-background border-border shadow-lg">
+            <DropdownMenuContent align="end" className="w-48 rounded-none bg-card border-border shadow-lg">
               {isAuthenticated ? (
                 <>
                   <div className="px-2 py-1.5 text-xs font-bold uppercase tracking-widest text-muted-foreground border-b border-border mb-1">
