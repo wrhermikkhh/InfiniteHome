@@ -368,10 +368,10 @@ export default function Checkout() {
               <Button 
                 onClick={handlePlaceOrder}
                 className="w-full h-12 rounded-none mt-6 uppercase tracking-widest font-bold"
-                disabled={isSubmitting || !formData.customerName || !formData.shippingAddress || !formData.customerPhone}
+                disabled={isSubmitting || !formData.customerName || !formData.shippingAddress || !formData.customerPhone || (paymentMethod === "bank" && !paymentSlipPath)}
                 data-testid="button-place-order"
               >
-                {isSubmitting ? "Processing..." : "Place Order"}
+                {isSubmitting ? "Processing..." : (paymentMethod === "bank" && !paymentSlipPath ? "Upload Slip to Proceed" : "Place Order")}
               </Button>
             </div>
           </aside>

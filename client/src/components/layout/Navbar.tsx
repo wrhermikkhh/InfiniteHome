@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Search, ShoppingBag, User, Menu, X, Trash2, Plus, Minus, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -56,11 +57,22 @@ export function Navbar() {
     return () => clearTimeout(debounce);
   }, [searchQuery]);
 
+  const { data: categories = [], refetch } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => refetch();
+    window.addEventListener('category-updated', handleUpdate);
+    return () => window.removeEventListener('category-updated', handleUpdate);
+  }, [refetch]);
+
   const navLinks = [
     { name: "Shop All", href: "/shop" },
-    { name: "Bedding", href: "/shop?category=Bedding" },
-    { name: "Furniture", href: "/shop?category=Furniture" },
-    { name: "Appliances", href: "/shop?category=Appliances" },
+    ...categories.map(cat => ({
+      name: cat.name,
+      href: `/shop?category=${encodeURIComponent(cat.name)}`
+    }))
   ];
 
   return (

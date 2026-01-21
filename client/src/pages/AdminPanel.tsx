@@ -138,6 +138,8 @@ export default function AdminPanel() {
       setProductForm({ ...productForm, category: newCategory.name });
       setNewCategoryName("");
       setShowNewCategoryInput(false);
+      // Invalidate categories query to update navbar
+      window.dispatchEvent(new CustomEvent('category-updated'));
     } catch (error) {
       console.error("Failed to create category:", error);
     }
