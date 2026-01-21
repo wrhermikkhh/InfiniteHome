@@ -114,8 +114,8 @@ export async function sendOrderConfirmationEmail(order: any) {
       </div>
     `;
 
-    // Use Resend's verified sender domain or fallback to onboarding@resend.dev for testing
-    const fromEmailToUse = fromEmail || 'INFINITE HOME <onboarding@resend.dev>';
+    // Use Resend's verified sender domain
+    const fromEmailToUse = fromEmail || 'INFINITE HOME <noreply@infinitehome.mv>';
     console.log('Sending from:', fromEmailToUse);
     console.log('Sending to:', order.customerEmail);
     
