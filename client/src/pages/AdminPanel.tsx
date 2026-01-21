@@ -171,7 +171,7 @@ export default function AdminPanel() {
             </div>
             
             <div class="section">
-              <div class="section-title">Ship To:</div>
+              <div class="section-title">Delivery To:</div>
               <div class="address">
                 <strong>${selectedOrder.customerName}</strong><br>
                 ${selectedOrder.shippingAddress}<br>
@@ -191,8 +191,16 @@ export default function AdminPanel() {
             </div>
 
             <div class="footer">
-              <p>Payment Method: ${selectedOrder.paymentMethod.toUpperCase()}</p>
-              <p>Thank you for shopping with INFINITE HOME!</p>
+              <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                <div>
+                  <p><strong>Payment Method:</strong> ${selectedOrder.paymentMethod.toUpperCase()}</p>
+                  <p><strong>Status:</strong> ${selectedOrder.status.replace("_", " ").toUpperCase()}</p>
+                </div>
+                <div style="text-align: right;">
+                  <p><strong>Order Date:</strong> ${new Date(selectedOrder.createdAt).toLocaleDateString()}</p>
+                </div>
+              </div>
+              <p style="margin-top: 20px; text-align: center; border-top: 1px dashed #eee; pt: 10px;">Thank you for shopping with INFINITE HOME!</p>
             </div>
           </div>
           <script>
