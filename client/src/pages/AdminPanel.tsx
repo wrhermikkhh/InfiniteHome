@@ -806,7 +806,7 @@ export default function AdminPanel() {
                             </DropdownMenuContent>
                           </DropdownMenu>
 
-                          <Dialog open={selectedOrder !== null} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+                          <Dialog open={selectedOrder !== null} onOpenChange={(open) => { if (!open) setSelectedOrder(null); }}>
                             <DialogTrigger asChild>
                               <Button 
                                 variant="outline" 
@@ -817,8 +817,18 @@ export default function AdminPanel() {
                                 <Eye size={14} /> Details
                               </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-2xl rounded-none">
-                              <DialogHeader className="relative">
+                            <DialogContent 
+                              className="max-w-2xl rounded-none [&>button]:hidden"
+                              onPointerDownOutside={(e) => {
+                                e.preventDefault();
+                                setSelectedOrder(null);
+                              }}
+                              onEscapeKeyDown={(e) => {
+                                e.preventDefault();
+                                setSelectedOrder(null);
+                              }}
+                            >
+                              <DialogHeader className="relative pr-8">
                                 <DialogTitle className="font-serif text-2xl">Order: {selectedOrder?.orderNumber}</DialogTitle>
                                 <DialogDescription className="uppercase tracking-widest text-[10px] font-bold">
                                   Status: {selectedOrder?.status.replace("_", " ")}
@@ -826,10 +836,11 @@ export default function AdminPanel() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="absolute right-0 top-0 h-8 w-8 rounded-none opacity-70 hover:opacity-100"
+                                  className="absolute -right-2 -top-2 h-10 w-10 rounded-none hover:bg-secondary transition-colors"
                                   onClick={() => setSelectedOrder(null)}
+                                  data-testid="button-close-dialog-top"
                                 >
-                                  <X size={18} />
+                                  <X size={24} />
                                   <span className="sr-only">Close</span>
                                 </Button>
                               </DialogHeader>
@@ -911,11 +922,14 @@ export default function AdminPanel() {
                                   </div>
                                 </div>
                                 <div className="flex justify-end pt-4 border-t border-border mt-4">
-                                  <DialogTrigger asChild>
-                                    <Button variant="outline" className="rounded-none uppercase tracking-widest text-xs font-bold px-8">
-                                      Close
-                                    </Button>
-                                  </DialogTrigger>
+                                  <Button 
+                                    variant="outline" 
+                                    className="rounded-none uppercase tracking-widest text-xs font-bold px-8 h-10"
+                                    onClick={() => setSelectedOrder(null)}
+                                    data-testid="button-close-dialog-bottom"
+                                  >
+                                    Close
+                                  </Button>
                                 </div>
                               </div>
                             )}
