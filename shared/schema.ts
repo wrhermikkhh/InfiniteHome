@@ -74,6 +74,7 @@ export const products = pgTable("products", {
   reviews: integer("reviews").default(0),
   isNew: boolean("is_new").default(false),
   isBestSeller: boolean("is_best_seller").default(false),
+  sizeGuide: jsonb("size_guide").$type<{ measurement: string; sizes: { [key: string]: string } }[]>().default([]),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

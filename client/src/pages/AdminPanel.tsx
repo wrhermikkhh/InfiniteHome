@@ -89,7 +89,8 @@ export default function AdminPanel() {
     colors: "",
     variants: [{ size: "", price: "" }],
     stock: "",
-    expressCharge: ""
+    expressCharge: "",
+    sizeGuide: [] as { measurement: string; sizes: { [key: string]: string } }[]
   });
 
   const orderStatuses = [
@@ -256,7 +257,8 @@ export default function AdminPanel() {
         price: Number(v.price)
       })),
       stock: productForm.stock ? Number(productForm.stock) : 0,
-      expressCharge: productForm.expressCharge ? Number(productForm.expressCharge) : 0
+      expressCharge: productForm.expressCharge ? Number(productForm.expressCharge) : 0,
+      sizeGuide: productForm.sizeGuide.filter(sg => sg.measurement && Object.keys(sg.sizes).length > 0)
     };
 
     try {
@@ -285,7 +287,8 @@ export default function AdminPanel() {
       colors: "", 
       variants: [{ size: "", price: "" }],
       stock: "",
-      expressCharge: ""
+      expressCharge: "",
+      sizeGuide: []
     });
     setShowNewCategoryInput(false);
     setNewCategoryName("");
@@ -305,7 +308,8 @@ export default function AdminPanel() {
         ? product.variants.map(v => ({ size: v.size, price: v.price.toString() }))
         : [{ size: "", price: product.price.toString() }],
       stock: ((product as any).stock || 0).toString(),
-      expressCharge: (product.expressCharge || 0).toString()
+      expressCharge: (product.expressCharge || 0).toString(),
+      sizeGuide: (product as any).sizeGuide || []
     });
     setShowNewCategoryInput(false);
     setNewCategoryName("");
@@ -777,6 +781,86 @@ export default function AdminPanel() {
                             </Button>
                           </div>
                         ))}
+                      </div>
+                      <div className="space-y-4 pt-4 border-t border-border">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <Label className="text-xs uppercase tracking-widest font-bold">Size Guide</Label>
+                            <p className="text-[10px] text-muted-foreground">Add measurements to display in the size guide page</p>
+                          </div>
+                          <Button 
+                            type="button"
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] rounded-none uppercase tracking-widest"
+                            onClick={() => {
+                              const sizes = productForm.variants.filter(v => v.size).map(v => v.size);
+                              const sizeObj: { [key: string]: string } = {};
+                              sizes.forEach(s => { sizeObj[s] = ""; });
+                              setProductForm({
+                                ...productForm, 
+                                sizeGuide: [...productForm.sizeGuide, { measurement: "", sizes: sizeObj }]
+                              });
+                            }}
+                            data-testid="button-add-size-guide"
+                          >
+                            <Plus size={12} className="mr-1" /> Add Measurement
+                          </Button>
+                        </div>
+                        {productForm.sizeGuide.length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-2">No size guide entries. Add measurements like "Length", "Width", "Chest", etc.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {productForm.sizeGuide.map((entry, idx) => (
+                              <div key={idx} className="p-3 border border-border bg-secondary/5 space-y-2">
+                                <div className="flex gap-2 items-center">
+                                  <Input 
+                                    placeholder="Measurement (e.g. Length, Width)" 
+                                    value={entry.measurement}
+                                    onChange={(e) => {
+                                      const newGuide = [...productForm.sizeGuide];
+                                      newGuide[idx].measurement = e.target.value;
+                                      setProductForm({...productForm, sizeGuide: newGuide});
+                                    }}
+                                    className="rounded-none h-8 text-xs flex-1"
+                                  />
+                                  <Button 
+                                    type="button"
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8 text-destructive"
+                                    onClick={() => {
+                                      const newGuide = productForm.sizeGuide.filter((_, i) => i !== idx);
+                                      setProductForm({...productForm, sizeGuide: newGuide});
+                                    }}
+                                  >
+                                    <Trash2 size={12} />
+                                  </Button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {Object.entries(entry.sizes).map(([size, value]) => (
+                                    <div key={size} className="flex items-center gap-1">
+                                      <span className="text-[10px] uppercase w-16 truncate">{size}:</span>
+                                      <Input 
+                                        placeholder="Value" 
+                                        value={value}
+                                        onChange={(e) => {
+                                          const newGuide = [...productForm.sizeGuide];
+                                          newGuide[idx].sizes[size] = e.target.value;
+                                          setProductForm({...productForm, sizeGuide: newGuide});
+                                        }}
+                                        className="rounded-none h-7 text-xs flex-1"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                                {Object.keys(entry.sizes).length === 0 && (
+                                  <p className="text-[10px] text-muted-foreground">Add size variations above first to populate size columns</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <Button onClick={handleSaveProduct} className="w-full rounded-none">
                         {editingProduct ? "Update Product" : "Create Product"}

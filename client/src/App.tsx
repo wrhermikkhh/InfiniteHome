@@ -20,6 +20,7 @@ import Contact from "@/pages/Contact";
 import Login from "@/pages/Login";
 import Signup from "@/pages/Signup";
 import Account from "@/pages/Account";
+import SizeGuide from "@/pages/SizeGuide";
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -51,6 +52,7 @@ function Router() {
         <Route path="/login" component={Login} />
         <Route path="/signup" component={Signup} />
         <Route path="/account" component={Account} />
+        <Route path="/size-guide" component={SizeGuide} />
         <Route component={NotFound} />
       </Switch>
     </>

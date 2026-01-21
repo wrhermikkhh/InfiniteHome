@@ -40,6 +40,7 @@ export function Footer() {
             <h4 className="font-sans font-bold text-sm uppercase tracking-wider mb-6">Support</h4>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li><Link href="/track" className="hover:text-foreground transition-colors">Track Order</Link></li>
+              <li><Link href="/size-guide" className="hover:text-foreground transition-colors">Size Guide</Link></li>
               <li><Link href="/returns" className="hover:text-foreground transition-colors">Returns & Exchanges</Link></li>
               <li><Link href="/shipping" className="hover:text-foreground transition-colors">Shipping Info</Link></li>
               <li><Link href="/contact" className="hover:text-foreground transition-colors">Contact Us</Link></li>

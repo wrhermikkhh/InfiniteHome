@@ -3,6 +3,11 @@ export interface ProductVariant {
   price: number;
 }
 
+export interface SizeGuideEntry {
+  measurement: string;
+  sizes: { [key: string]: string };
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -19,6 +24,7 @@ export interface Product {
   variants?: ProductVariant[] | null;
   stock?: number | null;
   expressCharge?: number | null;
+  sizeGuide?: SizeGuideEntry[] | null;
 }
 
 export const formatCurrency = (amount: number) => {
