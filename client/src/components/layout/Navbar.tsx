@@ -257,20 +257,20 @@ export function Navbar() {
                           <p className="text-sm font-bold mt-2">{formatCurrency(item.price)}</p>
                           <div className="flex items-center gap-2 mt-2">
                             <button 
-                              onClick={() => updateQuantity(item.id, (item.quantity || 0) - 1)}
+                              onClick={() => updateQuantity(item.id, (item.quantity || 0) - 1, item.selectedColor, item.selectedSize)}
                               className="p-1 border border-border hover:bg-secondary/50"
                             >
                               <Minus size={12} />
                             </button>
                             <span className="text-xs w-6 text-center">{item.quantity}</span>
                             <button 
-                              onClick={() => updateQuantity(item.id, (item.quantity || 0) + 1)}
+                              onClick={() => updateQuantity(item.id, (item.quantity || 0) + 1, item.selectedColor, item.selectedSize)}
                               className="p-1 border border-border hover:bg-secondary/50"
                             >
                               <Plus size={12} />
                             </button>
                             <button 
-                              onClick={() => removeItem(item.id)}
+                              onClick={() => removeItem(item.id, item.selectedColor, item.selectedSize)}
                               className="ml-auto p-1 text-muted-foreground hover:text-destructive"
                             >
                               <Trash2 size={14} />
