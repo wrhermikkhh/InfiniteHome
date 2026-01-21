@@ -29,7 +29,7 @@ Preferred communication style: Simple, everyday language.
 ### Data Storage
 - **Database**: PostgreSQL with Drizzle ORM
 - **Schema Location**: `shared/schema.ts` contains all table definitions
-- **Tables**: admins, products, coupons, orders
+- **Tables**: admins, customers, products, coupons, orders
 - **ID Strategy**: UUID generation via PostgreSQL's `gen_random_uuid()`
 
 ### Key Design Patterns
@@ -95,6 +95,12 @@ Preferred communication style: Simple, everyday language.
 - `GET /api/admins` - List admin users
 - `POST /api/admins` - Create admin user
 
+### Customers
+- `POST /api/customers` - Customer registration (signup)
+- `POST /api/customers/login` - Customer login
+- `GET /api/customers/:id` - Get customer profile
+- `PATCH /api/customers/:id` - Update customer profile
+
 ## Default Credentials
 - **Admin Email**: admin@infinitehome.mv
 - **Admin Password**: admin123
@@ -138,7 +144,27 @@ Professional shipping statuses matching major carriers:
 ## Order ID Format
 Alphanumeric 6-character format: IH-XXXXXX (e.g., IH-A3K7M9)
 
+## Authentication
+
+### Customer Authentication
+- Separate customer auth system with signup, login, and account management
+- Pages: `/login`, `/signup`, `/account`
+- Auth state managed via Zustand (useAuth hook in `client/src/lib/auth.ts`)
+- Customer accounts store: name, email, phone, password, shipping address
+
+### Admin Authentication
+- Admin panel accessible only via `/admin` URL (not in public navigation)
+- Separate admin auth state (useAdminAuth hook in `client/src/lib/auth.ts`)
+- Default credentials: admin@infinitehome.mv / admin123
+- Mobile-responsive admin panel with hamburger menu navigation
+
 ## Recent Changes
+- Added customer authentication system with signup, login, and account management
+- Implemented separate admin authentication (useAdminAuth) from customer auth (useAuth)
+- Removed admin panel access from public navbar - admin only accessible via /admin URL
+- Made admin panel fully mobile-responsive with hamburger menu navigation
+- Removed trust/warranty banner from homepage hero section
+- Added scroll-to-top functionality that resets page position on route changes
 - Converted prototype to full-stack application with PostgreSQL database
 - Implemented complete API layer for products, orders, coupons, and admin users
 - Connected all frontend pages to real API endpoints
