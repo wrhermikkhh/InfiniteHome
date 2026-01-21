@@ -204,10 +204,10 @@ export default function AdminPanel() {
             </div>
           </div>
           <script>
-            window.onload = () => {
+            setTimeout(() => {
               window.print();
-              setTimeout(() => window.close(), 500);
-            };
+              window.close();
+            }, 500);
           </script>
         </body>
       </html>
