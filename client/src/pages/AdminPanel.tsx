@@ -410,11 +410,11 @@ export default function AdminPanel() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8">
           {activeTab === "Overview" && (
             <div className="animate-in fade-in duration-500">
-              <h1 className="text-3xl font-serif mb-8">Dashboard Overview</h1>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <h1 className="text-2xl md:text-3xl font-serif mb-8">Dashboard Overview</h1>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card className="rounded-none">
                   <CardContent className="p-6">
                     <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Products</p>
