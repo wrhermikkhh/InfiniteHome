@@ -13,11 +13,11 @@ export default function Shop() {
   const category = params.get("category");
   const { products, loading } = useProducts();
 
+  const categories = ["Shop All", "Bedding", "Furniture", "Appliances"];
+
   const filteredProducts = category && category !== "Shop All" && category !== "Sale"
     ? products.filter(p => p.category.toLowerCase() === category.toLowerCase())
     : products;
-
-  const categories = ["Shop All", "Bedding", "Furniture", "Appliances"];
 
   return (
     <div className="min-h-screen bg-background font-body">
