@@ -72,6 +72,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Products
 - `GET /api/products` - List all products
+- `GET /api/products/search?q={query}` - Search products by name/description
 - `GET /api/products/:id` - Get single product
 - `POST /api/products` - Create product (admin)
 - `PATCH /api/products/:id` - Update product (admin)
@@ -87,8 +88,15 @@ Preferred communication style: Simple, everyday language.
 - `GET /api/orders` - List all orders (admin)
 - `GET /api/orders/:id` - Get order by ID
 - `GET /api/orders/track/:orderNumber` - Track order by number
+- `GET /api/orders/customer/:email` - Get orders by customer email
 - `POST /api/orders` - Create order
 - `PATCH /api/orders/:id/status` - Update order status (admin)
+
+### Customer Addresses
+- `GET /api/customers/:customerId/addresses` - Get customer addresses
+- `POST /api/customers/:customerId/addresses` - Add new address
+- `DELETE /api/customers/:customerId/addresses/:addressId` - Delete address
+- `PATCH /api/customers/:customerId/addresses/:addressId/default` - Set as default address
 
 ### Admin
 - `POST /api/admin/login` - Admin authentication
@@ -159,6 +167,12 @@ Alphanumeric 6-character format: IH-XXXXXX (e.g., IH-A3K7M9)
 - Mobile-responsive admin panel with hamburger menu navigation
 
 ## Recent Changes
+- Added product search feature with debounced search dialog in navbar
+- Added customer order history viewing in Account page
+- Implemented cart persistence linked to customer accounts (saves/loads per user)
+- Added address book feature for customers with multiple saved addresses
+- Admin panel now displays payment slip images for bank transfer orders
+- Fixed order status dropdown styling with solid background (was transparent)
 - Added customer authentication system with signup, login, and account management
 - Implemented separate admin authentication (useAdminAuth) from customer auth (useAuth)
 - Removed admin panel access from public navbar - admin only accessible via /admin URL
