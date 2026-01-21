@@ -806,7 +806,7 @@ export default function AdminPanel() {
                             </DropdownMenuContent>
                           </DropdownMenu>
 
-                          <Dialog>
+                          <Dialog open={selectedOrder !== null} onOpenChange={(open) => !open && setSelectedOrder(null)}>
                             <DialogTrigger asChild>
                               <Button 
                                 variant="outline" 
@@ -818,11 +818,20 @@ export default function AdminPanel() {
                               </Button>
                             </DialogTrigger>
                             <DialogContent className="max-w-2xl rounded-none">
-                              <DialogHeader>
+                              <DialogHeader className="relative">
                                 <DialogTitle className="font-serif text-2xl">Order: {selectedOrder?.orderNumber}</DialogTitle>
                                 <DialogDescription className="uppercase tracking-widest text-[10px] font-bold">
                                   Status: {selectedOrder?.status.replace("_", " ")}
                                 </DialogDescription>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-0 top-0 h-8 w-8 rounded-none opacity-70 hover:opacity-100"
+                                  onClick={() => setSelectedOrder(null)}
+                                >
+                                  <X size={18} />
+                                  <span className="sr-only">Close</span>
+                                </Button>
                               </DialogHeader>
                               {selectedOrder && (
                                 <div className="space-y-6">
