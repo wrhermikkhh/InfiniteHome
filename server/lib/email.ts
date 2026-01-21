@@ -116,7 +116,8 @@ export async function sendOrderConfirmationEmail(order: any) {
 
     // Use the fromEmail provided by the integration if available, otherwise use our verified domain
     // Resend requires the 'from' address to match a verified domain
-    const fromEmailToUse = fromEmail || 'noreply@infinitehome.mv';
+    // Using updates.infinitehome.mv as verified by the user
+    const fromEmailToUse = fromEmail || 'noreply@updates.infinitehome.mv';
     console.log('Sending from:', fromEmailToUse);
     console.log('Sending to:', order.customerEmail);
     
