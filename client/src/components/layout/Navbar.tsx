@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Search, ShoppingBag, User, Menu, X, Trash2, Plus, Minus, LogOut, Shield } from "lucide-react";
+import { Search, ShoppingBag, User, Menu, X, Trash2, Plus, Minus, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -12,9 +12,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const cart = useCart();
-  const { user, login, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const items = cart.items || [];
   const removeItem = cart.removeItem;
   const updateQuantity = cart.updateQuantity;
@@ -82,7 +82,7 @@ export function Navbar() {
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="p-2 hover:opacity-70 transition-opacity">
+              <button className="p-2 hover:opacity-70 transition-opacity" data-testid="button-user-menu">
                 <User size={20} />
               </button>
             </DropdownMenuTrigger>
@@ -92,22 +92,34 @@ export function Navbar() {
                   <div className="px-2 py-1.5 text-xs font-bold uppercase tracking-widest text-muted-foreground border-b border-border mb-1">
                     Hi, {user?.name}
                   </div>
-                  {user?.role === "admin" && (
-                    <Link href="/admin">
-                      <DropdownMenuItem className="cursor-pointer gap-2">
-                        <Shield size={14} /> Admin Panel
-                      </DropdownMenuItem>
-                    </Link>
-                  )}
-                  <DropdownMenuItem onClick={() => logout()} className="cursor-pointer gap-2 text-destructive focus:text-destructive">
+                  <Link href="/account">
+                    <DropdownMenuItem className="cursor-pointer gap-2" data-testid="menu-item-account">
+                      <User size={14} /> My Account
+                    </DropdownMenuItem>
+                  </Link>
+                  <Link href="/track">
+                    <DropdownMenuItem className="cursor-pointer gap-2" data-testid="menu-item-track">
+                      Track Order
+                    </DropdownMenuItem>
+                  </Link>
+                  <DropdownMenuItem 
+                    onClick={() => logout()} 
+                    className="cursor-pointer gap-2 text-destructive focus:text-destructive"
+                    data-testid="menu-item-logout"
+                  >
                     <LogOut size={14} /> Sign Out
                   </DropdownMenuItem>
                 </>
               ) : (
                 <>
-                  <Link href="/admin">
-                    <DropdownMenuItem className="cursor-pointer">
+                  <Link href="/login">
+                    <DropdownMenuItem className="cursor-pointer" data-testid="menu-item-login">
                       Sign In
+                    </DropdownMenuItem>
+                  </Link>
+                  <Link href="/signup">
+                    <DropdownMenuItem className="cursor-pointer" data-testid="menu-item-signup">
+                      Create Account
                     </DropdownMenuItem>
                   </Link>
                 </>
@@ -117,86 +129,82 @@ export function Navbar() {
           
           <Sheet>
             <SheetTrigger asChild>
-              <button className="p-2 hover:opacity-70 transition-opacity relative">
+              <button className="p-2 hover:opacity-70 transition-opacity relative" data-testid="button-cart">
                 <ShoppingBag size={20} />
                 {items.length > 0 && (
-                  <span className="absolute top-0 right-0 h-4 w-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center">
-                    {items.reduce((acc, item) => acc + (item.quantity || 0), 0)}
+                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold w-5 h-5 flex items-center justify-center">
+                    {items.reduce((sum, item) => sum + (item.quantity || 0), 0)}
                   </span>
                 )}
               </button>
             </SheetTrigger>
-            <SheetContent className="w-full sm:max-w-md flex flex-col p-0">
-              <SheetHeader className="p-6 border-b border-border text-left">
-                <SheetTitle className="font-serif text-2xl">Shopping Bag</SheetTitle>
+            <SheetContent className="w-full sm:max-w-lg flex flex-col">
+              <SheetHeader className="border-b border-border pb-4">
+                <SheetTitle className="font-serif text-xl">Shopping Bag ({items.length})</SheetTitle>
               </SheetHeader>
               
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="flex-1 overflow-y-auto py-4">
                 {items.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
-                    <ShoppingBag size={48} className="text-muted-foreground opacity-20" />
-                    <p className="text-muted-foreground">Your bag is currently empty.</p>
-                    <Link href="/shop">
-                      <Button variant="outline" className="rounded-none uppercase tracking-widest font-bold">Start Shopping</Button>
-                    </Link>
+                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+                    <ShoppingBag size={48} className="mb-4 opacity-50" />
+                    <p className="text-sm uppercase tracking-widest">Your bag is empty</p>
                   </div>
                 ) : (
-                  items.map((item) => (
-                    <div key={item.id} className="flex gap-4">
-                      <div className="w-24 h-32 bg-secondary/20 shrink-0">
-                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex-1 flex flex-col justify-between py-1">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-serif text-lg">{item.name}</h4>
-                            <p className="text-sm text-muted-foreground">{item.category}</p>
-                          </div>
-                          <button 
-                            onClick={() => removeItem(item.id)}
-                            className="text-muted-foreground hover:text-destructive transition-colors"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                  <div className="space-y-4">
+                    {items.map((item) => (
+                      <div key={item.id + (item.selectedColor || '') + (item.selectedSize || '')} className="flex gap-4 pb-4 border-b border-border">
+                        <div className="w-24 h-24 bg-secondary/30 flex-shrink-0">
+                          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                         </div>
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center border border-border">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-sm truncate">{item.name}</h4>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {item.selectedColor && <span>{item.selectedColor}</span>}
+                            {item.selectedColor && item.selectedSize && <span> / </span>}
+                            {item.selectedSize && <span>{item.selectedSize}</span>}
+                          </p>
+                          <p className="text-sm font-bold mt-2">{formatCurrency(item.price)}</p>
+                          <div className="flex items-center gap-2 mt-2">
                             <button 
-                              onClick={() => updateQuantity(item.id, Math.max(1, (item.quantity || 1) - 1))}
-                              className="p-1 hover:bg-secondary/50"
+                              onClick={() => updateQuantity(item.id, (item.quantity || 0) - 1)}
+                              className="p-1 border border-border hover:bg-secondary/50"
                             >
-                              <Minus size={14} />
+                              <Minus size={12} />
                             </button>
-                            <span className="w-8 text-center text-xs font-medium">{item.quantity}</span>
+                            <span className="text-xs w-6 text-center">{item.quantity}</span>
                             <button 
-                              onClick={() => updateQuantity(item.id, (item.quantity || 1) + 1)}
-                              className="p-1 hover:bg-secondary/50"
+                              onClick={() => updateQuantity(item.id, (item.quantity || 0) + 1)}
+                              className="p-1 border border-border hover:bg-secondary/50"
                             >
-                              <Plus size={14} />
+                              <Plus size={12} />
+                            </button>
+                            <button 
+                              onClick={() => removeItem(item.id)}
+                              className="ml-auto p-1 text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 size={14} />
                             </button>
                           </div>
-                          <p className="font-medium">{formatCurrency(item.price * (item.quantity || 0))}</p>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
               </div>
-
+              
               {items.length > 0 && (
-                <SheetFooter className="p-6 border-t border-border flex flex-col space-y-4">
-                  <div className="flex justify-between items-center w-full">
-                    <span className="uppercase tracking-widest font-bold text-sm">Subtotal</span>
-                    <span className="text-xl font-medium">{formatCurrency(total)}</span>
+                <SheetFooter className="border-t border-border pt-4 block">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-sm uppercase tracking-widest font-bold">Subtotal</span>
+                    <span className="text-lg font-bold">{formatCurrency(total)}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Shipping and taxes calculated at checkout.
-                  </p>
-                  <Link href="/checkout">
-                    <Button className="w-full h-12 rounded-none uppercase tracking-widest font-bold">
-                      Checkout
-                    </Button>
-                  </Link>
+                  <Button 
+                    className="w-full h-12 rounded-none text-xs uppercase tracking-widest font-bold"
+                    onClick={() => setLocation("/checkout")}
+                    data-testid="button-checkout"
+                  >
+                    Checkout
+                  </Button>
                 </SheetFooter>
               )}
             </SheetContent>
@@ -218,7 +226,40 @@ export function Navbar() {
             </Link>
           ))}
           <div className="pt-4 flex flex-col space-y-3">
-             <Button className="w-full" variant="outline">Sign In</Button>
+            {isAuthenticated ? (
+              <>
+                <Button 
+                  className="w-full rounded-none" 
+                  variant="outline"
+                  onClick={() => { setMobileMenuOpen(false); setLocation("/account"); }}
+                >
+                  My Account
+                </Button>
+                <Button 
+                  className="w-full rounded-none" 
+                  variant="ghost"
+                  onClick={() => { logout(); setMobileMenuOpen(false); }}
+                >
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  className="w-full rounded-none" 
+                  variant="outline"
+                  onClick={() => { setMobileMenuOpen(false); setLocation("/login"); }}
+                >
+                  Sign In
+                </Button>
+                <Button 
+                  className="w-full rounded-none"
+                  onClick={() => { setMobileMenuOpen(false); setLocation("/signup"); }}
+                >
+                  Create Account
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}

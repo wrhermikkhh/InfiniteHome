@@ -1,4 +1,5 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
+import { useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,24 +17,43 @@ import Privacy from "@/pages/Privacy";
 import Returns from "@/pages/Returns";
 import Shipping from "@/pages/Shipping";
 import Contact from "@/pages/Contact";
+import Login from "@/pages/Login";
+import Signup from "@/pages/Signup";
+import Account from "@/pages/Account";
+
+function ScrollToTop() {
+  const [location] = useLocation();
+  
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location]);
+  
+  return null;
+}
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/shop" component={Shop} />
-      <Route path="/product/:id" component={ProductPage} />
-      <Route path="/consultation" component={Consultation} />
-      <Route path="/track" component={OrderTracking} />
-      <Route path="/admin" component={AdminPanel} />
-      <Route path="/checkout" component={Checkout} />
-      <Route path="/terms" component={Terms} />
-      <Route path="/privacy" component={Privacy} />
-      <Route path="/returns" component={Returns} />
-      <Route path="/shipping" component={Shipping} />
-      <Route path="/contact" component={Contact} />
-      <Route component={NotFound} />
-    </Switch>
+    <>
+      <ScrollToTop />
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/shop" component={Shop} />
+        <Route path="/product/:id" component={ProductPage} />
+        <Route path="/consultation" component={Consultation} />
+        <Route path="/track" component={OrderTracking} />
+        <Route path="/admin" component={AdminPanel} />
+        <Route path="/checkout" component={Checkout} />
+        <Route path="/terms" component={Terms} />
+        <Route path="/privacy" component={Privacy} />
+        <Route path="/returns" component={Returns} />
+        <Route path="/shipping" component={Shipping} />
+        <Route path="/contact" component={Contact} />
+        <Route path="/login" component={Login} />
+        <Route path="/signup" component={Signup} />
+        <Route path="/account" component={Account} />
+        <Route component={NotFound} />
+      </Switch>
+    </>
   );
 }
 

@@ -43,6 +43,14 @@ export interface Admin {
   email: string;
 }
 
+export interface Customer {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+}
+
 export const api = {
   // Products
   async getProducts(): Promise<Product[]> {
@@ -155,6 +163,39 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(admin),
+    });
+    return res.json();
+  },
+
+  // Customer Auth
+  async customerSignup(data: { name: string; email: string; password: string; phone?: string }): Promise<{ success: boolean; customer?: Customer; message?: string }> {
+    const res = await fetch(`${API_BASE}/customers/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  async customerLogin(email: string, password: string): Promise<{ success: boolean; customer?: Customer; message?: string }> {
+    const res = await fetch(`${API_BASE}/customers/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    return res.json();
+  },
+
+  async getCustomer(id: string): Promise<Customer> {
+    const res = await fetch(`${API_BASE}/customers/${id}`);
+    return res.json();
+  },
+
+  async updateCustomer(id: string, data: Partial<Customer>): Promise<Customer> {
+    const res = await fetch(`${API_BASE}/customers/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
     });
     return res.json();
   },

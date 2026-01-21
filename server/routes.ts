@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema } from "@shared/schema";
+import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema } from "@shared/schema";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 export async function registerRoutes(
@@ -12,6 +12,59 @@ export async function registerRoutes(
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);
   
+  // ============ CUSTOMER AUTH ============
+  app.post("/api/customers/signup", async (req, res) => {
+    try {
+      const data = insertCustomerSchema.parse(req.body);
+      const existing = await storage.getCustomerByEmail(data.email);
+      if (existing) {
+        return res.status(400).json({ success: false, message: "Email already registered" });
+      }
+      const customer = await storage.createCustomer(data);
+      res.json({ 
+        success: true, 
+        customer: { id: customer.id, name: customer.name, email: customer.email, phone: customer.phone, address: customer.address } 
+      });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message });
+    }
+  });
+
+  app.post("/api/customers/login", async (req, res) => {
+    const { email, password } = req.body;
+    const customer = await storage.getCustomerByEmail(email);
+    if (customer && customer.password === password) {
+      res.json({ 
+        success: true, 
+        customer: { id: customer.id, name: customer.name, email: customer.email, phone: customer.phone, address: customer.address } 
+      });
+    } else {
+      res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
+  });
+
+  app.get("/api/customers/:id", async (req, res) => {
+    const customer = await storage.getCustomer(req.params.id);
+    if (customer) {
+      res.json({ id: customer.id, name: customer.name, email: customer.email, phone: customer.phone, address: customer.address });
+    } else {
+      res.status(404).json({ message: "Customer not found" });
+    }
+  });
+
+  app.patch("/api/customers/:id", async (req, res) => {
+    try {
+      const customer = await storage.updateCustomer(req.params.id, req.body);
+      if (customer) {
+        res.json({ id: customer.id, name: customer.name, email: customer.email, phone: customer.phone, address: customer.address });
+      } else {
+        res.status(404).json({ message: "Customer not found" });
+      }
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // ============ ADMIN AUTH ============
   app.post("/api/admin/login", async (req, res) => {
     const { email, password } = req.body;

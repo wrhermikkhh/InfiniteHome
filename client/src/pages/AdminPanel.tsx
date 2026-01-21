@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "@/lib/auth";
+import { useAdminAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { api, Coupon, Order, Admin } from "@/lib/api";
 import { Product, formatCurrency } from "@/lib/products";
@@ -16,7 +16,9 @@ import {
   ChevronDown,
   Upload,
   CheckCircle,
-  Image
+  Image,
+  Menu,
+  X
 } from "lucide-react";
 import { useUpload } from "@/hooks/use-upload";
 import { Button } from "@/components/ui/button";
@@ -40,7 +42,8 @@ import {
 import { cn } from "@/lib/utils";
 
 export default function AdminPanel() {
-  const { user, login, logout } = useAuth();
+  const { admin: user, adminLogin: login, adminLogout: logout, isAdminAuthenticated } = useAdminAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -242,7 +245,7 @@ export default function AdminPanel() {
     }
   };
 
-  if (!user || user.role !== "admin") {
+  if (!isAdminAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md rounded-none shadow-none border-border">
@@ -297,8 +300,46 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="flex h-screen">
-        {/* Sidebar */}
+      {/* Mobile Header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-background border-b border-border px-4 py-3 flex items-center justify-between">
+        <h1 className="font-serif text-lg">INFINITE HOME</h1>
+        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2">
+          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-40 bg-background pt-16">
+          <div className="p-4 space-y-2">
+            {menuItems.map((item) => (
+              <button
+                key={item.label}
+                onClick={() => { setActiveTab(item.label); setMobileMenuOpen(false); }}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors",
+                  activeTab === item.label ? "bg-primary text-primary-foreground" : "hover:bg-secondary/20"
+                )}
+              >
+                <item.icon size={18} />
+                {item.label}
+              </button>
+            ))}
+            <div className="pt-4 border-t border-border mt-4">
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start text-destructive hover:text-destructive gap-3"
+                onClick={logout}
+              >
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex h-screen md:pt-0 pt-14">
+        {/* Sidebar - Desktop only */}
         <aside className="w-64 border-r border-border bg-secondary/10 p-4 space-y-2 hidden md:block">
           <div className="px-4 py-6 mb-4">
             <h1 className="font-serif text-xl">INFINITE HOME</h1>

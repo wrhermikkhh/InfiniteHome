@@ -62,24 +62,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Social Proof / Trust Banner */}
-      <div className="bg-secondary/30 py-4 border-y border-border">
-        <div className="container mx-auto px-4 flex justify-center items-center space-x-8 md:space-x-16 overflow-x-auto whitespace-nowrap scrollbar-hide">
-          <span className="text-xs uppercase tracking-widest font-bold text-muted-foreground flex items-center">
-            <CheckCircle size={14} className="mr-2" /> 100-Night Guarantee
-          </span>
-          <span className="text-xs uppercase tracking-widest font-bold text-muted-foreground flex items-center">
-            <CheckCircle size={14} className="mr-2" /> 10-Year Warranty
-          </span>
-          <span className="text-xs uppercase tracking-widest font-bold text-muted-foreground flex items-center">
-            <CheckCircle size={14} className="mr-2" /> Free Shipping over MVR 1500
-          </span>
-          <span className="text-xs uppercase tracking-widest font-bold text-muted-foreground flex items-center">
-            <CheckCircle size={14} className="mr-2" /> 5,000+ 5-Star Reviews
-          </span>
-        </div>
-      </div>
-
+      
       {/* Categories */}
       <section className="py-24 bg-background">
         <div className="container mx-auto px-4">
