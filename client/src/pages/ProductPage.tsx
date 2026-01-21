@@ -16,8 +16,11 @@ export default function ProductPage() {
   const [selectedSize, setSelectedSize] = useState("");
   const { addItem } = useCart();
 
-  const productId = params?.id || "";
-  const { product, loading, error } = useProduct(productId);
+  const [mainImage, setMainImage] = useState(product?.image || "");
+
+  useEffect(() => {
+    if (product?.image) setMainImage(product.image);
+  }, [product]);
 
   const colors: string[] = product?.colors && product.colors.length > 0 ? product.colors : ["White"];
   const variants: ProductVariant[] = product?.variants && product.variants.length > 0 
@@ -54,17 +57,24 @@ export default function ProductPage() {
           {/* Images */}
           <div className="space-y-4">
             <div className="aspect-[4/5] bg-secondary/20 overflow-hidden w-full">
-               <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+               <img src={mainImage} alt={product.name} className="w-full h-full object-cover transition-opacity duration-300" />
             </div>
             
             {/* Gallery Images */}
             {product.images && product.images.length > 0 && (
               <div className="grid grid-cols-4 gap-4">
-                <div className="aspect-square bg-secondary/20 overflow-hidden border-2 border-primary cursor-pointer">
+                <div 
+                  className={`aspect-square bg-secondary/20 overflow-hidden border-2 cursor-pointer transition-all ${mainImage === product.image ? 'border-primary' : 'border-transparent'}`}
+                  onClick={() => setMainImage(product.image)}
+                >
                   <img src={product.image} alt={`${product.name} main`} className="w-full h-full object-cover" />
                 </div>
                 {product.images.map((img, idx) => (
-                  <div key={idx} className="aspect-square bg-secondary/20 overflow-hidden border border-transparent hover:border-primary/50 cursor-pointer transition-colors">
+                  <div 
+                    key={idx} 
+                    className={`aspect-square bg-secondary/20 overflow-hidden border-2 cursor-pointer transition-all ${mainImage === img ? 'border-primary' : 'border-transparent hover:border-primary/50'}`}
+                    onClick={() => setMainImage(img)}
+                  >
                     <img src={img} alt={`${product.name} ${idx + 1}`} className="w-full h-full object-cover" />
                   </div>
                 ))}
@@ -159,11 +169,14 @@ export default function ProductPage() {
             <div className="grid grid-cols-1 gap-4 pt-8 text-sm text-muted-foreground">
                <div className="flex items-center space-x-3">
                  <Truck size={20} className="text-primary" />
-                 <span>Free Shipping on orders over MVR 1500</span>
+                 <span>Free Delivery on all items</span>
                </div>
-               <div className="flex items-center space-x-3">
-                 <ShieldCheck size={20} className="text-primary" />
-                 <span>10-Year Warranty & 100-Night Sleep Trial</span>
+               <div className="flex items-start space-x-3">
+                 <div className="pt-1"><Truck size={20} className="text-primary" /></div>
+                 <div>
+                   <p className="font-medium text-foreground">Express Delivery Available</p>
+                   <p className="text-xs">MVR 15-100 (Male' & Hulhumale')</p>
+                 </div>
                </div>
                <div className="flex items-center space-x-3">
                  <RefreshCcw size={20} className="text-primary" />

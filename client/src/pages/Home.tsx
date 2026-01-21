@@ -145,39 +145,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Video Call Promo */}
-      <section className="py-24 bg-primary text-primary-foreground relative overflow-hidden">
-        <div className="container mx-auto px-4 relative z-10 grid md:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
-             <div className="inline-flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
-               <Video size={14} />
-               <span>Infinite Home Live</span>
-             </div>
-             <h2 className="text-4xl md:text-5xl font-serif leading-tight">
-               Experience Infinite Home <br/> From Your Home.
-             </h2>
-             <p className="text-primary-foreground/80 text-lg max-w-md">
-               Book a complimentary virtual consultation with our design experts. See the fabrics, compare colors, and get personalized styling advice via video call.
-             </p>
-             <div className="pt-4">
-               <Link href="/consultation">
-                 <Button className="bg-white text-primary hover:bg-white/90 rounded-none h-14 px-8 text-xs uppercase tracking-widest font-bold">
-                   Book Consultation
-                 </Button>
-               </Link>
-             </div>
-          </div>
-          <div className="relative aspect-video rounded-lg overflow-hidden bg-black/20 backdrop-blur-sm border border-white/10 flex items-center justify-center">
-             <img src={appliancesImage} alt="Video Call Preview" className="absolute inset-0 w-full h-full object-cover opacity-50" />
-             <div className="relative z-10 bg-white/10 backdrop-blur-md p-6 rounded-lg text-center border border-white/20">
-               <p className="font-serif text-xl mb-2">Next Available Slot</p>
-               <p className="text-2xl font-bold">Today, 3:00 PM</p>
-               <p className="text-xs uppercase tracking-widest mt-2 opacity-80">Maldives Time</p>
-             </div>
-          </div>
-        </div>
-      </section>
-
       <Footer />
     </div>
   );
