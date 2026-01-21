@@ -8,7 +8,7 @@ async function getCredentials() {
   if (!apiKey) {
     throw new Error('RESEND_API_KEY not found in environment variables');
   }
-  return { apiKey, fromEmail: 'noreply@updates.infinitehome.mv' };
+  return { apiKey, fromEmail: 'noreply@infinitehome.mv' };
 }
 
 export async function sendOrderConfirmationEmail(order: any) {
