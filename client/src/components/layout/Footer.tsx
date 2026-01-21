@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Facebook, Instagram, Twitter, Youtube } from "lucide-react";
+import { Facebook, Instagram, Twitter, Youtube, MessageCircle, Mail } from "lucide-react";
 
 export function Footer() {
   return (
@@ -13,13 +13,13 @@ export function Footer() {
               Premium home essentials including luxury bedding, furniture, and appliances. Transform your living space with our curated collection.
             </p>
             <div className="flex space-x-4 pt-2">
-              <a href="https://instagram.com/infinitehome" className="text-foreground hover:text-primary/70 transition-colors"><Instagram size={20} /></a>
-              <a href="https://facebook.com/infinitehome" className="text-foreground hover:text-primary/70 transition-colors"><Facebook size={20} /></a>
-              <a href="https://twitter.com/infinitehome" className="text-foreground hover:text-primary/70 transition-colors"><Twitter size={20} /></a>
-              <a href="https://youtube.com/infinitehome" className="text-foreground hover:text-primary/70 transition-colors"><Youtube size={20} /></a>
+              <a href="https://www.instagram.com/infiniteloop.mv?igsh=ODJxMmQ4NHFxM3k5&utm_source=qr" target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-primary/70 transition-colors"><Instagram size={20} /></a>
+              <a href="https://www.facebook.com/share/1Gb8np9Tde/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-primary/70 transition-colors"><Facebook size={20} /></a>
+              <a href="https://wa.me/9607840001" target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-primary/70 transition-colors"><MessageCircle size={20} /></a>
+              <a href="mailto:info@infinitehome.mv" className="text-foreground hover:text-primary/70 transition-colors"><Mail size={20} /></a>
             </div>
             <div className="pt-2 text-sm text-muted-foreground">
-              <p>Email: info@infinitehome.mv</p>
+              <p>Email: <a href="mailto:info@infinitehome.mv" className="hover:text-primary transition-colors">info@infinitehome.mv</a></p>
               <p>Phone: 7840001</p>
             </div>
           </div>
