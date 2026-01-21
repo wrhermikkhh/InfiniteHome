@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
 import { useAdminAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { api, Coupon, Order, Admin } from "@/lib/api";
+import { api, Coupon, Order, Admin, Category } from "@/lib/api";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Product, formatCurrency } from "@/lib/products";
 import { 
   LayoutDashboard, 
@@ -55,6 +62,9 @@ export default function AdminPanel() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [admins, setAdmins] = useState<Admin[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -74,8 +84,10 @@ export default function AdminPanel() {
     category: "",
     description: "",
     image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80",
+    images: [] as string[],
     colors: "",
-    variants: [{ size: "", price: "" }]
+    variants: [{ size: "", price: "" }],
+    stock: ""
   });
 
   const orderStatuses = [
@@ -100,18 +112,33 @@ export default function AdminPanel() {
 
   const loadData = async () => {
     try {
-      const [productsData, ordersData, couponsData, adminsData] = await Promise.all([
+      const [productsData, ordersData, couponsData, adminsData, categoriesData] = await Promise.all([
         api.getProducts(),
         api.getOrders(),
         api.getCoupons(),
-        api.getAdmins()
+        api.getAdmins(),
+        api.getCategories()
       ]);
       setProducts(productsData);
       setOrders(ordersData);
       setCoupons(couponsData);
       setAdmins(adminsData);
+      setCategories(categoriesData);
     } catch (error) {
       console.error("Failed to load data:", error);
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    try {
+      const newCategory = await api.createCategory({ name: newCategoryName.trim() });
+      setCategories([...categories, newCategory]);
+      setProductForm({ ...productForm, category: newCategory.name });
+      setNewCategoryName("");
+      setShowNewCategoryInput(false);
+    } catch (error) {
+      console.error("Failed to create category:", error);
     }
   };
 
@@ -134,11 +161,13 @@ export default function AdminPanel() {
       category: productForm.category,
       description: productForm.description,
       image: productForm.image,
+      images: productForm.images,
       colors: productForm.colors.split(",").map(c => c.trim()).filter(Boolean),
       variants: productForm.variants.filter(v => v.size && v.price).map(v => ({
         size: v.size.trim(),
         price: Number(v.price)
-      }))
+      })),
+      stock: productForm.stock ? Number(productForm.stock) : 0
     };
 
     try {
@@ -163,9 +192,13 @@ export default function AdminPanel() {
       category: "", 
       description: "", 
       image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80", 
+      images: [],
       colors: "", 
-      variants: [{ size: "", price: "" }] 
+      variants: [{ size: "", price: "" }],
+      stock: ""
     });
+    setShowNewCategoryInput(false);
+    setNewCategoryName("");
   };
 
   const handleEditProduct = (product: Product) => {
@@ -176,11 +209,15 @@ export default function AdminPanel() {
       category: product.category,
       description: product.description || "",
       image: product.image,
+      images: (product as any).images || [],
       colors: (product.colors || []).join(", "),
       variants: product.variants && product.variants.length > 0 
         ? product.variants.map(v => ({ size: v.size, price: v.price.toString() }))
-        : [{ size: "", price: product.price.toString() }]
+        : [{ size: "", price: product.price.toString() }],
+      stock: ((product as any).stock || 0).toString()
     });
+    setShowNewCategoryInput(false);
+    setNewCategoryName("");
     setIsProductDialogOpen(true);
   };
 
@@ -442,11 +479,72 @@ export default function AdminPanel() {
                         </div>
                         <div className="space-y-2">
                           <Label className="text-xs uppercase tracking-widest font-bold">Category</Label>
+                          {showNewCategoryInput ? (
+                            <div className="flex gap-2">
+                              <Input 
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                placeholder="New category name"
+                                className="rounded-none flex-1"
+                                data-testid="input-new-category"
+                              />
+                              <Button 
+                                type="button"
+                                size="sm"
+                                onClick={handleCreateCategory}
+                                className="rounded-none"
+                                data-testid="button-save-category"
+                              >
+                                Save
+                              </Button>
+                              <Button 
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => { setShowNewCategoryInput(false); setNewCategoryName(""); }}
+                                className="rounded-none"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <Select
+                              value={productForm.category}
+                              onValueChange={(value) => {
+                                if (value === "__add_new__") {
+                                  setShowNewCategoryInput(true);
+                                } else {
+                                  setProductForm({...productForm, category: value});
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="rounded-none" data-testid="select-category">
+                                <SelectValue placeholder="Select a category" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-none">
+                                {categories.map((cat) => (
+                                  <SelectItem key={cat.id} value={cat.name}>
+                                    {cat.name}
+                                  </SelectItem>
+                                ))}
+                                <SelectItem value="__add_new__" className="text-primary font-medium">
+                                  + Add new category
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs uppercase tracking-widest font-bold">Stock</Label>
                           <Input 
-                            value={productForm.category}
-                            onChange={(e) => setProductForm({...productForm, category: e.target.value})}
+                            type="number"
+                            value={productForm.stock}
+                            onChange={(e) => setProductForm({...productForm, stock: e.target.value})}
                             className="rounded-none"
-                            placeholder="Bedding, Furniture, Appliances"
+                            placeholder="0"
+                            data-testid="input-stock"
                           />
                         </div>
                       </div>
@@ -459,11 +557,58 @@ export default function AdminPanel() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs uppercase tracking-widest font-bold">Product Image</Label>
+                        <Label className="text-xs uppercase tracking-widest font-bold">Main Product Image</Label>
                         <ProductImageUploader
                           currentImage={productForm.image}
                           onImageUploaded={(path) => setProductForm({...productForm, image: path})}
                         />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label className="text-xs uppercase tracking-widest font-bold">Additional Images</Label>
+                          <Button 
+                            type="button"
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] rounded-none uppercase tracking-widest"
+                            onClick={() => setProductForm({
+                              ...productForm, 
+                              images: [...productForm.images, ""]
+                            })}
+                            data-testid="button-add-image"
+                          >
+                            <Plus size={12} className="mr-1" /> Add Image
+                          </Button>
+                        </div>
+                        {productForm.images.map((img, index) => (
+                          <div key={index} className="flex gap-2 items-start">
+                            <div className="flex-1">
+                              <ProductImageUploader
+                                currentImage={img}
+                                onImageUploaded={(path) => {
+                                  const newImages = [...productForm.images];
+                                  newImages[index] = path;
+                                  setProductForm({...productForm, images: newImages});
+                                }}
+                              />
+                            </div>
+                            <Button 
+                              type="button"
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-9 w-9 text-destructive mt-1"
+                              onClick={() => {
+                                const newImages = productForm.images.filter((_, i) => i !== index);
+                                setProductForm({...productForm, images: newImages});
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
+                        ))}
+                        {productForm.images.length === 0 && (
+                          <p className="text-xs text-muted-foreground">No additional images. Click "Add Image" to add more.</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs uppercase tracking-widest font-bold">Colors (comma separated)</Label>
@@ -550,23 +695,33 @@ export default function AdminPanel() {
                             <p className="text-xs text-muted-foreground uppercase tracking-wider">{product.category} — {formatCurrency(product.price)}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8"
-                            onClick={() => handleEditProduct(product)}
-                          >
-                            <Edit size={14} />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => deleteProduct(product.id)}
-                          >
-                            <Trash2 size={14} />
-                          </Button>
+                        <div className="flex items-center gap-4">
+                          <span className={cn(
+                            "text-xs font-medium px-2 py-1",
+                            ((product as any).stock || 0) > 0 
+                              ? "bg-green-100 text-green-700" 
+                              : "bg-red-100 text-red-700"
+                          )} data-testid={`stock-${product.id}`}>
+                            Stock: {(product as any).stock || 0}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => handleEditProduct(product)}
+                            >
+                              <Edit size={14} />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => deleteProduct(product.id)}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}

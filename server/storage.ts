@@ -2,6 +2,7 @@ import {
   admins, type Admin, type InsertAdmin,
   customers, type Customer, type InsertCustomer,
   customerAddresses, type CustomerAddress, type InsertCustomerAddress,
+  categories, type Category, type InsertCategory,
   products, type Product, type InsertProduct,
   coupons, type Coupon, type InsertCoupon,
   orders, type Order, type InsertOrder
@@ -28,12 +29,21 @@ export interface IStorage {
   createAdmin(admin: InsertAdmin): Promise<Admin>;
   getAllAdmins(): Promise<Admin[]>;
   
+  // Categories
+  getAllCategories(): Promise<Category[]>;
+  getCategory(id: string): Promise<Category | undefined>;
+  getCategoryByName(name: string): Promise<Category | undefined>;
+  createCategory(category: InsertCategory): Promise<Category>;
+  updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined>;
+  deleteCategory(id: string): Promise<boolean>;
+  
   // Products
   getAllProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: string): Promise<boolean>;
+  updateProductStock(id: string, stock: number): Promise<Product | undefined>;
   
   // Coupons
   getAllCoupons(): Promise<Coupon[]>;
@@ -115,6 +125,36 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(admins);
   }
 
+  // Categories
+  async getAllCategories(): Promise<Category[]> {
+    return await db.select().from(categories);
+  }
+
+  async getCategory(id: string): Promise<Category | undefined> {
+    const [category] = await db.select().from(categories).where(eq(categories.id, id));
+    return category || undefined;
+  }
+
+  async getCategoryByName(name: string): Promise<Category | undefined> {
+    const [category] = await db.select().from(categories).where(eq(categories.name, name));
+    return category || undefined;
+  }
+
+  async createCategory(category: InsertCategory): Promise<Category> {
+    const [newCategory] = await db.insert(categories).values(category).returning();
+    return newCategory;
+  }
+
+  async updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined> {
+    const [updated] = await db.update(categories).set(category).where(eq(categories.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteCategory(id: string): Promise<boolean> {
+    await db.delete(categories).where(eq(categories.id, id));
+    return true;
+  }
+
   // Products
   async getAllProducts(): Promise<Product[]> {
     return await db.select().from(products);
@@ -138,6 +178,11 @@ export class DatabaseStorage implements IStorage {
   async deleteProduct(id: string): Promise<boolean> {
     const result = await db.delete(products).where(eq(products.id, id));
     return true;
+  }
+
+  async updateProductStock(id: string, stock: number): Promise<Product | undefined> {
+    const [updated] = await db.update(products).set({ stock }).where(eq(products.id, id)).returning();
+    return updated || undefined;
   }
 
   // Coupons

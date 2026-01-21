@@ -45,6 +45,18 @@ export const insertAdminSchema = createInsertSchema(admins).omit({ id: true, cre
 export type InsertAdmin = z.infer<typeof insertAdminSchema>;
 export type Admin = typeof admins.$inferSelect;
 
+// Categories
+export const categories = pgTable("categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, createdAt: true });
+export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type Category = typeof categories.$inferSelect;
+
 // Products
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -53,8 +65,10 @@ export const products = pgTable("products", {
   price: real("price").notNull(),
   category: text("category").notNull(),
   image: text("image").notNull(),
+  images: jsonb("images").$type<string[]>().default([]),
   colors: jsonb("colors").$type<string[]>().default([]),
   variants: jsonb("variants").$type<{ size: string; price: number }[]>().default([]),
+  stock: integer("stock").default(0),
   rating: real("rating").default(5),
   reviews: integer("reviews").default(0),
   isNew: boolean("is_new").default(false),

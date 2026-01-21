@@ -9,6 +9,7 @@ export interface Product {
   price: number;
   category: string;
   image: string;
+  images?: string[] | null;
   description?: string | null;
   rating?: number | null;
   reviews?: number | null;
@@ -16,6 +17,7 @@ export interface Product {
   isBestSeller?: boolean | null;
   colors?: string[] | null;
   variants?: ProductVariant[] | null;
+  stock?: number | null;
 }
 
 export const formatCurrency = (amount: number) => {

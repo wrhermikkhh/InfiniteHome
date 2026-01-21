@@ -59,7 +59,33 @@ export interface CustomerAddress {
   isDefault: boolean;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 export const api = {
+  // Categories
+  async getCategories(): Promise<Category[]> {
+    const res = await fetch(`${API_BASE}/categories`);
+    return res.json();
+  },
+
+  async createCategory(category: { name: string; description?: string }): Promise<Category> {
+    const res = await fetch(`${API_BASE}/categories`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(category),
+    });
+    return res.json();
+  },
+
+  async deleteCategory(id: string): Promise<void> {
+    await fetch(`${API_BASE}/categories/${id}`, { method: "DELETE" });
+  },
+
+
   // Products
   async getProducts(): Promise<Product[]> {
     const res = await fetch(`${API_BASE}/products`);
@@ -91,6 +117,15 @@ export const api = {
 
   async deleteProduct(id: string): Promise<void> {
     await fetch(`${API_BASE}/products/${id}`, { method: "DELETE" });
+  },
+
+  async updateProductStock(id: string, stock: number): Promise<Product> {
+    const res = await fetch(`${API_BASE}/products/${id}/stock`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stock }),
+    });
+    return res.json();
   },
 
   // Coupons

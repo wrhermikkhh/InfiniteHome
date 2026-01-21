@@ -70,6 +70,12 @@ Preferred communication style: Simple, everyday language.
 
 ## API Endpoints
 
+### Categories
+- `GET /api/categories` - List all categories
+- `POST /api/categories` - Create category (admin)
+- `PATCH /api/categories/:id` - Update category (admin)
+- `DELETE /api/categories/:id` - Delete category (admin)
+
 ### Products
 - `GET /api/products` - List all products
 - `GET /api/products/search?q={query}` - Search products by name/description
@@ -77,6 +83,7 @@ Preferred communication style: Simple, everyday language.
 - `POST /api/products` - Create product (admin)
 - `PATCH /api/products/:id` - Update product (admin)
 - `DELETE /api/products/:id` - Delete product (admin)
+- `PATCH /api/products/:id/stock` - Update product stock (admin)
 
 ### Coupons
 - `GET /api/coupons` - List all coupons
@@ -167,6 +174,10 @@ Alphanumeric 6-character format: IH-XXXXXX (e.g., IH-A3K7M9)
 - Mobile-responsive admin panel with hamburger menu navigation
 
 ## Recent Changes
+- Added categories management system with CRUD operations and dropdown selection in admin
+- Added stock management for products with inventory tracking
+- Added support for multiple product images (primary + additional gallery)
+- Admin product form now uses category dropdown with ability to create new categories inline
 - Added product search feature with debounced search dialog in navbar
 - Added customer order history viewing in Account page
 - Implemented cart persistence linked to customer accounts (saves/loads per user)

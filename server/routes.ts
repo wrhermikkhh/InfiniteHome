@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema } from "@shared/schema";
+import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema } from "@shared/schema";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 export async function registerRoutes(
@@ -130,6 +130,44 @@ export async function registerRoutes(
     }
   });
 
+  // ============ CATEGORIES ============
+  app.get("/api/categories", async (req, res) => {
+    const categories = await storage.getAllCategories();
+    res.json(categories);
+  });
+
+  app.post("/api/categories", async (req, res) => {
+    try {
+      const data = insertCategorySchema.parse(req.body);
+      const existing = await storage.getCategoryByName(data.name);
+      if (existing) {
+        return res.status(400).json({ message: "Category already exists" });
+      }
+      const category = await storage.createCategory(data);
+      res.json(category);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/categories/:id", async (req, res) => {
+    try {
+      const category = await storage.updateCategory(req.params.id, req.body);
+      if (category) {
+        res.json(category);
+      } else {
+        res.status(404).json({ message: "Category not found" });
+      }
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/categories/:id", async (req, res) => {
+    await storage.deleteCategory(req.params.id);
+    res.json({ success: true });
+  });
+
   // ============ PRODUCTS ============
   app.get("/api/products", async (req, res) => {
     const products = await storage.getAllProducts();
@@ -180,6 +218,23 @@ export async function registerRoutes(
   app.delete("/api/products/:id", async (req, res) => {
     await storage.deleteProduct(req.params.id);
     res.json({ success: true });
+  });
+
+  app.patch("/api/products/:id/stock", async (req, res) => {
+    try {
+      const { stock } = req.body;
+      if (typeof stock !== "number" || stock < 0) {
+        return res.status(400).json({ message: "Invalid stock value" });
+      }
+      const product = await storage.updateProductStock(req.params.id, stock);
+      if (product) {
+        res.json(product);
+      } else {
+        res.status(404).json({ message: "Product not found" });
+      }
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
   });
 
   // ============ COUPONS ============
