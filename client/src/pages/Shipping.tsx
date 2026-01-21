@@ -16,8 +16,8 @@ export default function Shipping() {
         <div className="grid md:grid-cols-2 gap-6 mb-16">
           <div className="p-8 bg-primary/5 border border-primary/20">
             <Truck className="mb-4 text-primary" size={40} />
-            <h3 className="font-serif text-2xl mb-2">Free Delivery</h3>
-            <p className="text-muted-foreground">On all items, everywhere in Maldives</p>
+            <h3 className="font-serif text-2xl mb-2">Male' & Hulhumale'</h3>
+            <p className="text-muted-foreground">Free Standard Delivery within Male' and Hulhumale'</p>
           </div>
           <div className="p-8 bg-secondary/20 border border-border">
             <Zap className="mb-4 text-primary" size={40} />
@@ -33,13 +33,14 @@ export default function Shipping() {
               <div className="p-6 border border-border bg-secondary/5">
                 <h3 className="font-serif text-xl mb-3 flex items-center gap-2">
                   <Truck size={20} className="text-primary" />
-                  Standard Delivery (FREE)
+                  Standard Delivery
                 </h3>
                 <ul className="space-y-2 text-muted-foreground text-sm">
-                  <li>• Free delivery on all items throughout the Maldives</li>
-                  <li>• Male', Hulhumale', Villimale': 1-3 business days</li>
-                  <li>• Kaafu Atoll: 2-4 business days</li>
-                  <li>• Other Atolls: 3-7 business days</li>
+                  <li>• <strong>Male' & Hulhumale':</strong> FREE Standard Delivery</li>
+                  <li>• <strong>Boat/Vessel Delivery:</strong> We deliver to specified boats/vessels in Male' harbor (FREE)</li>
+                  <li>• <strong>Atolls:</strong> Delivery to other islands is arranged via boat/courier (Charges apply)</li>
+                  <li>• Male', Hulhumale', Villimale': 1-2 business days</li>
+                  <li>• Other Atolls: 3-7 business days via boat</li>
                 </ul>
               </div>
               <div className="p-6 border border-primary/30 bg-primary/5">
@@ -85,18 +86,13 @@ export default function Shipping() {
                     <td className="border border-border p-4 text-green-600 font-medium">Yes - Same/Next day</td>
                   </tr>
                   <tr>
-                    <td className="border border-border p-4">Villimale'</td>
-                    <td className="border border-border p-4">1-3 business days (FREE)</td>
-                    <td className="border border-border p-4 text-muted-foreground">Coming Soon</td>
-                  </tr>
-                  <tr className="bg-secondary/10">
-                    <td className="border border-border p-4">Kaafu Atoll</td>
-                    <td className="border border-border p-4">2-4 business days (FREE)</td>
+                    <td className="border border-border p-4">Boat / Vessel</td>
+                    <td className="border border-border p-4">Daily (FREE to Male' Harbor)</td>
                     <td className="border border-border p-4 text-muted-foreground">Not Available</td>
                   </tr>
-                  <tr>
+                  <tr className="bg-secondary/10">
                     <td className="border border-border p-4">Other Atolls</td>
-                    <td className="border border-border p-4">3-7 business days (FREE)</td>
+                    <td className="border border-border p-4">3-7 business days (Charges apply)</td>
                     <td className="border border-border p-4 text-muted-foreground">Not Available</td>
                   </tr>
                 </tbody>
@@ -124,9 +120,10 @@ export default function Shipping() {
             <h2 className="text-2xl font-serif mb-4">Important Notes</h2>
             <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
               <li>Delivery times are estimates and may vary due to weather conditions or logistics</li>
-              <li>Please ensure someone is available to receive the package at the delivery address</li>
+              <li>Free delivery is currently limited to <strong>Male'</strong>, <strong>Hulhumale'</strong>, and <strong>Boats/Vessels</strong> at Male' harbor</li>
+              <li>For Atoll deliveries via boat, the customer is responsible for boat hire/delivery charges unless otherwise specified</li>
+              <li>Please ensure someone is available to receive the package at the delivery address or boat</li>
               <li>For large furniture items, we'll contact you to arrange a suitable delivery time</li>
-              <li>Delivery to resorts may require additional coordination</li>
               <li>Express delivery charges vary by product and are shown at checkout</li>
             </ul>
           </section>

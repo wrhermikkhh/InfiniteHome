@@ -172,7 +172,7 @@ export default function Checkout() {
                   />
                 </div>
                 <Input 
-                  placeholder="City (e.g. Male', Hulhumale')" 
+                  placeholder="City / Island / Boat Name" 
                   className="rounded-none h-12"
                   value={formData.city}
                   onChange={(e) => setFormData({...formData, city: e.target.value})}
@@ -201,11 +201,11 @@ export default function Checkout() {
                       <Truck size={18} />
                       <div>
                         <span className="font-medium">Standard Delivery</span>
-                        <p className="text-xs text-muted-foreground">1-7 business days depending on location</p>
+                        <p className="text-xs text-muted-foreground">FREE for Male', Hulhumale' & Boats. Other islands: charges apply.</p>
                       </div>
                     </div>
                   </div>
-                  <span className="text-sm font-bold text-green-600">FREE</span>
+                  <span className="text-sm font-bold text-green-600">FREE*</span>
                 </Label>
                 <Label
                   className={`flex items-center justify-between p-4 border cursor-pointer transition-colors ${deliveryType === "express" ? "border-primary bg-secondary/10" : "border-border"} ${!isExpressEligible ? 'opacity-50' : ''}`}
