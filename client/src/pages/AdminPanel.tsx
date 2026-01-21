@@ -818,7 +818,7 @@ export default function AdminPanel() {
                               </Button>
                             </DialogTrigger>
                             <DialogContent 
-                              className="max-w-2xl rounded-none [&>button]:hidden"
+                              className="max-w-2xl rounded-none [&>button]:hidden max-h-[90vh] overflow-y-auto"
                               onPointerDownOutside={(e) => {
                                 e.preventDefault();
                                 setSelectedOrder(null);
