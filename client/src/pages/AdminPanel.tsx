@@ -197,7 +197,7 @@ export default function AdminPanel() {
                   <p><strong>Status:</strong> ${selectedOrder.status.replace("_", " ").toUpperCase()}</p>
                 </div>
                 <div style="text-align: right;">
-                  <p><strong>Order Date:</strong> ${new Date(selectedOrder.createdAt).toLocaleDateString()}</p>
+                  <p><strong>Order Date:</strong> ${selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleDateString() : 'N/A'}</p>
                 </div>
               </div>
               <p style="margin-top: 20px; text-align: center; border-top: 1px dashed #eee; pt: 10px;">Thank you for shopping with INFINITE HOME!</p>
