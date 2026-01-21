@@ -83,7 +83,7 @@ export default function Checkout() {
   };
 
   const handlePlaceOrder = async () => {
-    if (!formData.customerName || !formData.shippingAddress || !formData.customerPhone) {
+    if (!formData.customerName || !formData.shippingAddress || !formData.customerPhone || !formData.customerEmail) {
       return;
     }
 
@@ -150,12 +150,13 @@ export default function Checkout() {
                 </div>
                 <div className="col-span-2">
                   <Input 
-                    placeholder="Email (optional)" 
+                    placeholder="Email" 
                     type="email"
                     className={`rounded-none h-12 ${isAuthenticated ? 'bg-muted' : ''}`}
                     value={formData.customerEmail}
                     onChange={(e) => setFormData({...formData, customerEmail: e.target.value})}
                     readOnly={isAuthenticated}
+                    required
                     data-testid="input-email"
                   />
                   {isAuthenticated && (
@@ -389,7 +390,7 @@ export default function Checkout() {
               <Button 
                 onClick={handlePlaceOrder}
                 className="w-full h-12 rounded-none mt-6 uppercase tracking-widest font-bold"
-                disabled={isSubmitting || !formData.customerName || !formData.shippingAddress || !formData.customerPhone || (paymentMethod === "bank" && !paymentSlipPath)}
+                disabled={isSubmitting || !formData.customerName || !formData.shippingAddress || !formData.customerPhone || !formData.customerEmail || (paymentMethod === "bank" && !paymentSlipPath)}
                 data-testid="button-place-order"
               >
                 {isSubmitting ? "Processing..." : (paymentMethod === "bank" && !paymentSlipPath ? "Upload Slip to Proceed" : "Place Order")}
