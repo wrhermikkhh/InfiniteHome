@@ -87,7 +87,8 @@ export default function AdminPanel() {
     images: [] as string[],
     colors: "",
     variants: [{ size: "", price: "" }],
-    stock: ""
+    stock: "",
+    expressCharge: ""
   });
 
   const orderStatuses = [
@@ -167,7 +168,8 @@ export default function AdminPanel() {
         size: v.size.trim(),
         price: Number(v.price)
       })),
-      stock: productForm.stock ? Number(productForm.stock) : 0
+      stock: productForm.stock ? Number(productForm.stock) : 0,
+      expressCharge: productForm.expressCharge ? Number(productForm.expressCharge) : 0
     };
 
     try {
@@ -195,7 +197,8 @@ export default function AdminPanel() {
       images: [],
       colors: "", 
       variants: [{ size: "", price: "" }],
-      stock: ""
+      stock: "",
+      expressCharge: ""
     });
     setShowNewCategoryInput(false);
     setNewCategoryName("");
@@ -214,7 +217,8 @@ export default function AdminPanel() {
       variants: product.variants && product.variants.length > 0 
         ? product.variants.map(v => ({ size: v.size, price: v.price.toString() }))
         : [{ size: "", price: product.price.toString() }],
-      stock: ((product as any).stock || 0).toString()
+      stock: ((product as any).stock || 0).toString(),
+      expressCharge: (product.expressCharge || 0).toString()
     });
     setShowNewCategoryInput(false);
     setNewCategoryName("");
@@ -546,6 +550,18 @@ export default function AdminPanel() {
                             placeholder="0"
                             data-testid="input-stock"
                           />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs uppercase tracking-widest font-bold">Express Charge (MVR)</Label>
+                          <Input 
+                            type="number"
+                            value={productForm.expressCharge}
+                            onChange={(e) => setProductForm({...productForm, expressCharge: e.target.value})}
+                            className="rounded-none"
+                            placeholder="0"
+                            data-testid="input-express-charge"
+                          />
+                          <p className="text-[10px] text-muted-foreground">Extra charge for express delivery (Male'/Hulhumale')</p>
                         </div>
                       </div>
                       <div className="space-y-2">

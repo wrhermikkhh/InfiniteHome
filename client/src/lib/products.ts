@@ -18,6 +18,7 @@ export interface Product {
   colors?: string[] | null;
   variants?: ProductVariant[] | null;
   stock?: number | null;
+  expressCharge?: number | null;
 }
 
 export const formatCurrency = (amount: number) => {

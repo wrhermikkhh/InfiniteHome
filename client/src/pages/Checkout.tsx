@@ -9,13 +9,14 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { CreditCard, Truck, ShieldCheck, Wallet, Upload, CheckCircle } from "lucide-react";
+import { CreditCard, Truck, Zap, Wallet, Upload, CheckCircle } from "lucide-react";
 import { useUpload } from "@/hooks/use-upload";
 
 export default function Checkout() {
   const { items, clearCart } = useCart();
   const [, setLocation] = useLocation();
   const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [deliveryType, setDeliveryType] = useState("standard");
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState("");
@@ -39,8 +40,18 @@ export default function Checkout() {
   const discount = appliedCoupon 
     ? (appliedCoupon.type === "percentage" ? (subtotal * appliedCoupon.discount) / 100 : appliedCoupon.discount) 
     : 0;
-  const shipping = subtotal > 1500 ? 0 : 150;
-  const total = Math.max(0, subtotal - discount + shipping);
+  
+  const expressEligibleCities = ["male", "male'", "hulhumale", "hulhumale'", "hulhulmale"];
+  const isExpressEligible = expressEligibleCities.some(city => 
+    formData.city.toLowerCase().trim().includes(city)
+  );
+  
+  const expressCharge = deliveryType === "express" && isExpressEligible
+    ? items.reduce((sum, item) => sum + (item.expressCharge || 0) * (item.quantity || 0), 0)
+    : 0;
+  
+  const shipping = 0;
+  const total = Math.max(0, subtotal - discount + shipping + expressCharge);
 
   const handleApplyCoupon = async () => {
     try {
@@ -79,7 +90,7 @@ export default function Checkout() {
         })),
         subtotal,
         discount,
-        shipping,
+        shipping: expressCharge,
         total,
         paymentMethod: paymentMethod as "cod" | "bank",
         paymentSlip: paymentSlipPath || undefined,
@@ -140,7 +151,7 @@ export default function Checkout() {
                   />
                 </div>
                 <Input 
-                  placeholder="City" 
+                  placeholder="City (e.g. Male', Hulhumale')" 
                   className="rounded-none h-12"
                   value={formData.city}
                   onChange={(e) => setFormData({...formData, city: e.target.value})}
@@ -154,6 +165,57 @@ export default function Checkout() {
                   data-testid="input-phone"
                 />
               </div>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-serif mb-6">Delivery Type</h2>
+              <RadioGroup value={deliveryType} onValueChange={setDeliveryType} className="grid gap-4">
+                <Label
+                  className={`flex items-center justify-between p-4 border cursor-pointer transition-colors ${deliveryType === "standard" ? "border-primary bg-secondary/10" : "border-border"}`}
+                  data-testid="delivery-standard"
+                >
+                  <div className="flex items-center gap-3">
+                    <RadioGroupItem value="standard" />
+                    <div className="flex items-center gap-2">
+                      <Truck size={18} />
+                      <div>
+                        <span className="font-medium">Standard Delivery</span>
+                        <p className="text-xs text-muted-foreground">1-7 business days depending on location</p>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-green-600">FREE</span>
+                </Label>
+                <Label
+                  className={`flex items-center justify-between p-4 border cursor-pointer transition-colors ${deliveryType === "express" ? "border-primary bg-secondary/10" : "border-border"} ${!isExpressEligible ? 'opacity-50' : ''}`}
+                  data-testid="delivery-express"
+                >
+                  <div className="flex items-center gap-3">
+                    <RadioGroupItem value="express" disabled={!isExpressEligible} />
+                    <div className="flex items-center gap-2">
+                      <Zap size={18} />
+                      <div>
+                        <span className="font-medium">Express Delivery</span>
+                        <p className="text-xs text-muted-foreground">
+                          {isExpressEligible 
+                            ? "Same-day or next-day delivery" 
+                            : "Only available in Male' & Hulhumale'"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {isExpressEligible && (
+                    <span className="text-sm font-bold">
+                      +{formatCurrency(items.reduce((sum, item) => sum + (item.expressCharge || 0) * (item.quantity || 0), 0))}
+                    </span>
+                  )}
+                </Label>
+              </RadioGroup>
+              {!isExpressEligible && formData.city && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Express delivery is currently only available in Male' and Hulhumale'. Enter one of these cities to enable express delivery.
+                </p>
+              )}
             </section>
 
             <section>
@@ -289,9 +351,15 @@ export default function Checkout() {
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span>{shipping === 0 ? "FREE" : formatCurrency(shipping)}</span>
+                  <span className="text-muted-foreground">Standard Shipping</span>
+                  <span className="text-green-600">FREE</span>
                 </div>
+                {deliveryType === "express" && expressCharge > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Express Delivery</span>
+                    <span>+{formatCurrency(expressCharge)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-lg font-bold pt-2">
                   <span>Total</span>
                   <span data-testid="text-total">{formatCurrency(total)}</span>

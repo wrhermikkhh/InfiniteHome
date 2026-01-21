@@ -146,8 +146,19 @@ Professional shipping statuses matching major carriers:
 ## Content Pages
 - `/terms` - Terms of Service
 - `/privacy` - Privacy Policy
-- **Shipping**: Free delivery on all items. Express delivery (MVR 15-100) available for Male' and Hulhumale'.
-- **Returns**: 30-day free returns and exchanges policy.
+- `/terms` - Terms of Service
+- `/privacy` - Privacy Policy
+- `/returns` - Returns & Exchanges (30-day return policy)
+- `/shipping` - Shipping Information
+- `/contact` - Contact Us with form
+
+## Shipping Policy
+- **Standard Delivery**: Free on all items throughout Maldives
+- **Express Delivery**: Available in Male' and Hulhumale' only
+  - Express charge per product (MVR 15-100) set in admin panel
+  - Shown at checkout when customer selects express delivery
+  - Same-day or next-day delivery
+- **Returns**: 30-day free returns and exchanges policy
 
 ## Contact Information
 - **Email**: support@infinitehome.mv
