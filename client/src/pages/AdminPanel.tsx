@@ -825,8 +825,9 @@ export default function AdminPanel() {
                                 </DialogDescription>
                               </DialogHeader>
                               {selectedOrder && (
-                                <div className="grid md:grid-cols-2 gap-8 py-4">
-                                  <div className="space-y-4">
+                                <div className="space-y-6">
+                                  <div className="grid md:grid-cols-2 gap-8 py-4">
+                                    <div className="space-y-4">
                                     <div>
                                       <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Customer</p>
                                       <p className="font-medium">{selectedOrder.customerName}</p>
@@ -900,8 +901,16 @@ export default function AdminPanel() {
                                     </div>
                                   </div>
                                 </div>
-                              )}
-                            </DialogContent>
+                                <div className="flex justify-end pt-4 border-t border-border mt-4">
+                                  <DialogTrigger asChild>
+                                    <Button variant="outline" className="rounded-none uppercase tracking-widest text-xs font-bold px-8">
+                                      Close
+                                    </Button>
+                                  </DialogTrigger>
+                                </div>
+                              </div>
+                            )}
+                          </DialogContent>
                           </Dialog>
                         </div>
                       </div>
