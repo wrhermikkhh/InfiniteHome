@@ -36,11 +36,10 @@ export default function Shipping() {
                   Standard Delivery
                 </h3>
                 <ul className="space-y-2 text-muted-foreground text-sm">
-                  <li>• <strong>Male' & Hulhumale':</strong> FREE Standard Delivery</li>
+                  <li>• <strong>Male' & Hulhumale:</strong> FREE Standard Delivery (1-3 business days)</li>
                   <li>• <strong>Boat/Vessel Delivery:</strong> We deliver to specified boats/vessels in Male' harbor (FREE)</li>
                   <li>• <strong>Atolls:</strong> Delivery to other islands is arranged via boat/courier (Charges apply)</li>
-                  <li>• Male', Hulhumale', Villimale': 1-2 business days</li>
-                  <li>• Other Atolls: 3-7 business days via boat</li>
+                  <li>• <strong>Timeline:</strong> 1-3 business days for Male' area; 3-7 business days for other islands via boat</li>
                 </ul>
               </div>
               <div className="p-6 border border-primary/30 bg-primary/5">
@@ -50,10 +49,10 @@ export default function Shipping() {
                 </h3>
                 <ul className="space-y-2 text-muted-foreground text-sm">
                   <li>• Currently available in <strong>Male'</strong> and <strong>Hulhumale'</strong> only</li>
-                  <li>• Same-day or next-day delivery for orders placed before 12 PM</li>
+                  <li>• Delivery within <strong>1-6 hours</strong> for orders placed before 10 PM</li>
+                  <li>• Orders after 10 PM: Delivered next day morning (within 6 hours from 9 AM)</li>
                   <li>• Express charge: <strong>MVR 15-100</strong> depending on the item</li>
                   <li>• Express delivery option available at checkout</li>
-                  <li>• Each product has its own express delivery charge</li>
                 </ul>
               </div>
             </div>
@@ -77,13 +76,13 @@ export default function Shipping() {
                 <tbody className="text-muted-foreground">
                   <tr>
                     <td className="border border-border p-4">Male'</td>
-                    <td className="border border-border p-4">1-2 business days (FREE)</td>
-                    <td className="border border-border p-4 text-green-600 font-medium">Yes - Same/Next day</td>
+                    <td className="border border-border p-4">1-3 business days (FREE)</td>
+                    <td className="border border-border p-4 text-green-600 font-medium">Yes - 1-6 hours</td>
                   </tr>
                   <tr className="bg-secondary/10">
                     <td className="border border-border p-4">Hulhumale'</td>
-                    <td className="border border-border p-4">1-2 business days (FREE)</td>
-                    <td className="border border-border p-4 text-green-600 font-medium">Yes - Same/Next day</td>
+                    <td className="border border-border p-4">1-3 business days (FREE)</td>
+                    <td className="border border-border p-4 text-green-600 font-medium">Yes - 1-6 hours</td>
                   </tr>
                   <tr>
                     <td className="border border-border p-4">Boat / Vessel</td>

@@ -16,8 +16,8 @@ export default function Returns() {
         <div className="grid md:grid-cols-4 gap-6 mb-16">
           <div className="text-center p-6 bg-secondary/20 border border-border">
             <Clock className="mx-auto mb-4 text-primary" size={32} />
-            <h3 className="font-serif text-lg mb-2">30-Day Returns</h3>
-            <p className="text-sm text-muted-foreground">Return within 30 days of delivery</p>
+            <h3 className="font-serif text-lg mb-2">7-Day Returns</h3>
+            <p className="text-sm text-muted-foreground">Return within 7 business days of delivery</p>
           </div>
           <div className="text-center p-6 bg-secondary/20 border border-border">
             <Package className="mx-auto mb-4 text-primary" size={32} />
@@ -40,7 +40,7 @@ export default function Returns() {
           <section>
             <h2 className="text-2xl font-serif mb-4">Return Policy</h2>
             <p className="text-muted-foreground leading-relaxed">
-              We accept returns within 30 days of delivery for most items. Products must be unused, unwashed, 
+              We accept returns within 7 business days of delivery for most items. Products must be unused, unwashed, 
               and in their original packaging with all tags attached. Returns are subject to inspection upon receipt.
             </p>
           </section>
@@ -70,7 +70,7 @@ export default function Returns() {
             <h2 className="text-2xl font-serif mb-4">Exchanges</h2>
             <p className="text-muted-foreground leading-relaxed">
               Want a different size or color? We're happy to exchange your item at no additional cost. 
-              Contact us within 30 days of delivery to initiate an exchange. If the new item is a different price, 
+              Contact us within 7 business days of delivery to initiate an exchange. If the new item is a different price, 
               we'll adjust accordingly.
             </p>
           </section>

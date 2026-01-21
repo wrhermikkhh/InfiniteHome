@@ -219,7 +219,7 @@ export default function Checkout() {
                         <span className="font-medium">Express Delivery</span>
                         <p className="text-xs text-muted-foreground">
                           {isExpressEligible 
-                            ? "Same-day or next-day delivery" 
+                            ? "Delivery within 1-6 hours (Orders after 10 PM delivered next morning)" 
                             : "Only available in Male' & Hulhumale'"}
                         </p>
                       </div>
