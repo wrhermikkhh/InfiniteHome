@@ -14,7 +14,7 @@ export default function Shop() {
   const { products, loading } = useProducts();
 
   const filteredProducts = category && category !== "Shop All" && category !== "Sale"
-    ? products.filter(p => p.category === category)
+    ? products.filter(p => p.category.toLowerCase() === category.toLowerCase())
     : products;
 
   const categories = ["Shop All", "Bedding", "Furniture", "Appliances"];

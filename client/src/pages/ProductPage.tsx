@@ -56,14 +56,20 @@ export default function ProductPage() {
             <div className="aspect-[4/5] bg-secondary/20 overflow-hidden w-full">
                <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-               <div className="aspect-square bg-secondary/20 overflow-hidden">
-                 <img src={product.image} alt="Detail 1" className="w-full h-full object-cover" />
-               </div>
-               <div className="aspect-square bg-secondary/20 overflow-hidden">
-                 <img src={product.image} alt="Detail 2" className="w-full h-full object-cover scale-150" />
-               </div>
-            </div>
+            
+            {/* Gallery Images */}
+            {product.images && product.images.length > 0 && (
+              <div className="grid grid-cols-4 gap-4">
+                <div className="aspect-square bg-secondary/20 overflow-hidden border-2 border-primary cursor-pointer">
+                  <img src={product.image} alt={`${product.name} main`} className="w-full h-full object-cover" />
+                </div>
+                {product.images.map((img, idx) => (
+                  <div key={idx} className="aspect-square bg-secondary/20 overflow-hidden border border-transparent hover:border-primary/50 cursor-pointer transition-colors">
+                    <img src={img} alt={`${product.name} ${idx + 1}`} className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Details */}
