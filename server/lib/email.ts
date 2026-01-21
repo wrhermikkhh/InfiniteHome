@@ -114,13 +114,14 @@ export async function sendOrderConfirmationEmail(order: any) {
       </div>
     `;
 
-    // Use Resend's verified sender domain
-    const fromEmailToUse = fromEmail || 'INFINITE HOME <noreply@infinitehome.mv>';
+    // Use the fromEmail provided by the integration if available, otherwise use our verified domain
+    // Resend requires the 'from' address to match a verified domain
+    const fromEmailToUse = fromEmail || 'noreply@infinitehome.mv';
     console.log('Sending from:', fromEmailToUse);
     console.log('Sending to:', order.customerEmail);
     
     const emailResult = await resend.emails.send({
-      from: fromEmailToUse,
+      from: `INFINITE HOME <${fromEmailToUse}>`,
       to: order.customerEmail,
       subject: `Order Confirmation - ${order.orderNumber}`,
       html: html,
