@@ -38,6 +38,7 @@ export async function sendOrderConfirmationEmail(order: any) {
   try {
     const { apiKey, fromEmail } = await getCredentials();
     console.log('Using Resend fromEmail:', fromEmail);
+    console.log('Sending to customer email:', order.customerEmail);
     const resend = new Resend(apiKey);
 
     const itemsHtml = order.items.map((item: any) => `
@@ -113,8 +114,10 @@ export async function sendOrderConfirmationEmail(order: any) {
       </div>
     `;
 
+    const fromEmailToUse = fromEmail || 'noreply@infinitehome.mv';
+    console.log('Sending from:', fromEmailToUse);
     const emailResult = await resend.emails.send({
-      from: fromEmail || 'noreply@infinitehome.mv',
+      from: fromEmailToUse,
       to: order.customerEmail,
       subject: `Order Confirmation - ${order.orderNumber}`,
       html: html,

@@ -304,9 +304,15 @@ export async function registerRoutes(
       const orderNumber = randomId;
       const data = insertOrderSchema.parse({ ...req.body, orderNumber });
       const order = await storage.createOrder(data);
+      console.log("Order created:", order.id, "Order Number:", order.orderNumber);
+      
+      // Test log to verify order object
+      console.log("Full order object for email:", JSON.stringify(order, null, 2));
       
       // Send confirmation email asynchronously
-      sendOrderConfirmationEmail(order).catch(err => console.error("Email delivery failed:", err));
+      sendOrderConfirmationEmail(order).catch(err => {
+        console.error("Email delivery failed for order", order.orderNumber, ":", err);
+      });
       
       res.json(order);
     } catch (error: any) {
