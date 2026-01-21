@@ -8,8 +8,8 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import heroImage from "@assets/generated_images/luxury_bright_bedroom_with_white_bamboo_sheets.png";
 import beddingImage from "@assets/generated_images/stack_of_folded_premium_white_bedding.png";
-import furnitureImage from "@assets/generated_images/plush_white_towels_in_spa_bathroom.png";
-import appliancesImage from "@assets/generated_images/woman_in_beige_loungewear_reading.png";
+import furnitureImage from "@assets/generated_images/minimalist_luxury_furniture_in_bright_room.png";
+import appliancesImage from "@assets/generated_images/elegant_high-end_kitchen_appliances_in_modern_home.png";
 
 export default function Home() {
   const { products, loading } = useProducts();
@@ -87,11 +87,9 @@ export default function Home() {
             
             <Link href="/shop?category=Furniture">
               <div className="group cursor-pointer space-y-4">
-                <div className="aspect-[4/5] overflow-hidden relative bg-secondary/30 flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <div className="text-6xl mb-4">🛋️</div>
-                    <p className="text-muted-foreground text-sm">Premium Furniture</p>
-                  </div>
+                <div className="aspect-[4/5] overflow-hidden relative">
+                  <img src={furnitureImage} alt="Furniture" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
                 </div>
                 <div className="text-center">
                   <h3 className="font-serif text-2xl mb-1 group-hover:text-primary/80 transition-colors">Furniture</h3>
@@ -102,11 +100,9 @@ export default function Home() {
             
             <Link href="/shop?category=Appliances">
               <div className="group cursor-pointer space-y-4">
-                <div className="aspect-[4/5] overflow-hidden relative bg-secondary/30 flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <div className="text-6xl mb-4">🏠</div>
-                    <p className="text-muted-foreground text-sm">Home Appliances</p>
-                  </div>
+                <div className="aspect-[4/5] overflow-hidden relative">
+                  <img src={appliancesImage} alt="Appliances" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
                 </div>
                 <div className="text-center">
                   <h3 className="font-serif text-2xl mb-1 group-hover:text-primary/80 transition-colors">Appliances</h3>
