@@ -37,6 +37,7 @@ async function getCredentials() {
 export async function sendOrderConfirmationEmail(order: any) {
   try {
     const { apiKey, fromEmail } = await getCredentials();
+    console.log('Using Resend fromEmail:', fromEmail);
     const resend = new Resend(apiKey);
 
     const itemsHtml = order.items.map((item: any) => `
@@ -112,13 +113,14 @@ export async function sendOrderConfirmationEmail(order: any) {
       </div>
     `;
 
-    await resend.emails.send({
+    const emailResult = await resend.emails.send({
       from: fromEmail || 'noreply@infinitehome.mv',
       to: order.customerEmail,
       subject: `Order Confirmation - ${order.orderNumber}`,
       html: html,
     });
     
+    console.log('Resend send result:', emailResult);
     console.log(`Order confirmation email sent to ${order.customerEmail} for order ${order.orderNumber}`);
   } catch (error) {
     console.error('Error sending order confirmation email:', error);
