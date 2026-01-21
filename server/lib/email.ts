@@ -18,83 +18,133 @@ export async function sendOrderConfirmationEmail(order: any) {
     console.log('Sending to customer email:', order.customerEmail);
     const resend = new Resend(apiKey);
 
+    const baseUrl = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'https://infinitehome.mv';
+    const trackingUrl = `${baseUrl}/track?order=${order.orderNumber}`;
+
     const itemsHtml = order.items.map((item: any) => `
       <tr>
-        <td style="padding: 10px; border-bottom: 1px solid #eee;">
-          ${item.name} ${item.color ? `(${item.color})` : ''} ${item.size ? `- ${item.size}` : ''}
+        <td style="padding: 12px 10px; border-bottom: 1px solid #eee;">
+          <div style="font-weight: bold; color: #1a1a1a;">${item.name}</div>
+          <div style="font-size: 12px; color: #666; margin-top: 4px;">
+            ${item.color ? `<span style="margin-right: 10px;">Color: ${item.color}</span>` : ''}
+            ${item.size ? `<span>Size: ${item.size}</span>` : ''}
+          </div>
         </td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">
+        <td style="padding: 12px 10px; border-bottom: 1px solid #eee; text-align: center; vertical-align: top;">
           ${item.qty}
         </td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">
+        <td style="padding: 12px 10px; border-bottom: 1px solid #eee; text-align: right; vertical-align: top; font-weight: bold;">
           MVR ${item.price.toLocaleString()}
         </td>
       </tr>
     `).join('');
 
     const html = `
-      <div style="font-family: serif; max-width: 600px; margin: 0 auto; color: #333;">
-        <h1 style="color: #1a1a1a; border-bottom: 2px solid #f5f1ea; padding-bottom: 20px;">Order Confirmation</h1>
-        <p>Dear ${order.customerName},</p>
-        <p>Thank you for your order with <strong>INFINITE HOME</strong>. We're excited to let you know that we've received your order.</p>
-        
-        <div style="background-color: #fcfaf7; padding: 20px; border: 1px solid #f5f1ea; margin: 20px 0;">
-          <h2 style="margin-top: 0; font-size: 18px;">Order Details</h2>
-          <p><strong>Order Number:</strong> ${order.orderNumber}</p>
-          <p><strong>Tracking Number:</strong> ${order.orderNumber} (Use this on our website to track your order)</p>
-          <p><strong>Order Status:</strong> ${order.status.replace('_', ' ')}</p>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@400;500&display=swap');
+        </style>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #fcfaf7; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #f0e6d2;">
+          <!-- Header -->
+          <div style="padding: 40px 20px; text-align: center; background-color: #1a1a1a; color: #ffffff;">
+            <h1 style="font-family: 'Playfair Display', serif; margin: 0; font-size: 28px; letter-spacing: 2px;">INFINITE HOME</h1>
+            <p style="margin: 10px 0 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.8;">Luxury E-commerce</p>
+          </div>
+
+          <!-- Body -->
+          <div style="padding: 40px 30px;">
+            <h2 style="font-family: 'Playfair Display', serif; color: #1a1a1a; font-size: 24px; margin-bottom: 20px;">Order Confirmation</h2>
+            <p style="font-size: 15px; line-height: 1.6; color: #4a4a4a;">Dear ${order.customerName},</p>
+            <p style="font-size: 15px; line-height: 1.6; color: #4a4a4a;">Thank you for choosing <strong>INFINITE HOME</strong>. We've received your order and are currently preparing it for processing.</p>
+            
+            <!-- Order Summary Box -->
+            <div style="margin: 30px 0; padding: 25px; background-color: #fcfaf7; border: 1px solid #f0e6d2; border-radius: 4px;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding-bottom: 10px; font-size: 14px; color: #666;">Order Number:</td>
+                  <td style="padding-bottom: 10px; font-size: 14px; color: #1a1a1a; font-weight: 600; text-align: right;">${order.orderNumber}</td>
+                </tr>
+                <tr>
+                  <td style="padding-bottom: 10px; font-size: 14px; color: #666;">Order Status:</td>
+                  <td style="padding-bottom: 10px; font-size: 14px; color: #1a1a1a; font-weight: 600; text-align: right; text-transform: capitalize;">${order.status.replace('_', ' ')}</td>
+                </tr>
+                <tr>
+                  <td style="padding-top: 15px; border-top: 1px solid #f0e6d2; font-size: 14px; color: #666;">Tracking Number:</td>
+                  <td style="padding-top: 15px; border-top: 1px solid #f0e6d2; font-size: 14px; text-align: right;">
+                    <a href="${trackingUrl}" style="color: #1a1a1a; font-weight: 700; text-decoration: underline;">${order.orderNumber}</a>
+                  </td>
+                </tr>
+              </table>
+              <div style="margin-top: 20px; text-align: center;">
+                <a href="${trackingUrl}" style="display: inline-block; padding: 12px 24px; background-color: #1a1a1a; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">Track Your Order</a>
+              </div>
+            </div>
+
+            <!-- Items Table -->
+            <table style="width: 100%; border-collapse: collapse; margin: 30px 0;">
+              <thead>
+                <tr style="border-bottom: 2px solid #1a1a1a;">
+                  <th style="padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Item</th>
+                  <th style="padding: 10px; text-align: center; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Qty</th>
+                  <th style="padding: 10px; text-align: right; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsHtml}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="2" style="padding: 15px 10px 5px; text-align: right; font-size: 14px; color: #666;">Subtotal</td>
+                  <td style="padding: 15px 10px 5px; text-align: right; font-size: 14px; color: #1a1a1a;">MVR ${order.subtotal.toLocaleString()}</td>
+                </tr>
+                ${order.discount > 0 ? `
+                <tr>
+                  <td colspan="2" style="padding: 5px 10px; text-align: right; font-size: 14px; color: #15803d;">Discount</td>
+                  <td style="padding: 5px 10px; text-align: right; font-size: 14px; color: #15803d;">-MVR ${order.discount.toLocaleString()}</td>
+                </tr>` : ''}
+                <tr>
+                  <td colspan="2" style="padding: 5px 10px; text-align: right; font-size: 14px; color: #666;">Shipping</td>
+                  <td style="padding: 5px 10px; text-align: right; font-size: 14px; color: #1a1a1a;">${order.shipping > 0 ? `MVR ${order.shipping.toLocaleString()}` : 'FREE'}</td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="padding: 15px 10px; text-align: right; font-size: 18px; font-weight: bold; color: #1a1a1a; border-top: 1px solid #1a1a1a;">Total</td>
+                  <td style="padding: 15px 10px; text-align: right; font-size: 18px; font-weight: bold; color: #1a1a1a; border-top: 1px solid #1a1a1a;">MVR ${order.total.toLocaleString()}</td>
+                </tr>
+              </tfoot>
+            </table>
+
+            <!-- Shipping Info -->
+            <div style="margin-top: 40px; padding: 20px; border-left: 4px solid #1a1a1a; background-color: #fcfaf7;">
+              <h3 style="font-family: 'Playfair Display', serif; font-size: 18px; margin: 0 0 10px;">Shipping Address</h3>
+              <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #4a4a4a; white-space: pre-wrap;">${order.shippingAddress}</p>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="padding: 40px 20px; background-color: #f8f8f8; text-align: center; border-top: 1px solid #eee;">
+            <p style="margin: 0 0 15px; font-size: 14px; color: #666;">Questions? Contact our luxury concierge team.</p>
+            <div style="margin-bottom: 20px;">
+              <a href="mailto:support@infinitehome.mv" style="color: #1a1a1a; font-weight: 600; text-decoration: none; margin: 0 10px;">support@infinitehome.mv</a>
+              <span style="color: #ccc;">|</span>
+              <span style="color: #1a1a1a; font-weight: 600; margin: 0 10px;">7840001</span>
+            </div>
+            <p style="margin: 0; font-size: 11px; color: #999; letter-spacing: 0.5px; text-transform: uppercase;">
+              &copy; 2026 INFINITE LOOP PVT LTD. All rights reserved.
+            </p>
+          </div>
         </div>
-
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-          <thead>
-            <tr style="background-color: #f5f1ea;">
-              <th style="padding: 10px; text-align: left;">Item</th>
-              <th style="padding: 10px; text-align: center;">Qty</th>
-              <th style="padding: 10px; text-align: right;">Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="2" style="padding: 10px; text-align: right; font-weight: bold;">Subtotal</td>
-              <td style="padding: 10px; text-align: right;">MVR ${order.subtotal.toLocaleString()}</td>
-            </tr>
-            ${order.discount > 0 ? `
-            <tr>
-              <td colspan="2" style="padding: 10px; text-align: right; color: #15803d;">Discount</td>
-              <td style="padding: 10px; text-align: right; color: #15803d;">-MVR ${order.discount.toLocaleString()}</td>
-            </tr>` : ''}
-            <tr>
-              <td colspan="2" style="padding: 10px; text-align: right;">Shipping</td>
-              <td style="padding: 10px; text-align: right;">${order.shipping > 0 ? `MVR ${order.shipping.toLocaleString()}` : 'FREE'}</td>
-            </tr>
-            <tr style="font-size: 18px; font-weight: bold;">
-              <td colspan="2" style="padding: 10px; text-align: right; border-top: 2px solid #1a1a1a;">Total</td>
-              <td style="padding: 10px; text-align: right; border-top: 2px solid #1a1a1a;">MVR ${order.total.toLocaleString()}</td>
-            </tr>
-          </tfoot>
-        </table>
-
-        <div style="margin: 30px 0;">
-          <h2 style="font-size: 18px;">Shipping Address</h2>
-          <p style="white-space: pre-wrap;">${order.shippingAddress}</p>
-        </div>
-
-        <p style="font-size: 14px; color: #666; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
-          If you have any questions, please contact us at <a href="mailto:support@infinitehome.mv" style="color: #333;">support@infinitehome.mv</a> or call us at 7840001.
-        </p>
-        <p style="font-size: 12px; color: #999; text-align: center;">
-          &copy; 2026 INFINITE LOOP PVT LTD. All rights reserved.
-        </p>
-      </div>
+      </body>
+      </html>
     `;
 
     // Use the fromEmail provided by the integration if available, otherwise use our verified domain
     // Resend requires the 'from' address to match a verified domain
-    // Using updates.infinitehome.mv as verified by the user
-    const fromEmailToUse = fromEmail || 'noreply@updates.infinitehome.mv';
+    const fromEmailToUse = fromEmail || 'noreply@infinitehome.mv';
     console.log('Sending from:', fromEmailToUse);
     console.log('Sending to:', order.customerEmail);
     
