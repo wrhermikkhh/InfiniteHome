@@ -150,7 +150,7 @@ export default function Checkout() {
                 </div>
                 <div className="col-span-2">
                   <Input 
-                    placeholder="Email" 
+                    placeholder="Email *" 
                     type="email"
                     className={`rounded-none h-12 ${isAuthenticated ? 'bg-muted' : ''}`}
                     value={formData.customerEmail}
@@ -159,8 +159,10 @@ export default function Checkout() {
                     required
                     data-testid="input-email"
                   />
-                  {isAuthenticated && (
+                  {isAuthenticated ? (
                     <p className="text-[10px] text-muted-foreground mt-1">Email linked to your account</p>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground mt-1">Required for order confirmation</p>
                   )}
                 </div>
                 <div className="col-span-2">
@@ -180,10 +182,11 @@ export default function Checkout() {
                   data-testid="input-city"
                 />
                 <Input 
-                  placeholder="Phone" 
+                  placeholder="Phone *" 
                   className="rounded-none h-12"
                   value={formData.customerPhone}
                   onChange={(e) => setFormData({...formData, customerPhone: e.target.value})}
+                  required
                   data-testid="input-phone"
                 />
               </div>

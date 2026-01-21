@@ -114,8 +114,11 @@ export async function sendOrderConfirmationEmail(order: any) {
       </div>
     `;
 
-    const fromEmailToUse = fromEmail || 'noreply@infinitehome.mv';
+    // Use Resend's verified sender domain or fallback to onboarding@resend.dev for testing
+    const fromEmailToUse = fromEmail || 'INFINITE HOME <onboarding@resend.dev>';
     console.log('Sending from:', fromEmailToUse);
+    console.log('Sending to:', order.customerEmail);
+    
     const emailResult = await resend.emails.send({
       from: fromEmailToUse,
       to: order.customerEmail,
@@ -123,8 +126,13 @@ export async function sendOrderConfirmationEmail(order: any) {
       html: html,
     });
     
-    console.log('Resend send result:', emailResult);
-    console.log(`Order confirmation email sent to ${order.customerEmail} for order ${order.orderNumber}`);
+    console.log('Resend send result:', JSON.stringify(emailResult, null, 2));
+    
+    if (emailResult.error) {
+      console.error('Resend error:', emailResult.error);
+    } else {
+      console.log(`Order confirmation email sent to ${order.customerEmail} for order ${order.orderNumber}`);
+    }
   } catch (error) {
     console.error('Error sending order confirmation email:', error);
   }
