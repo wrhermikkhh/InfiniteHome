@@ -7,14 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { CreditCard, Truck, Zap, Wallet, Upload, CheckCircle } from "lucide-react";
 import { useUpload } from "@/hooks/use-upload";
+import { useAuth } from "@/lib/auth";
 
 export default function Checkout() {
   const { items, clearCart } = useCart();
   const [, setLocation] = useLocation();
+  const { user, isAuthenticated } = useAuth();
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [deliveryType, setDeliveryType] = useState("standard");
   const [couponCode, setCouponCode] = useState("");
@@ -35,6 +37,17 @@ export default function Checkout() {
     customerPhone: "",
     customerEmail: ""
   });
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setFormData(prev => ({
+        ...prev,
+        customerName: prev.customerName || user.name || "",
+        customerEmail: user.email || "",
+        customerPhone: prev.customerPhone || user.phone || ""
+      }));
+    }
+  }, [isAuthenticated, user]);
 
   const subtotal = items.reduce((sum, item) => sum + item.price * (item.quantity || 0), 0);
   const discount = appliedCoupon 
@@ -76,9 +89,13 @@ export default function Checkout() {
 
     setIsSubmitting(true);
     try {
+      const customerEmail = isAuthenticated && user?.email 
+        ? user.email 
+        : (formData.customerEmail || `${formData.customerName.toLowerCase().replace(/\s+/g, '')}@customer.mv`);
+      
       const orderData = {
         customerName: formData.customerName,
-        customerEmail: formData.customerEmail || `${formData.customerName.toLowerCase().replace(/\s+/g, '')}@customer.mv`,
+        customerEmail,
         customerPhone: formData.customerPhone,
         shippingAddress: `${formData.shippingAddress}, ${formData.city}`,
         items: items.map(item => ({
@@ -135,11 +152,15 @@ export default function Checkout() {
                   <Input 
                     placeholder="Email (optional)" 
                     type="email"
-                    className="rounded-none h-12"
+                    className={`rounded-none h-12 ${isAuthenticated ? 'bg-muted' : ''}`}
                     value={formData.customerEmail}
                     onChange={(e) => setFormData({...formData, customerEmail: e.target.value})}
+                    readOnly={isAuthenticated}
                     data-testid="input-email"
                   />
+                  {isAuthenticated && (
+                    <p className="text-[10px] text-muted-foreground mt-1">Email linked to your account</p>
+                  )}
                 </div>
                 <div className="col-span-2">
                   <Input 
