@@ -93,10 +93,10 @@ export default function AdminPanel() {
   ];
 
   useEffect(() => {
-    if (user?.role === "admin") {
+    if (isAdminAuthenticated) {
       loadData();
     }
-  }, [user]);
+  }, [isAdminAuthenticated]);
 
   const loadData = async () => {
     try {
