@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema } from "@shared/schema";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { sendOrderConfirmationEmail } from "./lib/email";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -303,6 +304,10 @@ export async function registerRoutes(
       const orderNumber = randomId;
       const data = insertOrderSchema.parse({ ...req.body, orderNumber });
       const order = await storage.createOrder(data);
+      
+      // Send confirmation email asynchronously
+      sendOrderConfirmationEmail(order).catch(err => console.error("Email delivery failed:", err));
+      
       res.json(order);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
