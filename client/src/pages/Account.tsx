@@ -42,7 +42,8 @@ export default function Account() {
     if (!user?.email) return;
     setLoadingOrders(true);
     try {
-      const customerOrders = await api.getCustomerOrders(user.email);
+      const email = user.email.trim();
+      const customerOrders = await api.getCustomerOrders(email);
       setOrders(customerOrders.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
     } catch (error) {
       console.error("Failed to load orders:", error);

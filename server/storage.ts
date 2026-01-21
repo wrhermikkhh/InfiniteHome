@@ -231,7 +231,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrdersByEmail(email: string): Promise<Order[]> {
-    return await db.select().from(orders).where(eq(sql`LOWER(${orders.customerEmail})`, email.toLowerCase()));
+    const cleanEmail = email.trim().toLowerCase();
+    return await db.select().from(orders).where(
+      sql`LOWER(TRIM(${orders.customerEmail})) = ${cleanEmail}`
+    );
   }
 
   async searchProducts(query: string): Promise<Product[]> {
