@@ -1,12 +1,13 @@
 import { 
   admins, type Admin, type InsertAdmin,
   customers, type Customer, type InsertCustomer,
+  customerAddresses, type CustomerAddress, type InsertCustomerAddress,
   products, type Product, type InsertProduct,
   coupons, type Coupon, type InsertCoupon,
   orders, type Order, type InsertOrder
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, ilike, or } from "drizzle-orm";
 
 export interface IStorage {
   // Customers
@@ -14,6 +15,13 @@ export interface IStorage {
   getCustomer(id: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, data: Partial<InsertCustomer>): Promise<Customer | undefined>;
+  
+  // Customer Addresses
+  getCustomerAddresses(customerId: string): Promise<CustomerAddress[]>;
+  createCustomerAddress(address: InsertCustomerAddress): Promise<CustomerAddress>;
+  updateCustomerAddress(id: string, data: Partial<InsertCustomerAddress>): Promise<CustomerAddress | undefined>;
+  deleteCustomerAddress(id: string): Promise<boolean>;
+  setDefaultAddress(customerId: string, addressId: string): Promise<void>;
   
   // Admins
   getAdminByEmail(email: string): Promise<Admin | undefined>;
@@ -37,8 +45,12 @@ export interface IStorage {
   getAllOrders(): Promise<Order[]>;
   getOrder(id: string): Promise<Order | undefined>;
   getOrderByNumber(orderNumber: string): Promise<Order | undefined>;
+  getOrdersByEmail(email: string): Promise<Order[]>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
+  
+  // Product Search
+  searchProducts(query: string): Promise<Product[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -61,6 +73,31 @@ export class DatabaseStorage implements IStorage {
   async updateCustomer(id: string, data: Partial<InsertCustomer>): Promise<Customer | undefined> {
     const [updated] = await db.update(customers).set(data).where(eq(customers.id, id)).returning();
     return updated || undefined;
+  }
+
+  // Customer Addresses
+  async getCustomerAddresses(customerId: string): Promise<CustomerAddress[]> {
+    return await db.select().from(customerAddresses).where(eq(customerAddresses.customerId, customerId));
+  }
+
+  async createCustomerAddress(address: InsertCustomerAddress): Promise<CustomerAddress> {
+    const [newAddress] = await db.insert(customerAddresses).values(address).returning();
+    return newAddress;
+  }
+
+  async updateCustomerAddress(id: string, data: Partial<InsertCustomerAddress>): Promise<CustomerAddress | undefined> {
+    const [updated] = await db.update(customerAddresses).set(data).where(eq(customerAddresses.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteCustomerAddress(id: string): Promise<boolean> {
+    await db.delete(customerAddresses).where(eq(customerAddresses.id, id));
+    return true;
+  }
+
+  async setDefaultAddress(customerId: string, addressId: string): Promise<void> {
+    await db.update(customerAddresses).set({ isDefault: false }).where(eq(customerAddresses.customerId, customerId));
+    await db.update(customerAddresses).set({ isDefault: true }).where(eq(customerAddresses.id, addressId));
   }
 
   // Admins
@@ -146,6 +183,21 @@ export class DatabaseStorage implements IStorage {
   async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
     const [updated] = await db.update(orders).set({ status }).where(eq(orders.id, id)).returning();
     return updated || undefined;
+  }
+
+  async getOrdersByEmail(email: string): Promise<Order[]> {
+    return await db.select().from(orders).where(eq(orders.customerEmail, email));
+  }
+
+  async searchProducts(query: string): Promise<Product[]> {
+    const searchPattern = `%${query}%`;
+    return await db.select().from(products).where(
+      or(
+        ilike(products.name, searchPattern),
+        ilike(products.description, searchPattern),
+        ilike(products.category, searchPattern)
+      )
+    );
   }
 }
 

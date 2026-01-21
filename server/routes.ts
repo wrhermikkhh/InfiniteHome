@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema } from "@shared/schema";
+import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema } from "@shared/schema";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 export async function registerRoutes(
@@ -65,6 +65,45 @@ export async function registerRoutes(
     }
   });
 
+  // ============ CUSTOMER ADDRESSES ============
+  app.get("/api/customers/:customerId/addresses", async (req, res) => {
+    const addresses = await storage.getCustomerAddresses(req.params.customerId);
+    res.json(addresses);
+  });
+
+  app.post("/api/customers/:customerId/addresses", async (req, res) => {
+    try {
+      const data = insertCustomerAddressSchema.parse({ ...req.body, customerId: req.params.customerId });
+      const address = await storage.createCustomerAddress(data);
+      res.json(address);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/addresses/:id", async (req, res) => {
+    try {
+      const address = await storage.updateCustomerAddress(req.params.id, req.body);
+      if (address) {
+        res.json(address);
+      } else {
+        res.status(404).json({ message: "Address not found" });
+      }
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/addresses/:id", async (req, res) => {
+    await storage.deleteCustomerAddress(req.params.id);
+    res.json({ success: true });
+  });
+
+  app.post("/api/customers/:customerId/addresses/:addressId/default", async (req, res) => {
+    await storage.setDefaultAddress(req.params.customerId, req.params.addressId);
+    res.json({ success: true });
+  });
+
   // ============ ADMIN AUTH ============
   app.post("/api/admin/login", async (req, res) => {
     const { email, password } = req.body;
@@ -95,6 +134,15 @@ export async function registerRoutes(
   app.get("/api/products", async (req, res) => {
     const products = await storage.getAllProducts();
     res.json(products);
+  });
+
+  app.get("/api/products/search", async (req, res) => {
+    const query = req.query.q as string;
+    if (!query || query.trim().length === 0) {
+      return res.json([]);
+    }
+    const results = await storage.searchProducts(query.trim());
+    res.json(results);
   });
 
   app.get("/api/products/:id", async (req, res) => {
@@ -167,6 +215,11 @@ export async function registerRoutes(
   // ============ ORDERS ============
   app.get("/api/orders", async (req, res) => {
     const orders = await storage.getAllOrders();
+    res.json(orders);
+  });
+
+  app.get("/api/orders/customer/:email", async (req, res) => {
+    const orders = await storage.getOrdersByEmail(req.params.email);
     res.json(orders);
   });
 

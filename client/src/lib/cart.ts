@@ -14,6 +14,9 @@ interface CartStore {
   removeItem: (productId: string, color?: string, size?: string) => void;
   updateQuantity: (productId: string, quantity: number, color?: string, size?: string) => void;
   clearCart: () => void;
+  saveCartForUser: (userId: string) => void;
+  loadCartForUser: (userId: string) => void;
+  clearUserCart: () => void;
 }
 
 export const useCart = create<CartStore>()(
@@ -63,6 +66,41 @@ export const useCart = create<CartStore>()(
         });
       },
       clearCart: () => set({ items: [] }),
+      saveCartForUser: (userId: string) => {
+        const items = get().items;
+        if (items.length > 0) {
+          localStorage.setItem(`cart-${userId}`, JSON.stringify(items));
+        }
+      },
+      loadCartForUser: (userId: string) => {
+        const saved = localStorage.getItem(`cart-${userId}`);
+        if (saved) {
+          try {
+            const savedItems = JSON.parse(saved) as CartItem[];
+            const currentItems = get().items;
+            const mergedItems = [...currentItems];
+            
+            savedItems.forEach((savedItem) => {
+              const exists = mergedItems.find(
+                (item) => 
+                  item.id === savedItem.id && 
+                  item.selectedColor === savedItem.selectedColor && 
+                  item.selectedSize === savedItem.selectedSize
+              );
+              if (!exists) {
+                mergedItems.push(savedItem);
+              }
+            });
+            
+            set({ items: mergedItems });
+          } catch (e) {
+            console.error("Failed to load user cart:", e);
+          }
+        }
+      },
+      clearUserCart: () => {
+        set({ items: [] });
+      },
     }),
     { name: "cart-storage" }
   )

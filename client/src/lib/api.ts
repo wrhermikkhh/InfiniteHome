@@ -51,6 +51,14 @@ export interface Customer {
   address?: string;
 }
 
+export interface CustomerAddress {
+  id: string;
+  customerId: string;
+  label: string;
+  fullAddress: string;
+  isDefault: boolean;
+}
+
 export const api = {
   // Products
   async getProducts(): Promise<Product[]> {
@@ -122,6 +130,16 @@ export const api = {
 
   async trackOrder(orderNumber: string): Promise<Order> {
     const res = await fetch(`${API_BASE}/orders/track/${orderNumber}`);
+    return res.json();
+  },
+
+  async getCustomerOrders(email: string): Promise<Order[]> {
+    const res = await fetch(`${API_BASE}/orders/customer/${encodeURIComponent(email)}`);
+    return res.json();
+  },
+
+  async searchProducts(query: string): Promise<Product[]> {
+    const res = await fetch(`${API_BASE}/products/search?q=${encodeURIComponent(query)}`);
     return res.json();
   },
 
@@ -198,5 +216,37 @@ export const api = {
       body: JSON.stringify(data),
     });
     return res.json();
+  },
+
+  // Customer Addresses
+  async getCustomerAddresses(customerId: string): Promise<CustomerAddress[]> {
+    const res = await fetch(`${API_BASE}/customers/${customerId}/addresses`);
+    return res.json();
+  },
+
+  async createCustomerAddress(customerId: string, data: { label: string; fullAddress: string; isDefault?: boolean }): Promise<CustomerAddress> {
+    const res = await fetch(`${API_BASE}/customers/${customerId}/addresses`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  async updateCustomerAddress(id: string, data: Partial<{ label: string; fullAddress: string }>): Promise<CustomerAddress> {
+    const res = await fetch(`${API_BASE}/addresses/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  async deleteCustomerAddress(id: string): Promise<void> {
+    await fetch(`${API_BASE}/addresses/${id}`, { method: "DELETE" });
+  },
+
+  async setDefaultAddress(customerId: string, addressId: string): Promise<void> {
+    await fetch(`${API_BASE}/customers/${customerId}/addresses/${addressId}/default`, { method: "POST" });
   },
 };

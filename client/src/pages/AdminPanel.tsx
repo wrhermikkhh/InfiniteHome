@@ -620,12 +620,12 @@ export default function AdminPanel() {
                                 <ChevronDown size={14} />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent className="rounded-none">
+                            <DropdownMenuContent className="rounded-none bg-background border border-border">
                               {orderStatuses.map(status => (
                                 <DropdownMenuItem 
                                   key={status} 
                                   onClick={() => updateOrderStatus(order.id, status)}
-                                  className="text-xs uppercase tracking-widest cursor-pointer"
+                                  className="text-xs uppercase tracking-widest cursor-pointer bg-background hover:bg-secondary"
                                 >
                                   {status.replace("_", " ")}
                                 </DropdownMenuItem>
@@ -668,6 +668,30 @@ export default function AdminPanel() {
                                       <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Payment Method</p>
                                       <p className="font-medium">{selectedOrder.paymentMethod === "cod" ? "Cash on Delivery" : "Bank Transfer"}</p>
                                     </div>
+                                    {selectedOrder.paymentMethod === "bank" && selectedOrder.paymentSlip && (
+                                      <div>
+                                        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Payment Slip</p>
+                                        <a 
+                                          href={selectedOrder.paymentSlip} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="block"
+                                        >
+                                          <img 
+                                            src={selectedOrder.paymentSlip} 
+                                            alt="Payment slip" 
+                                            className="max-w-full max-h-48 object-contain border border-border cursor-pointer hover:opacity-80 transition-opacity"
+                                          />
+                                          <p className="text-xs text-primary underline mt-1">Click to view full size</p>
+                                        </a>
+                                      </div>
+                                    )}
+                                    {selectedOrder.paymentMethod === "bank" && !selectedOrder.paymentSlip && (
+                                      <div>
+                                        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Payment Slip</p>
+                                        <p className="text-sm text-amber-600">No payment slip uploaded</p>
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="space-y-4">
                                     <div>

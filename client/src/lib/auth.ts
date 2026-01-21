@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { api, Customer } from "./api";
+import { useCart } from "./cart";
 
 interface User {
   id: string;
@@ -39,6 +40,7 @@ export const useAuth = create<AuthStore>()(
             },
             isAuthenticated: true,
           });
+          useCart.getState().loadCartForUser(result.customer.id);
           return true;
         }
         return false;
@@ -57,11 +59,18 @@ export const useAuth = create<AuthStore>()(
             },
             isAuthenticated: true,
           });
+          useCart.getState().loadCartForUser(result.customer.id);
           return { success: true };
         }
         return { success: false, message: result.message };
       },
-      logout: () => set({ user: null, isAuthenticated: false }),
+      logout: () => {
+        const currentUser = get().user;
+        if (currentUser) {
+          useCart.getState().saveCartForUser(currentUser.id);
+        }
+        set({ user: null, isAuthenticated: false });
+      },
       updateProfile: (data) => {
         const current = get().user;
         if (current) {

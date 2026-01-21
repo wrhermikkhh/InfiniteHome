@@ -2,16 +2,23 @@ import { Link, useLocation } from "wouter";
 import { Search, ShoppingBag, User, Menu, X, Trash2, Plus, Minus, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
-import { formatCurrency } from "@/lib/products";
+import { formatCurrency, type Product } from "@/lib/products";
+import { api } from "@/lib/api";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [location, setLocation] = useLocation();
   const cart = useCart();
   const { user, logout, isAuthenticated } = useAuth();
@@ -28,6 +35,26 @@ export function Navbar() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    const searchProducts = async () => {
+      if (searchQuery.trim().length < 2) {
+        setSearchResults([]);
+        return;
+      }
+      setIsSearching(true);
+      try {
+        const results = await api.searchProducts(searchQuery);
+        setSearchResults(Array.isArray(results) ? results : []);
+      } catch (error) {
+        console.error("Search failed:", error);
+        setSearchResults([]);
+      }
+      setIsSearching(false);
+    };
+    const debounce = setTimeout(searchProducts, 300);
+    return () => clearTimeout(debounce);
+  }, [searchQuery]);
 
   const navLinks = [
     { name: "Shop All", href: "/shop" },
@@ -76,9 +103,61 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center space-x-4">
-          <button className="p-2 hover:opacity-70 transition-opacity">
+          <button 
+            className="p-2 hover:opacity-70 transition-opacity"
+            onClick={() => setSearchOpen(true)}
+            data-testid="button-search"
+          >
             <Search size={20} />
           </button>
+
+          <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+            <DialogContent className="sm:max-w-lg rounded-none p-0">
+              <DialogHeader className="p-4 border-b border-border">
+                <DialogTitle className="font-serif text-xl">Search Products</DialogTitle>
+              </DialogHeader>
+              <div className="p-4">
+                <Input
+                  placeholder="Search for products..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="rounded-none h-12"
+                  autoFocus
+                  data-testid="input-search"
+                />
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {isSearching && (
+                  <div className="p-4 text-center text-muted-foreground">Searching...</div>
+                )}
+                {!isSearching && searchQuery.length >= 2 && searchResults.length === 0 && (
+                  <div className="p-4 text-center text-muted-foreground">No products found</div>
+                )}
+                {searchResults.map((product) => (
+                  <button
+                    key={product.id}
+                    className="w-full flex items-center gap-4 p-4 hover:bg-secondary/50 transition-colors border-b border-border last:border-0 text-left"
+                    onClick={() => {
+                      setSearchOpen(false);
+                      setSearchQuery("");
+                      setSearchResults([]);
+                      setLocation(`/product/${product.id}`);
+                    }}
+                    data-testid={`search-result-${product.id}`}
+                  >
+                    <div className="w-16 h-16 bg-secondary/30 flex-shrink-0">
+                      <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-sm truncate">{product.name}</h4>
+                      <p className="text-xs text-muted-foreground">{product.category}</p>
+                      <p className="text-sm font-bold mt-1">{formatCurrency(product.price)}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </DialogContent>
+          </Dialog>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
