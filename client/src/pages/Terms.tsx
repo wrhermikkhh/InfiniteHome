@@ -1,12 +1,18 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { motion } from "framer-motion";
 
 export default function Terms() {
   return (
-    <div className="min-h-screen bg-background font-body">
+    <div className="min-h-screen bg-background font-body overflow-x-hidden">
       <Navbar />
       
-      <div className="pt-32 pb-24 container mx-auto px-4 max-w-4xl">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="pt-32 pb-24 container mx-auto px-4 max-w-4xl"
+      >
         <h1 className="text-4xl font-serif mb-8">Terms of Service</h1>
         <p className="text-muted-foreground mb-8">Last updated: January 2026</p>
         
@@ -79,7 +85,7 @@ export default function Terms() {
             </ul>
           </section>
         </div>
-      </div>
+      </motion.div>
 
       <Footer />
     </div>

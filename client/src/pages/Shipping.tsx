@@ -1,36 +1,59 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { Truck, Clock, MapPin, Package, Zap } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function Shipping() {
   return (
-    <div className="min-h-screen bg-background font-body">
+    <div className="min-h-screen bg-background font-body overflow-x-hidden">
       <Navbar />
       
-      <div className="pt-32 pb-24 container mx-auto px-4 max-w-4xl">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="pt-32 pb-24 container mx-auto px-4 max-w-4xl"
+      >
         <h1 className="text-4xl font-serif mb-4">Shipping Information</h1>
         <p className="text-muted-foreground mb-12 text-lg">
           We deliver throughout the Maldives with care and attention to every order.
         </p>
 
         <div className="grid md:grid-cols-2 gap-6 mb-16">
-          <div className="p-8 bg-primary/5 border border-primary/20">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="p-8 bg-primary/5 border border-primary/20"
+          >
             <Truck className="mb-4 text-primary" size={40} />
             <h3 className="font-serif text-2xl mb-2">Male' & Hulhumale'</h3>
             <p className="text-muted-foreground">Free Standard Delivery within Male' and Hulhumale'</p>
-          </div>
-          <div className="p-8 bg-secondary/20 border border-border">
+          </motion.div>
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="p-8 bg-secondary/20 border border-border"
+          >
             <Zap className="mb-4 text-primary" size={40} />
             <h3 className="font-serif text-2xl mb-2">Express Delivery</h3>
             <p className="text-muted-foreground">Available in Male' & Hulhumale' (MVR 15-100)</p>
-          </div>
+          </motion.div>
         </div>
         
         <div className="prose prose-neutral max-w-none space-y-8">
           <section>
             <h2 className="text-2xl font-serif mb-4">Delivery Options</h2>
             <div className="space-y-4">
-              <div className="p-6 border border-border bg-secondary/5">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="p-6 border border-border bg-secondary/5"
+              >
                 <h3 className="font-serif text-xl mb-3 flex items-center gap-2">
                   <Truck size={20} className="text-primary" />
                   Standard Delivery
@@ -41,8 +64,13 @@ export default function Shipping() {
                   <li>• <strong>Atolls:</strong> Delivery to other islands is arranged via boat/courier (Charges apply)</li>
                   <li>• <strong>Timeline:</strong> 1-3 business days for Male' area; 3-7 business days for other islands via boat</li>
                 </ul>
-              </div>
-              <div className="p-6 border border-primary/30 bg-primary/5">
+              </motion.div>
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="p-6 border border-primary/30 bg-primary/5"
+              >
                 <h3 className="font-serif text-xl mb-3 flex items-center gap-2">
                   <Zap size={20} className="text-primary" />
                   Express Delivery
@@ -54,7 +82,7 @@ export default function Shipping() {
                   <li>• Express charge: <strong>MVR 15-100</strong> depending on the item</li>
                   <li>• Express delivery option available at checkout</li>
                 </ul>
-              </div>
+              </motion.div>
             </div>
           </section>
 
@@ -138,7 +166,7 @@ export default function Shipping() {
             </ul>
           </section>
         </div>
-      </div>
+      </motion.div>
 
       <Footer />
     </div>

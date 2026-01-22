@@ -1,39 +1,69 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { RefreshCw, Package, Clock, CheckCircle } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function Returns() {
   return (
-    <div className="min-h-screen bg-background font-body">
+    <div className="min-h-screen bg-background font-body overflow-x-hidden">
       <Navbar />
       
-      <div className="pt-32 pb-24 container mx-auto px-4 max-w-4xl">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="pt-32 pb-24 container mx-auto px-4 max-w-4xl"
+      >
         <h1 className="text-4xl font-serif mb-4">Returns & Exchanges</h1>
         <p className="text-muted-foreground mb-12 text-lg">
           We want you to love your INFINITE HOME products. If you're not completely satisfied, we're here to help.
         </p>
 
         <div className="grid md:grid-cols-4 gap-6 mb-16">
-          <div className="text-center p-6 bg-secondary/20 border border-border">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="text-center p-6 bg-secondary/20 border border-border"
+          >
             <Clock className="mx-auto mb-4 text-primary" size={32} />
             <h3 className="font-serif text-lg mb-2">7-Day Returns</h3>
             <p className="text-sm text-muted-foreground">Return within 7 business days of delivery</p>
-          </div>
-          <div className="text-center p-6 bg-secondary/20 border border-border">
+          </motion.div>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+            className="text-center p-6 bg-secondary/20 border border-border"
+          >
             <Package className="mx-auto mb-4 text-primary" size={32} />
             <h3 className="font-serif text-lg mb-2">Original Packaging</h3>
             <p className="text-sm text-muted-foreground">Items must be unused and in original packaging</p>
-          </div>
-          <div className="text-center p-6 bg-secondary/20 border border-border">
+          </motion.div>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            className="text-center p-6 bg-secondary/20 border border-border"
+          >
             <RefreshCw className="mx-auto mb-4 text-primary" size={32} />
             <h3 className="font-serif text-lg mb-2">Easy Exchanges</h3>
             <p className="text-sm text-muted-foreground">Exchange for different size or color</p>
-          </div>
-          <div className="text-center p-6 bg-secondary/20 border border-border">
+          </motion.div>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.4 }}
+            className="text-center p-6 bg-secondary/20 border border-border"
+          >
             <CheckCircle className="mx-auto mb-4 text-primary" size={32} />
             <h3 className="font-serif text-lg mb-2">Full Refund</h3>
             <p className="text-sm text-muted-foreground">Get your money back within 7 days</p>
-          </div>
+          </motion.div>
         </div>
         
         <div className="prose prose-neutral max-w-none space-y-8">
@@ -105,7 +135,7 @@ export default function Returns() {
             </ul>
           </section>
         </div>
-      </div>
+      </motion.div>
 
       <Footer />
     </div>

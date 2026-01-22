@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mail, Phone, MapPin, Clock, Send } from "lucide-react";
 import { useState } from "react";
+import { motion } from "framer-motion";
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -21,19 +22,28 @@ export default function Contact() {
   };
 
   return (
-    <div className="min-h-screen bg-background font-body">
+    <div className="min-h-screen bg-background font-body overflow-x-hidden">
       <Navbar />
       
       <div className="pt-32 pb-24 container mx-auto px-4 max-w-6xl">
-        <div className="text-center mb-16">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="text-center mb-16"
+        >
           <h1 className="text-4xl md:text-5xl font-serif mb-4">Contact Us</h1>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
             Have a question or need assistance? We'd love to hear from you. Our team is here to help.
           </p>
-        </div>
+        </motion.div>
 
         <div className="grid lg:grid-cols-2 gap-16">
-          <div>
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
             <h2 className="text-2xl font-serif mb-8">Get in Touch</h2>
             
             <div className="space-y-6 mb-12">
@@ -92,13 +102,21 @@ export default function Contact() {
                 <li>• <a href="/shipping" className="text-primary hover:underline">View shipping information</a></li>
               </ul>
             </div>
-          </div>
+          </motion.div>
 
-          <div>
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+          >
             <h2 className="text-2xl font-serif mb-8">Send a Message</h2>
             
             {submitted ? (
-              <div className="bg-green-50 border border-green-200 p-8 text-center">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-green-50 border border-green-200 p-8 text-center"
+              >
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
                   <Send className="text-green-600" size={32} />
                 </div>
@@ -106,7 +124,7 @@ export default function Contact() {
                 <p className="text-green-700">
                   Thank you for reaching out. We'll get back to you within 24 hours.
                 </p>
-              </div>
+              </motion.div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid sm:grid-cols-2 gap-4">
@@ -172,7 +190,7 @@ export default function Contact() {
                 </Button>
               </form>
             )}
-          </div>
+          </motion.div>
         </div>
       </div>
 
