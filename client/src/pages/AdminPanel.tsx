@@ -1,7 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAdminAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { api, Coupon, Order, Admin, Category } from "@/lib/api";
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  AreaChart,
+  Area
+} from "recharts";
 import { 
   Select,
   SelectContent,
@@ -26,7 +42,13 @@ import {
   Image,
   Menu,
   X,
-  Printer
+  Printer,
+  TrendingUp,
+  Users,
+  DollarSign,
+  ShoppingCart,
+  ArrowUpRight,
+  ArrowDownRight
 } from "lucide-react";
 import { useUpload } from "@/hooks/use-upload";
 import { Button } from "@/components/ui/button";
@@ -444,6 +466,57 @@ export default function AdminPanel() {
     { icon: Settings, label: "Admin Management" },
   ];
 
+  // Dashboard Analytics Calculations
+  const analytics = useMemo(() => {
+    if (!orders.length) return { 
+      totalRevenue: 0, 
+      avgOrderValue: 0, 
+      growth: 0, 
+      chartData: [], 
+      statusData: [],
+      recentActivity: []
+    };
+
+    const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+    const avgOrderValue = totalRevenue / orders.length;
+
+    // Group orders by day for chart
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return d.toISOString().split('T')[0];
+    });
+
+    const chartData = last7Days.map(date => {
+      const dayOrders = orders.filter(o => o.createdAt && new Date(o.createdAt).toISOString().split('T')[0] === date);
+      return {
+        name: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),
+        revenue: dayOrders.reduce((sum, o) => sum + o.total, 0),
+        orders: dayOrders.length
+      };
+    });
+
+    // Order status distribution
+    const statusCounts: Record<string, number> = {};
+    orders.forEach(o => {
+      statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
+    });
+    
+    const statusData = Object.entries(statusCounts).map(([name, value]) => ({ 
+      name: name.replace('_', ' ').toUpperCase(), 
+      value 
+    }));
+
+    // Recent activity (last 5 orders)
+    const recentActivity = [...orders]
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+      .slice(0, 5);
+
+    return { totalRevenue, avgOrderValue, chartData, statusData, recentActivity };
+  }, [orders]);
+
+  const COLORS = ['#1a1a1a', '#4a4a4a', '#8a8a8a', '#c0c0c0', '#e0e0e0'];
+
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}
@@ -515,34 +588,234 @@ export default function AdminPanel() {
         {/* Main Content */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8">
           {activeTab === "Overview" && (
-            <div className="animate-in fade-in duration-500">
-              <h1 className="text-2xl md:text-3xl font-serif mb-8">Dashboard Overview</h1>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-serif mb-2">Dashboard Overview</h1>
+                <p className="text-muted-foreground">Welcome back, {user?.name || 'Admin'}. Here's what's happening today.</p>
+              </div>
+
+              {/* Stats Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card className="rounded-none">
+                <Card className="rounded-none border-border shadow-sm">
                   <CardContent className="p-6">
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Products</p>
-                    <p className="text-3xl font-bold">{products.length}</p>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="p-2 bg-primary/5 rounded-none">
+                        <DollarSign size={20} className="text-primary" />
+                      </div>
+                      <span className="flex items-center text-xs font-medium text-emerald-600">
+                        <ArrowUpRight size={14} className="mr-1" /> 12%
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Total Revenue</p>
+                      <p className="text-2xl font-bold">{formatCurrency(analytics.totalRevenue)}</p>
+                    </div>
                   </CardContent>
                 </Card>
-                <Card className="rounded-none">
+
+                <Card className="rounded-none border-border shadow-sm">
                   <CardContent className="p-6">
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Orders</p>
-                    <p className="text-3xl font-bold">{orders.length}</p>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="p-2 bg-primary/5 rounded-none">
+                        <ShoppingCart size={20} className="text-primary" />
+                      </div>
+                      <span className="flex items-center text-xs font-medium text-emerald-600">
+                        <ArrowUpRight size={14} className="mr-1" /> 8%
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Total Orders</p>
+                      <p className="text-2xl font-bold">{orders.length}</p>
+                    </div>
                   </CardContent>
                 </Card>
-                <Card className="rounded-none">
+
+                <Card className="rounded-none border-border shadow-sm">
                   <CardContent className="p-6">
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Active Coupons</p>
-                    <p className="text-3xl font-bold">{coupons.filter(c => c.status === "active").length}</p>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="p-2 bg-primary/5 rounded-none">
+                        <Package size={20} className="text-primary" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Total Products</p>
+                      <p className="text-2xl font-bold">{products.length}</p>
+                    </div>
                   </CardContent>
                 </Card>
-                <Card className="rounded-none">
+
+                <Card className="rounded-none border-border shadow-sm">
                   <CardContent className="p-6">
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Revenue</p>
-                    <p className="text-3xl font-bold">{formatCurrency(orders.reduce((sum, o) => sum + o.total, 0))}</p>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="p-2 bg-primary/5 rounded-none">
+                        <TrendingUp size={20} className="text-primary" />
+                      </div>
+                      <span className="flex items-center text-xs font-medium text-emerald-600">
+                        <ArrowUpRight size={14} className="mr-1" /> 5%
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Avg. Order Value</p>
+                      <p className="text-2xl font-bold">{formatCurrency(analytics.avgOrderValue)}</p>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Charts Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-2 rounded-none border-border shadow-sm">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="font-serif text-lg">Revenue Trend</h3>
+                      <Select defaultValue="7d">
+                        <SelectTrigger className="w-[120px] rounded-none h-8 text-xs">
+                          <SelectValue placeholder="Period" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          <SelectItem value="7d">Last 7 Days</SelectItem>
+                          <SelectItem value="30d">Last 30 Days</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={analytics.chartData}>
+                          <defs>
+                            <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#1a1a1a" stopOpacity={0.1}/>
+                              <stop offset="95%" stopColor="#1a1a1a" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                          <XAxis 
+                            dataKey="name" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 10, fill: '#888' }}
+                          />
+                          <YAxis 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 10, fill: '#888' }}
+                            tickFormatter={(value) => `${value}`}
+                          />
+                          <Tooltip 
+                            contentStyle={{ borderRadius: '0px', border: '1px solid #eee', fontSize: '12px' }}
+                            formatter={(value: any) => [formatCurrency(value), "Revenue"]}
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="revenue" 
+                            stroke="#1a1a1a" 
+                            fillOpacity={1} 
+                            fill="url(#colorRev)" 
+                            strokeWidth={2}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-none border-border shadow-sm">
+                  <CardContent className="p-6">
+                    <h3 className="font-serif text-lg mb-6">Order Status</h3>
+                    <div className="h-[250px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={analytics.statusData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {analytics.statusData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ borderRadius: '0px', border: '1px solid #eee', fontSize: '12px' }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      {analytics.statusData.slice(0, 4).map((status, index) => (
+                        <div key={status.name} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-none" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                            <span className="text-muted-foreground">{status.name}</span>
+                          </div>
+                          <span className="font-bold">{status.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Bottom Row: Recent Orders */}
+              <Card className="rounded-none border-border shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-serif text-lg">Recent Orders</h3>
+                    <Button variant="outline" size="sm" className="rounded-none text-xs" onClick={() => setActiveTab("Orders")}>
+                      View All
+                    </Button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-left">
+                          <th className="pb-4 font-bold uppercase tracking-widest text-[10px] text-muted-foreground">Order ID</th>
+                          <th className="pb-4 font-bold uppercase tracking-widest text-[10px] text-muted-foreground">Customer</th>
+                          <th className="pb-4 font-bold uppercase tracking-widest text-[10px] text-muted-foreground">Amount</th>
+                          <th className="pb-4 font-bold uppercase tracking-widest text-[10px] text-muted-foreground">Status</th>
+                          <th className="pb-4 font-bold uppercase tracking-widest text-[10px] text-muted-foreground">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analytics.recentActivity.map((order) => (
+                          <tr key={order.id} className="border-b border-border/50 hover:bg-secondary/5 transition-colors group">
+                            <td className="py-4 font-medium text-primary">#{order.orderNumber}</td>
+                            <td className="py-4">
+                              <div className="flex flex-col">
+                                <span>{order.customerName}</span>
+                                <span className="text-[10px] text-muted-foreground">{order.customerEmail}</span>
+                              </div>
+                            </td>
+                            <td className="py-4 font-bold">{formatCurrency(order.total)}</td>
+                            <td className="py-4">
+                              <span className={cn(
+                                "text-[10px] uppercase tracking-tighter font-bold px-2 py-1",
+                                order.status === 'delivered' ? "bg-emerald-100 text-emerald-800" : 
+                                order.status === 'cancelled' ? "bg-rose-100 text-rose-800" :
+                                "bg-amber-100 text-amber-800"
+                              )}>
+                                {order.status.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="py-4 text-muted-foreground">
+                              {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
+                            </td>
+                          </tr>
+                        ))}
+                        {analytics.recentActivity.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="py-12 text-center text-muted-foreground italic">
+                              No orders yet to display.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 
