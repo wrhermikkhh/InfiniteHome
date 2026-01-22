@@ -96,59 +96,44 @@ export function Navbar() {
           href="/"
           className="text-xl md:text-2xl font-serif font-bold tracking-widest uppercase cursor-pointer whitespace-nowrap"
         >
-          INFINITE HOME
+          {searchOpen ? "IH" : "INFINITE HOME"}
         </Link>
 
-        <nav className="hidden lg:flex items-center space-x-8">
-          {navLinks.map((link) => (
-            <Link 
-              key={link.name} 
-              href={link.href}
-              className={cn(
-                "text-sm font-medium tracking-wide hover:opacity-70 transition-opacity uppercase",
-                isScrolled || location !== "/" ? "text-foreground" : "text-white"
-              )}
-            >
-              {link.name}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="flex items-center space-x-4">
-          <button 
-            className="p-2 hover:opacity-70 transition-opacity"
-            onClick={() => setSearchOpen(true)}
-            data-testid="button-search"
-          >
-            <Search size={20} />
-          </button>
-
-          <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-            <DialogContent className="sm:max-w-lg rounded-none p-0">
-              <DialogHeader className="p-4 border-b border-border">
-                <DialogTitle className="font-serif text-xl">Search Products</DialogTitle>
-              </DialogHeader>
-              <div className="p-4">
-                <Input
-                  placeholder="Search for products..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="rounded-none h-12"
-                  autoFocus
-                  data-testid="input-search"
-                />
-              </div>
-              <div className="max-h-80 overflow-y-auto">
+        {searchOpen ? (
+          <div className="flex-1 max-w-2xl mx-8 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="relative group">
+              <Input
+                placeholder="Search for products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="rounded-none h-11 bg-secondary/10 border-border focus:border-primary focus:ring-0 transition-all text-sm font-medium pr-10"
+                autoFocus
+                data-testid="input-search"
+              />
+              <button 
+                onClick={() => {
+                  setSearchOpen(false);
+                  setSearchQuery("");
+                  setSearchResults([]);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            
+            {searchQuery.length >= 2 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-border shadow-xl max-h-[70vh] overflow-y-auto z-[60] animate-in fade-in zoom-in-95 duration-200">
                 {isSearching && (
-                  <div className="p-4 text-center text-muted-foreground">Searching...</div>
+                  <div className="p-8 text-center text-muted-foreground text-sm uppercase tracking-widest font-medium animate-pulse">Searching...</div>
                 )}
-                {!isSearching && searchQuery.length >= 2 && searchResults.length === 0 && (
-                  <div className="p-4 text-center text-muted-foreground">No products found</div>
+                {!isSearching && searchResults.length === 0 && (
+                  <div className="p-8 text-center text-muted-foreground text-sm uppercase tracking-widest font-medium">No products found</div>
                 )}
                 {searchResults.map((product) => (
                   <button
                     key={product.id}
-                    className="w-full flex items-center gap-4 p-4 hover:bg-secondary/50 transition-colors border-b border-border last:border-0 text-left"
+                    className="w-full flex items-center gap-6 p-4 hover:bg-secondary/40 transition-all border-b border-border/50 last:border-0 text-left group"
                     onClick={() => {
                       setSearchOpen(false);
                       setSearchQuery("");
@@ -157,20 +142,50 @@ export function Navbar() {
                     }}
                     data-testid={`search-result-${product.id}`}
                   >
-                    <div className="w-16 h-16 bg-secondary/30 flex-shrink-0">
-                      <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                    <div className="w-16 h-16 bg-secondary/20 flex-shrink-0 overflow-hidden">
+                      <img src={product.image} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-sm truncate">{product.name}</h4>
-                      <p className="text-xs text-muted-foreground">{product.category}</p>
-                      <p className="text-sm font-bold mt-1">{formatCurrency(product.price)}</p>
+                      <h4 className="font-serif text-base text-foreground group-hover:text-primary transition-colors truncate">{product.name}</h4>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider mt-0.5">{product.category}</p>
+                      <p className="text-sm font-bold mt-1.5 text-foreground">{formatCurrency(product.price)}</p>
                     </div>
                   </button>
                 ))}
               </div>
-            </DialogContent>
-          </Dialog>
-          
+            )}
+          </div>
+        ) : (
+          <>
+            <nav className="hidden lg:flex items-center space-x-8">
+              {navLinks.map((link) => (
+                <Link 
+                  key={link.name} 
+                  href={link.href}
+                  className={cn(
+                    "text-sm font-medium tracking-wide hover:opacity-70 transition-opacity uppercase",
+                    isScrolled || location !== "/" ? "text-foreground" : "text-white"
+                  )}
+                >
+                  {link.name}
+                </Link>
+              ))}
+            </nav>
+          </>
+        )}
+
+        <div className="flex items-center space-x-4">
+          <button 
+            className={cn(
+              "p-2 hover:opacity-70 transition-opacity",
+              searchOpen && "text-primary"
+            )}
+            onClick={() => setSearchOpen(!searchOpen)}
+            data-testid="button-search"
+          >
+            {searchOpen ? <X size={20} /> : <Search size={20} />}
+          </button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="p-2 hover:opacity-70 transition-opacity" data-testid="button-user-menu">
@@ -217,7 +232,7 @@ export function Navbar() {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-          
+
           <Sheet>
             <SheetTrigger asChild>
               <button className="p-2 hover:opacity-70 transition-opacity relative" data-testid="button-cart">
