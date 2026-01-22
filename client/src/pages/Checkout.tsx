@@ -50,6 +50,8 @@ export default function Checkout() {
   }, [isAuthenticated, user]);
 
   const subtotal = items.reduce((sum, item) => sum + item.price * (item.quantity || 0), 0);
+  const hasOutOfStockItems = items.some(item => (item.stock || 0) <= 0);
+
   const discount = appliedCoupon 
     ? (appliedCoupon.type === "percentage" ? (subtotal * appliedCoupon.discount) / 100 : appliedCoupon.discount) 
     : 0;
@@ -355,15 +357,25 @@ export default function Checkout() {
                 {items.map((item, index) => (
                   <div key={`${item.id}-${index}`} className="flex justify-between text-sm">
                     <div className="flex flex-col">
-                      <span className="text-muted-foreground font-medium">{item.name} x {item.quantity}</span>
+                      <span className={`font-medium ${item.stock && item.stock > 0 ? 'text-muted-foreground' : 'text-destructive'}`}>
+                        {item.name} x {item.quantity}
+                        {item.stock !== undefined && item.stock <= 0 && " (Out of Stock)"}
+                      </span>
                       <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
                         {item.selectedColor}{item.selectedSize ? ` / ${item.selectedSize}` : ''}
                       </span>
                     </div>
-                    <span>{formatCurrency(item.price * (item.quantity || 0))}</span>
+                    <span className={item.stock && item.stock > 0 ? '' : 'text-destructive'}>
+                      {formatCurrency(item.price * (item.quantity || 0))}
+                    </span>
                   </div>
                 ))}
               </div>
+              {hasOutOfStockItems && (
+                <div className="mb-6 p-3 bg-destructive/10 border border-destructive text-destructive text-[10px] uppercase tracking-widest font-bold">
+                  Some items in your cart are currently out of stock. Please remove them to proceed.
+                </div>
+              )}
               <div className="space-y-2 py-4 border-t border-border">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
@@ -393,10 +405,10 @@ export default function Checkout() {
               <Button 
                 onClick={handlePlaceOrder}
                 className="w-full h-12 rounded-none mt-6 uppercase tracking-widest font-bold"
-                disabled={isSubmitting || !formData.customerName || !formData.shippingAddress || !formData.customerPhone || !formData.customerEmail || (paymentMethod === "bank" && !paymentSlipPath)}
+                disabled={isSubmitting || hasOutOfStockItems || !formData.customerName || !formData.shippingAddress || !formData.customerPhone || !formData.customerEmail || (paymentMethod === "bank" && !paymentSlipPath)}
                 data-testid="button-place-order"
               >
-                {isSubmitting ? "Processing..." : (paymentMethod === "bank" && !paymentSlipPath ? "Upload Slip to Proceed" : "Place Order")}
+                {isSubmitting ? "Processing..." : (hasOutOfStockItems ? "Items Out of Stock" : (paymentMethod === "bank" && !paymentSlipPath ? "Upload Slip to Proceed" : "Place Order"))}
               </Button>
             </div>
           </aside>

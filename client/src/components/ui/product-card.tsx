@@ -41,11 +41,14 @@ export function ProductCard({ product }: ProductCardProps) {
                  onClick={(e) => {
                    e.preventDefault();
                    e.stopPropagation();
-                   addItem(product);
+                   if ((product.stock || 0) > 0) {
+                     addItem(product);
+                   }
                  }}
+                 disabled={(product.stock || 0) <= 0}
                  className="w-full rounded-none uppercase text-xs tracking-widest font-bold"
                >
-                 Quick Add
+                 {(product.stock || 0) > 0 ? "Quick Add" : "Out of Stock"}
                </Button>
             </div>
           </div>

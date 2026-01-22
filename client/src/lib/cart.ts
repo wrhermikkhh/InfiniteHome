@@ -24,6 +24,7 @@ export const useCart = create<CartStore>()(
     (set, get) => ({
       items: [],
       addItem: (product, quantity = 1, color, size, price) => {
+        if ((product.stock || 0) <= 0) return;
         const items = get().items;
         const itemPrice = price ?? product.price;
         const existingItem = items.find(
