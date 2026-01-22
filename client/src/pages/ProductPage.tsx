@@ -235,48 +235,58 @@ export default function ProductPage() {
               )}
 
               {/* Quantity & Add */}
-              <div className="flex flex-col sm:flex-row gap-4 pt-6">
-                <div className={`flex items-center border border-border w-fit ${!isPreOrder && currentStock <= 0 ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <button 
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    disabled={!isPreOrder && currentStock <= 0}
-                    className="p-3 hover:bg-secondary/50 transition-colors"
-                    data-testid="quantity-decrease"
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <span className="w-12 text-center font-medium" data-testid="quantity-value">{quantity}</span>
-                  <button 
-                    onClick={() => isPreOrder ? setQuantity(quantity + 1) : setQuantity(Math.max(1, Math.min(currentStock, quantity + 1)))}
-                    disabled={!isPreOrder && currentStock <= 0}
-                    className="p-3 hover:bg-secondary/50 transition-colors"
-                    data-testid="quantity-increase"
-                  >
-                    <Plus size={16} />
-                  </button>
+              <div className="flex flex-col gap-4 pt-6">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className={`flex items-center border border-border w-fit ${!isPreOrder && currentStock <= 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <button 
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      disabled={!isPreOrder && currentStock <= 0}
+                      className="p-3 hover:bg-secondary/50 transition-colors"
+                      data-testid="quantity-decrease"
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <span className="w-12 text-center font-medium" data-testid="quantity-value">{quantity}</span>
+                    <button 
+                      onClick={() => (isPreOrder || currentStock > quantity) ? setQuantity(quantity + 1) : null}
+                      disabled={!isPreOrder && (currentStock <= 0 || quantity >= currentStock)}
+                      className="p-3 hover:bg-secondary/50 transition-colors"
+                      data-testid="quantity-increase"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                  
+                  {currentStock > 0 && (
+                    <Button 
+                      onClick={() => {
+                        addItem(product, quantity, selectedColor, selectedSize, currentPrice);
+                      }}
+                      className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                      data-testid="add-to-cart-instant"
+                    >
+                      Buy Instantly - {formatCurrency(currentPrice * quantity)}
+                    </Button>
+                  )}
+                  
+                  {isPreOrder && (
+                    <Button 
+                      onClick={() => {
+                        addItem(product, quantity, selectedColor, selectedSize, preOrderInitialPayment || displayPrice, true, preOrderPrice, preOrderEta);
+                      }}
+                      className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] bg-amber-600 text-white hover:bg-amber-700"
+                      data-testid="add-to-cart-preorder"
+                    >
+                      Pre-Order - {formatCurrency((preOrderInitialPayment || displayPrice) * quantity)} deposit
+                    </Button>
+                  )}
                 </div>
-                <Button 
-                  onClick={() => {
-                    if (isPreOrder) {
-                      addItem(product, quantity, selectedColor, selectedSize, preOrderInitialPayment || displayPrice, true, preOrderPrice, preOrderEta);
-                    } else if (currentStock > 0) {
-                      addItem(product, quantity, selectedColor, selectedSize, currentPrice);
-                    }
-                  }}
-                  disabled={!isPreOrder && currentStock <= 0}
-                  className={`flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] ${
-                    isPreOrder 
-                      ? 'bg-amber-600 text-white hover:bg-amber-700' 
-                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                  }`}
-                  data-testid="add-to-cart"
-                >
-                  {isPreOrder 
-                    ? `Pre-Order - ${formatCurrency((preOrderInitialPayment || displayPrice) * quantity)} deposit`
-                    : currentStock > 0 
-                      ? `Add to Bag - ${formatCurrency(currentPrice * quantity)}` 
-                      : "Out of Stock"}
-                </Button>
+                
+                {!isPreOrder && currentStock <= 0 && (
+                  <Button disabled className="w-full h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-secondary text-muted-foreground">
+                    Out of Stock
+                  </Button>
+                )}
               </div>
             </motion.div>
 
