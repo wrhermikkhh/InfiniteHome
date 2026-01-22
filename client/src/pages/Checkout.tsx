@@ -1,7 +1,7 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { useCart } from "@/lib/cart";
-import { formatCurrency } from "@/lib/products";
+import { formatCurrency, getVariantStock } from "@/lib/products";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,7 +50,11 @@ export default function Checkout() {
   }, [isAuthenticated, user]);
 
   const subtotal = items.reduce((sum, item) => sum + item.price * (item.quantity || 0), 0);
-  const hasOutOfStockItems = items.some(item => (item.stock || 0) <= 0);
+  const hasStockIssues = items.some(item => {
+    const variantStock = getVariantStock(item, item.selectedSize, item.selectedColor);
+    return variantStock <= 0 || (item.quantity || 0) > variantStock;
+  });
+  const hasOutOfStockItems = hasStockIssues;
 
   const discount = appliedCoupon 
     ? (appliedCoupon.type === "percentage" ? (subtotal * appliedCoupon.discount) / 100 : appliedCoupon.discount) 
@@ -101,6 +105,7 @@ export default function Checkout() {
         customerPhone: formData.customerPhone,
         shippingAddress: `${formData.shippingAddress}, ${formData.city}`,
         items: items.map(item => ({
+          productId: item.id,
           name: item.name,
           qty: item.quantity,
           price: item.price,
@@ -354,26 +359,33 @@ export default function Checkout() {
               </div>
 
               <div className="space-y-4 mb-6">
-                {items.map((item, index) => (
-                  <div key={`${item.id}-${index}`} className="flex justify-between text-sm">
-                    <div className="flex flex-col">
-                      <span className={`font-medium ${item.stock && (item.stock as number) > 0 ? 'text-muted-foreground' : 'text-destructive'}`}>
-                        {item.name} x {item.quantity}
-                        {item.stock !== undefined && (item.stock as number) <= 0 && " (Out of Stock)"}
-                      </span>
-                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        {item.selectedColor}{item.selectedSize ? ` / ${item.selectedSize}` : ''}
+                {items.map((item, index) => {
+                  const itemVariantStock = getVariantStock(item, item.selectedSize, item.selectedColor);
+                  const isInStock = itemVariantStock > 0;
+                  const quantityExceedsStock = (item.quantity || 0) > itemVariantStock;
+                  const hasIssue = !isInStock || quantityExceedsStock;
+                  return (
+                    <div key={`${item.id}-${index}`} className="flex justify-between text-sm">
+                      <div className="flex flex-col">
+                        <span className={`font-medium ${hasIssue ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          {item.name} x {item.quantity}
+                          {!isInStock && " (Out of Stock)"}
+                          {isInStock && quantityExceedsStock && ` (Only ${itemVariantStock} available)`}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                          {item.selectedColor}{item.selectedSize ? ` / ${item.selectedSize}` : ''}
+                        </span>
+                      </div>
+                      <span className={hasIssue ? 'text-destructive' : ''}>
+                        {formatCurrency(item.price * (item.quantity || 0))}
                       </span>
                     </div>
-                    <span className={item.stock && (item.stock as number) > 0 ? '' : 'text-destructive'}>
-                      {formatCurrency(item.price * (item.quantity || 0))}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {hasOutOfStockItems && (
                 <div className="mb-6 p-3 bg-destructive/10 border border-destructive text-destructive text-[10px] uppercase tracking-widest font-bold">
-                  Some items in your cart are currently out of stock. Please remove them to proceed.
+                  Some items have stock issues. Please update quantities or remove unavailable items.
                 </div>
               )}
               <div className="space-y-2 py-4 border-t border-border">

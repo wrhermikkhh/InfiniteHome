@@ -299,6 +299,78 @@ export async function registerRoutes(
 
   app.post("/api/orders", async (req, res) => {
     try {
+      const items = req.body.items as { productId?: string; name: string; qty: number; price: number; color?: string; size?: string }[];
+      
+      // Validate that items exist
+      if (!items || items.length === 0) {
+        return res.status(400).json({ message: "No items in order" });
+      }
+      
+      // Fetch all products once for validation
+      const allProducts = await storage.getAllProducts();
+      const productMap = new Map(allProducts.map(p => [p.id, p]));
+      
+      // Validate variant stock for each item
+      const stockErrors: string[] = [];
+      for (const item of items) {
+        // Require productId for secure validation
+        if (!item.productId) {
+          stockErrors.push(`Product ID missing for "${item.name}"`);
+          continue;
+        }
+        
+        const product = productMap.get(item.productId);
+        
+        if (!product) {
+          stockErrors.push(`Product "${item.name}" not found (ID: ${item.productId})`);
+          continue;
+        }
+        
+        // Validate size and color against product options
+        const productColors = (product.colors as string[] | null) || [];
+        const productVariants = (product.variants as { size: string; price: number }[] | null) || [];
+        const productSizes = productVariants.map(v => v.size);
+        
+        const requestedColor = item.color || 'Default';
+        const requestedSize = item.size || 'Standard';
+        
+        // Validate color if product has colors and requested is not Default
+        if (productColors.length > 0 && requestedColor !== 'Default' && !productColors.includes(requestedColor)) {
+          stockErrors.push(`Invalid color "${requestedColor}" for ${item.name}`);
+          continue;
+        }
+        
+        // Validate size if product has sizes and requested is not Standard
+        if (productSizes.length > 0 && requestedSize !== 'Standard' && !productSizes.includes(requestedSize)) {
+          stockErrors.push(`Invalid size "${requestedSize}" for ${item.name}`);
+          continue;
+        }
+        
+        const variantStock = product.variantStock as { [key: string]: number } | null;
+        const variantKey = `${requestedSize}-${requestedColor}`;
+        let availableStock = product.stock || 0;
+        
+        // Check variant stock if available
+        if (variantStock && Object.keys(variantStock).length > 0) {
+          if (variantStock[variantKey] !== undefined) {
+            availableStock = variantStock[variantKey];
+          } else {
+            // If variant stock is defined but this key doesn't exist, use 0
+            availableStock = 0;
+          }
+        }
+        
+        if (availableStock <= 0) {
+          stockErrors.push(`${item.name} (${requestedSize}/${requestedColor}) is out of stock`);
+        } else if (item.qty > availableStock) {
+          stockErrors.push(`${item.name} (${requestedSize}/${requestedColor}) only has ${availableStock} available`);
+        }
+      }
+      
+      if (stockErrors.length > 0) {
+        return res.status(400).json({ message: "Stock validation failed: " + stockErrors.join("; ") });
+      }
+      
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       const randomId = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
       const orderNumber = randomId;

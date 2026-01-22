@@ -89,6 +89,7 @@ export default function AdminPanel() {
     colors: "",
     variants: [{ size: "", price: "" }],
     stock: "",
+    variantStock: {} as { [key: string]: string },
     expressCharge: "",
     sizeGuide: [] as { measurement: string; sizes: { [key: string]: string } }[]
   });
@@ -242,6 +243,11 @@ export default function AdminPanel() {
   };
 
   const handleSaveProduct = async () => {
+    const variantStockNumbers: { [key: string]: number } = {};
+    Object.entries(productForm.variantStock).forEach(([key, val]) => {
+      variantStockNumbers[key] = parseInt(val) || 0;
+    });
+    
     const formattedProduct = {
       name: productForm.name,
       price: productForm.variants.length > 0 && productForm.variants[0].price 
@@ -257,6 +263,7 @@ export default function AdminPanel() {
         price: Number(v.price)
       })),
       stock: productForm.stock ? Number(productForm.stock) : 0,
+      variantStock: variantStockNumbers,
       expressCharge: productForm.expressCharge ? Number(productForm.expressCharge) : 0,
       sizeGuide: productForm.sizeGuide.filter(sg => sg.measurement && Object.keys(sg.sizes).length > 0)
     };
@@ -287,6 +294,7 @@ export default function AdminPanel() {
       colors: "", 
       variants: [{ size: "", price: "" }],
       stock: "",
+      variantStock: {},
       expressCharge: "",
       sizeGuide: []
     });
@@ -296,6 +304,11 @@ export default function AdminPanel() {
 
   const handleEditProduct = (product: Product) => {
     setEditingProduct(product);
+    const existingVariantStock = (product as any).variantStock || {};
+    const variantStockStrings: { [key: string]: string } = {};
+    Object.entries(existingVariantStock).forEach(([key, val]) => {
+      variantStockStrings[key] = String(val);
+    });
     setProductForm({
       name: product.name,
       price: product.price.toString(),
@@ -308,6 +321,7 @@ export default function AdminPanel() {
         ? product.variants.map(v => ({ size: v.size, price: v.price.toString() }))
         : [{ size: "", price: product.price.toString() }],
       stock: ((product as any).stock || 0).toString(),
+      variantStock: variantStockStrings,
       expressCharge: (product.expressCharge || 0).toString(),
       sizeGuide: (product as any).sizeGuide || []
     });
@@ -782,6 +796,62 @@ export default function AdminPanel() {
                           </div>
                         ))}
                       </div>
+                      
+                      {/* Variant Stock Management */}
+                      {(productForm.variants.some(v => v.size) || productForm.colors) && (
+                        <div className="space-y-4 pt-4 border-t border-border">
+                          <div>
+                            <Label className="text-xs uppercase tracking-widest font-bold">Variant Stock</Label>
+                            <p className="text-[10px] text-muted-foreground">Set stock for each size/color combination</p>
+                          </div>
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {(() => {
+                              const sizes = productForm.variants.filter(v => v.size).map(v => v.size);
+                              const colors = productForm.colors.split(",").map(c => c.trim()).filter(Boolean);
+                              const combos: { size: string; color: string; key: string }[] = [];
+                              
+                              if (sizes.length > 0 && colors.length > 0) {
+                                sizes.forEach(size => {
+                                  colors.forEach(color => {
+                                    combos.push({ size, color, key: `${size}-${color}` });
+                                  });
+                                });
+                              } else if (sizes.length > 0) {
+                                sizes.forEach(size => {
+                                  combos.push({ size, color: "Default", key: `${size}-Default` });
+                                });
+                              } else if (colors.length > 0) {
+                                colors.forEach(color => {
+                                  combos.push({ size: "Standard", color, key: `Standard-${color}` });
+                                });
+                              }
+                              
+                              return combos.map(({ size, color, key }) => (
+                                <div key={key} className="flex items-center gap-2 p-2 bg-secondary/5 border border-border">
+                                  <span className="text-xs flex-1 font-medium">{size} / {color}</span>
+                                  <Input 
+                                    type="number"
+                                    placeholder="0"
+                                    value={productForm.variantStock[key] || ""}
+                                    onChange={(e) => {
+                                      setProductForm({
+                                        ...productForm,
+                                        variantStock: { ...productForm.variantStock, [key]: e.target.value }
+                                      });
+                                    }}
+                                    className="rounded-none h-8 w-24 text-xs text-right"
+                                    data-testid={`input-variant-stock-${key}`}
+                                  />
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                          {!productForm.variants.some(v => v.size) && !productForm.colors && (
+                            <p className="text-[10px] text-muted-foreground">Add sizes or colors above to manage variant stock</p>
+                          )}
+                        </div>
+                      )}
+                      
                       <div className="space-y-4 pt-4 border-t border-border">
                         <div className="flex justify-between items-center">
                           <div>

@@ -1,6 +1,6 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { formatCurrency, ProductVariant } from "@/lib/products";
+import { formatCurrency, ProductVariant, getVariantStock, getVariantStockKey } from "@/lib/products";
 import { useProduct } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
 import { useRoute } from "wouter";
@@ -35,6 +35,10 @@ export default function ProductPage() {
     if (colors.length > 0 && !selectedColor) setSelectedColor(colors[0]);
     if (variants.length > 0 && !selectedSize) setSelectedSize(variants[0].size);
   }, [colors, variants, selectedColor, selectedSize]);
+  
+  useEffect(() => {
+    setQuantity(1);
+  }, [selectedColor, selectedSize]);
 
   if (!match || !params) return <NotFound />;
   if (loading) return (
@@ -50,6 +54,7 @@ export default function ProductPage() {
 
   const currentVariant = variants.find(v => v.size === selectedSize) || variants[0];
   const currentPrice = currentVariant.price;
+  const currentStock = product ? getVariantStock(product, selectedSize, selectedColor) : 0;
 
   return (
     <div className="min-h-screen bg-background font-body overflow-x-hidden">
@@ -195,10 +200,10 @@ export default function ProductPage() {
 
               {/* Quantity & Add */}
               <div className="flex flex-col sm:flex-row gap-4 pt-6">
-                <div className={`flex items-center border border-border w-fit ${(product.stock || 0) <= 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className={`flex items-center border border-border w-fit ${currentStock <= 0 ? 'opacity-50 pointer-events-none' : ''}`}>
                   <button 
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    disabled={(product.stock || 0) <= 0}
+                    disabled={currentStock <= 0}
                     className="p-3 hover:bg-secondary/50 transition-colors"
                     data-testid="quantity-decrease"
                   >
@@ -206,8 +211,8 @@ export default function ProductPage() {
                   </button>
                   <span className="w-12 text-center font-medium" data-testid="quantity-value">{quantity}</span>
                   <button 
-                    onClick={() => setQuantity(Math.max(1, Math.min(product.stock || 0, quantity + 1)))}
-                    disabled={(product.stock || 0) <= 0}
+                    onClick={() => setQuantity(Math.max(1, Math.min(currentStock, quantity + 1)))}
+                    disabled={currentStock <= 0}
                     className="p-3 hover:bg-secondary/50 transition-colors"
                     data-testid="quantity-increase"
                   >
@@ -216,15 +221,15 @@ export default function ProductPage() {
                 </div>
                 <Button 
                   onClick={() => {
-                    if ((product.stock || 0) > 0) {
+                    if (currentStock > 0) {
                       addItem(product, quantity, selectedColor, selectedSize, currentPrice);
                     }
                   }}
-                  disabled={(product.stock || 0) <= 0}
+                  disabled={currentStock <= 0}
                   className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all hover:scale-[1.02] active:scale-[0.98]"
                   data-testid="add-to-cart"
                 >
-                  {(product.stock || 0) > 0 ? `Add to Bag - ${formatCurrency(currentPrice * quantity)}` : "Out of Stock"}
+                  {currentStock > 0 ? `Add to Bag - ${formatCurrency(currentPrice * quantity)}` : "Out of Stock"}
                 </Button>
               </div>
             </motion.div>

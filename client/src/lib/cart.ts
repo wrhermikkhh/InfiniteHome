@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { Product } from "./products";
+import { Product, getVariantStock } from "./products";
 
 interface CartItem extends Product {
   quantity: number;
@@ -24,7 +24,8 @@ export const useCart = create<CartStore>()(
     (set, get) => ({
       items: [],
       addItem: (product, quantity = 1, color, size, price) => {
-        if ((product.stock || 0) <= 0) return;
+        const variantStock = getVariantStock(product, size, color);
+        if (variantStock <= 0) return;
         const items = get().items;
         const itemPrice = price ?? product.price;
         const existingItem = items.find(
@@ -35,18 +36,20 @@ export const useCart = create<CartStore>()(
         );
 
         if (existingItem) {
+          const newQuantity = Math.min(existingItem.quantity + quantity, variantStock);
           set({
             items: items.map((item) =>
               item.id === product.id && 
               item.selectedColor === color && 
               item.selectedSize === size
-                ? { ...item, quantity: item.quantity + quantity }
+                ? { ...item, quantity: newQuantity }
                 : item
             ),
           });
         } else {
+          const cappedQuantity = Math.min(quantity, variantStock);
           set({ 
-            items: [...items, { ...product, price: itemPrice, quantity, selectedColor: color, selectedSize: size }] 
+            items: [...items, { ...product, price: itemPrice, quantity: cappedQuantity, selectedColor: color, selectedSize: size }] 
           });
         }
       },
@@ -59,11 +62,14 @@ export const useCart = create<CartStore>()(
       },
       updateQuantity: (productId, quantity, color, size) => {
         set({
-          items: get().items.map((item) =>
-            item.id === productId && item.selectedColor === color && item.selectedSize === size
-              ? { ...item, quantity } 
-              : item
-          ),
+          items: get().items.map((item) => {
+            if (item.id === productId && item.selectedColor === color && item.selectedSize === size) {
+              const variantStock = getVariantStock(item, size, color);
+              const cappedQuantity = Math.min(Math.max(1, quantity), variantStock);
+              return { ...item, quantity: cappedQuantity };
+            }
+            return item;
+          }),
         });
       },
       clearCart: () => set({ items: [] }),
