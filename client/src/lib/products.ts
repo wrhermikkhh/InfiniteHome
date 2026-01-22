@@ -34,9 +34,14 @@ export function getVariantStockKey(size?: string, color?: string): string {
 
 export function getVariantStock(product: Product, size?: string, color?: string): number {
   const key = getVariantStockKey(size, color);
-  if (product.variantStock && product.variantStock[key] !== undefined) {
-    return product.variantStock[key];
+  
+  // If product has variant stock tracking enabled, use variant stock only
+  if (product.variantStock && Object.keys(product.variantStock).length > 0) {
+    // Return specific variant stock if exists, otherwise 0 (not available)
+    return product.variantStock[key] !== undefined ? product.variantStock[key] : 0;
   }
+  
+  // Fall back to general stock only if no variant tracking
   return product.stock || 0;
 }
 
