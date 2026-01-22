@@ -357,15 +357,15 @@ export default function Checkout() {
                 {items.map((item, index) => (
                   <div key={`${item.id}-${index}`} className="flex justify-between text-sm">
                     <div className="flex flex-col">
-                      <span className={`font-medium ${item.stock && item.stock > 0 ? 'text-muted-foreground' : 'text-destructive'}`}>
+                      <span className={`font-medium ${item.stock && (item.stock as number) > 0 ? 'text-muted-foreground' : 'text-destructive'}`}>
                         {item.name} x {item.quantity}
-                        {item.stock !== undefined && item.stock <= 0 && " (Out of Stock)"}
+                        {item.stock !== undefined && (item.stock as number) <= 0 && " (Out of Stock)"}
                       </span>
                       <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
                         {item.selectedColor}{item.selectedSize ? ` / ${item.selectedSize}` : ''}
                       </span>
                     </div>
-                    <span className={item.stock && item.stock > 0 ? '' : 'text-destructive'}>
+                    <span className={item.stock && (item.stock as number) > 0 ? '' : 'text-destructive'}>
                       {formatCurrency(item.price * (item.quantity || 0))}
                     </span>
                   </div>
