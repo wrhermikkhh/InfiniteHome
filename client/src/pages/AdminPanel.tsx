@@ -679,41 +679,47 @@ export default function AdminPanel() {
                       </Select>
                     </div>
                     <div className="h-[300px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={analytics.chartData}>
-                          <defs>
-                            <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#1a1a1a" stopOpacity={0.1}/>
-                              <stop offset="95%" stopColor="#1a1a1a" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                          <XAxis 
-                            dataKey="name" 
-                            axisLine={false} 
-                            tickLine={false} 
-                            tick={{ fontSize: 10, fill: '#888' }}
-                          />
-                          <YAxis 
-                            axisLine={false} 
-                            tickLine={false} 
-                            tick={{ fontSize: 10, fill: '#888' }}
-                            tickFormatter={(value) => `${value}`}
-                          />
-                          <Tooltip 
-                            contentStyle={{ borderRadius: '0px', border: '1px solid #eee', fontSize: '12px' }}
-                            formatter={(value: any) => [formatCurrency(value), "Revenue"]}
-                          />
-                          <Area 
-                            type="monotone" 
-                            dataKey="revenue" 
-                            stroke="#1a1a1a" 
-                            fillOpacity={1} 
-                            fill="url(#colorRev)" 
-                            strokeWidth={2}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
+                      {analytics.chartData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={analytics.chartData}>
+                            <defs>
+                              <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#1a1a1a" stopOpacity={0.1}/>
+                                <stop offset="95%" stopColor="#1a1a1a" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                            <XAxis 
+                              dataKey="name" 
+                              axisLine={false} 
+                              tickLine={false} 
+                              tick={{ fontSize: 10, fill: '#888' }}
+                            />
+                            <YAxis 
+                              axisLine={false} 
+                              tickLine={false} 
+                              tick={{ fontSize: 10, fill: '#888' }}
+                              tickFormatter={(value) => `${value}`}
+                            />
+                            <Tooltip 
+                              contentStyle={{ borderRadius: '0px', border: '1px solid #eee', fontSize: '12px' }}
+                              formatter={(value: any) => [formatCurrency(value), "Revenue"]}
+                            />
+                            <Area 
+                              type="monotone" 
+                              dataKey="revenue" 
+                              stroke="#1a1a1a" 
+                              fillOpacity={1} 
+                              fill="url(#colorRev)" 
+                              strokeWidth={2}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                          No revenue data yet
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -722,26 +728,32 @@ export default function AdminPanel() {
                   <CardContent className="p-6">
                     <h3 className="font-serif text-lg mb-6">Order Status</h3>
                     <div className="h-[250px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={analytics.statusData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={80}
-                            paddingAngle={5}
-                            dataKey="value"
-                          >
-                            {analytics.statusData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            contentStyle={{ borderRadius: '0px', border: '1px solid #eee', fontSize: '12px' }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
+                      {analytics.statusData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={analytics.statusData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              {analytics.statusData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip 
+                              contentStyle={{ borderRadius: '0px', border: '1px solid #eee', fontSize: '12px' }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                          No orders yet
+                        </div>
+                      )}
                     </div>
                     <div className="mt-4 space-y-2">
                       {analytics.statusData.slice(0, 4).map((status, index) => (
