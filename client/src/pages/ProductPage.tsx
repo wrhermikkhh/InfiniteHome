@@ -8,6 +8,7 @@ import { Star, Truck, ShieldCheck, RefreshCcw, Minus, Plus } from "lucide-react"
 import { useState, useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import { useCart } from "@/lib/cart";
+import { motion } from "framer-motion";
 
 export default function ProductPage() {
   const [match, params] = useRoute("/product/:id");
@@ -40,7 +41,7 @@ export default function ProductPage() {
     <div className="min-h-screen bg-background font-body">
       <Navbar />
       <div className="pt-32 pb-16 container mx-auto px-4 text-center">
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-muted-foreground uppercase tracking-widest text-sm animate-pulse">Loading product details...</p>
       </div>
       <Footer />
     </div>
@@ -51,59 +52,112 @@ export default function ProductPage() {
   const currentPrice = currentVariant.price;
 
   return (
-    <div className="min-h-screen bg-background font-body">
+    <div className="min-h-screen bg-background font-body overflow-x-hidden">
       <Navbar />
 
       <div className="pt-32 pb-16 container mx-auto px-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
           
           {/* Images */}
-          <div className="space-y-4">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+            className="space-y-4"
+          >
             <div className="aspect-[4/5] bg-secondary/20 overflow-hidden w-full">
-               <img src={mainImage} alt={product.name} className="w-full h-full object-cover transition-opacity duration-300" />
+               <motion.img 
+                 key={mainImage}
+                 initial={{ opacity: 0 }}
+                 animate={{ opacity: 1 }}
+                 transition={{ duration: 0.5 }}
+                 src={mainImage} 
+                 alt={product.name} 
+                 className="w-full h-full object-cover" 
+               />
             </div>
             
             {/* Gallery Images */}
             {product.images && product.images.length > 0 && (
               <div className="grid grid-cols-4 gap-4">
-                <div 
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
                   className={`aspect-square bg-secondary/20 overflow-hidden border-2 cursor-pointer transition-all ${mainImage === product.image ? 'border-primary' : 'border-transparent'}`}
                   onClick={() => setMainImage(product.image)}
                 >
                   <img src={product.image} alt={`${product.name} main`} className="w-full h-full object-cover" />
-                </div>
+                </motion.div>
                 {product.images.map((img, idx) => (
-                  <div 
+                  <motion.div 
                     key={idx} 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 + (idx + 1) * 0.1 }}
                     className={`aspect-square bg-secondary/20 overflow-hidden border-2 cursor-pointer transition-all ${mainImage === img ? 'border-primary' : 'border-transparent hover:border-primary/50'}`}
                     onClick={() => setMainImage(img)}
                   >
                     <img src={img} alt={`${product.name} ${idx + 1}`} className="w-full h-full object-cover" />
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             )}
-          </div>
+          </motion.div>
 
           {/* Details */}
-          <div className="space-y-8">
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+            className="space-y-8"
+          >
             <div>
-              <div className="flex items-center space-x-2 mb-2">
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="flex items-center space-x-2 mb-2"
+              >
                  <div className="flex text-primary">
                     {[...Array(5)].map((_, i) => <Star key={i} size={16} className="fill-current" />)}
                  </div>
                  <span className="text-sm text-muted-foreground underline">{product.reviews || 0} Reviews</span>
-              </div>
-              <h1 className="text-4xl md:text-5xl font-serif mb-4 text-foreground leading-tight">{product.name}</h1>
-              <p className="text-2xl font-medium text-foreground">{formatCurrency(currentPrice)}</p>
+              </motion.div>
+              <motion.h1 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-4xl md:text-5xl font-serif mb-4 text-foreground leading-tight"
+              >
+                {product.name}
+              </motion.h1>
+              <motion.p 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="text-2xl font-medium text-foreground"
+              >
+                {formatCurrency(currentPrice)}
+              </motion.p>
             </div>
 
-            <p className="text-muted-foreground text-lg leading-relaxed">
+            <motion.p 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="text-muted-foreground text-lg leading-relaxed"
+            >
               {product.description || "Experience the difference of our premium bamboo viscose fabric. Cooler than cotton, softer than silk."}
-            </p>
+            </motion.p>
 
             {/* Configurator */}
-            <div className="space-y-6 pt-6 border-t border-border">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="space-y-6 pt-6 border-t border-border"
+            >
               {/* Color */}
               <div className="space-y-3">
                 <span className="text-sm font-bold uppercase tracking-widest">Color: <span className="text-muted-foreground font-normal normal-case">{selectedColor}</span></span>
@@ -112,7 +166,7 @@ export default function ProductPage() {
                     <button
                       key={color}
                       onClick={() => setSelectedColor(color)}
-                      className={`px-4 py-2 text-sm border flex items-center gap-2 ${selectedColor === color ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:border-primary/50'}`}
+                      className={`px-4 py-2 text-sm border flex items-center gap-2 transition-all ${selectedColor === color ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:border-primary/50'}`}
                       data-testid={`color-${color.toLowerCase()}`}
                     >
                       <div className="w-4 h-4 rounded-full border border-black/20" style={{ backgroundColor: getColorCode(color) }}></div>
@@ -130,7 +184,7 @@ export default function ProductPage() {
                      <button
                        key={v.size}
                        onClick={() => setSelectedSize(v.size)}
-                       className={`px-4 py-2 text-sm border ${selectedSize === v.size ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:border-primary/50'}`}
+                       className={`px-4 py-2 text-sm border transition-all ${selectedSize === v.size ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:border-primary/50'}`}
                        data-testid={`size-${v.size.toLowerCase()}`}
                      >
                        {v.size}
@@ -160,16 +214,21 @@ export default function ProductPage() {
                 </div>
                 <Button 
                   onClick={() => addItem(product, quantity, selectedColor, selectedSize, currentPrice)}
-                  className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all hover:scale-[1.02] active:scale-[0.98]"
                   data-testid="add-to-cart"
                 >
                   Add to Bag - {formatCurrency(currentPrice * quantity)}
                 </Button>
               </div>
-            </div>
+            </motion.div>
 
             {/* Benefits */}
-            <div className="grid grid-cols-1 gap-4 pt-8 text-sm text-muted-foreground">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+              className="grid grid-cols-1 gap-4 pt-8 text-sm text-muted-foreground"
+            >
                <div className="flex items-center space-x-3">
                  <Truck size={20} className="text-primary" />
                  <span>Free Delivery on all items</span>
@@ -185,9 +244,9 @@ export default function ProductPage() {
                  <RefreshCcw size={20} className="text-primary" />
                  <span>Free Returns & Exchanges</span>
                </div>
-            </div>
+            </motion.div>
 
-          </div>
+          </motion.div>
         </div>
       </div>
 
