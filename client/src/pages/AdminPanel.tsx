@@ -413,51 +413,6 @@ export default function AdminPanel() {
     }
   };
 
-  if (!isAdminAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md rounded-none shadow-none border-border">
-          <div className="p-6 text-center">
-            <h1 className="text-2xl font-serif mb-2">Admin Login</h1>
-            <p className="text-sm text-muted-foreground mb-6">Secure access required</p>
-          </div>
-          <CardContent className="space-y-4">
-            <div className="space-y-4">
-              <Input 
-                type="email" 
-                placeholder="Email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="rounded-none h-12"
-                data-testid="input-admin-email"
-              />
-              <Input 
-                type="password" 
-                placeholder="Password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="rounded-none h-12"
-                data-testid="input-admin-password"
-              />
-              {error && <p className="text-xs text-destructive">{error}</p>}
-            </div>
-            <Button 
-              className="w-full h-12 rounded-none uppercase tracking-widest font-bold"
-              onClick={handleLogin}
-              disabled={isLoading}
-              data-testid="button-admin-login"
-            >
-              {isLoading ? "Signing In..." : "Sign In"}
-            </Button>
-            <Button variant="link" className="w-full text-xs text-muted-foreground" onClick={() => setLocation("/")}>
-              Back to Home
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   const menuItems = [
     { icon: LayoutDashboard, label: "Overview" },
     { icon: ShoppingBag, label: "Products" },
@@ -466,7 +421,7 @@ export default function AdminPanel() {
     { icon: Settings, label: "Admin Management" },
   ];
 
-  // Dashboard Analytics Calculations
+  // Dashboard Analytics Calculations - must be before conditional returns
   const analytics = useMemo(() => {
     if (!orders.length) return { 
       totalRevenue: 0, 
@@ -516,6 +471,51 @@ export default function AdminPanel() {
   }, [orders]);
 
   const COLORS = ['#1a1a1a', '#4a4a4a', '#8a8a8a', '#c0c0c0', '#e0e0e0'];
+
+  if (!isAdminAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md rounded-none shadow-none border-border">
+          <div className="p-6 text-center">
+            <h1 className="text-2xl font-serif mb-2">Admin Login</h1>
+            <p className="text-sm text-muted-foreground mb-6">Secure access required</p>
+          </div>
+          <CardContent className="space-y-4">
+            <div className="space-y-4">
+              <Input 
+                type="email" 
+                placeholder="Email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="rounded-none h-12"
+                data-testid="input-admin-email"
+              />
+              <Input 
+                type="password" 
+                placeholder="Password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="rounded-none h-12"
+                data-testid="input-admin-password"
+              />
+              {error && <p className="text-xs text-destructive">{error}</p>}
+            </div>
+            <Button 
+              className="w-full h-12 rounded-none uppercase tracking-widest font-bold"
+              onClick={handleLogin}
+              disabled={isLoading}
+              data-testid="button-admin-login"
+            >
+              {isLoading ? "Signing In..." : "Sign In"}
+            </Button>
+            <Button variant="link" className="w-full text-xs text-muted-foreground" onClick={() => setLocation("/")}>
+              Back to Home
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
