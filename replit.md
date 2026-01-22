@@ -184,6 +184,13 @@ Alphanumeric 6-character format: IH-XXXXXX (e.g., IH-A3K7M9)
 - Mobile-responsive admin panel with hamburger menu navigation
 
 ## Recent Changes
+- Implemented variant-level stock management (e.g., "King-White" vs "King-Blue" tracked separately)
+- Added variantStock JSON field to products schema with compound key format "Size-Color"
+- Helper functions `getVariantStockKey()` and `getVariantStock()` in `client/src/lib/products.ts`
+- Admin panel enhanced with variant stock UI showing all size/color combinations
+- Product page, cart, and checkout now enforce variant-specific stock limits
+- Server-side order validation requires productId, validates size/color against product options, checks variant stock
+- Cart caps quantities to available variant stock; checkout displays "Only X available" warnings
 - Added categories management system with CRUD operations and dropdown selection in admin
 - Added stock management for products with inventory tracking
 - Added support for multiple product images (primary + additional gallery)
