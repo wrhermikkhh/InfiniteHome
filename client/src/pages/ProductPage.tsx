@@ -55,6 +55,7 @@ export default function ProductPage() {
   const currentVariant = variants.find(v => v.size === selectedSize) || variants[0];
   const currentPrice = currentVariant.price;
   const currentStock = product ? getVariantStock(product, selectedSize, selectedColor) : 0;
+  const isOutOfStock = currentStock <= 0;
 
   return (
     <div className="min-h-screen bg-background font-body overflow-x-hidden">
@@ -128,6 +129,9 @@ export default function ProductPage() {
                     {[...Array(5)].map((_, i) => <Star key={i} size={16} className="fill-current" />)}
                  </div>
                  <span className="text-sm text-muted-foreground underline">{product.reviews || 0} Reviews</span>
+                 {isOutOfStock && (
+                   <span className="text-xs font-bold uppercase tracking-widest text-destructive bg-destructive/10 px-2 py-1 ml-2">Out of Stock</span>
+                 )}
               </motion.div>
               <motion.h1 
                 initial={{ opacity: 0, y: 10 }}
