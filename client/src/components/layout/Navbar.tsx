@@ -79,8 +79,8 @@ export function Navbar() {
     <header
       className={cn(
         "fixed top-0 w-full z-50 transition-all duration-300 border-b border-transparent",
-        isScrolled || mobileMenuOpen || location !== "/" 
-          ? "bg-background/95 backdrop-blur-sm border-border py-3 shadow-sm" 
+        isScrolled || mobileMenuOpen || location !== "/" || searchOpen
+          ? "bg-background border-border py-3 shadow-sm" 
           : "bg-transparent py-5 text-white"
       )}
     >
@@ -106,7 +106,7 @@ export function Navbar() {
                 placeholder="Search for products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="rounded-none h-11 bg-secondary/10 border-border focus:border-primary focus:ring-0 transition-all text-sm font-medium pr-10"
+                className="rounded-none h-11 bg-background border-border focus:border-primary focus:ring-0 transition-all text-sm font-medium pr-10"
                 autoFocus
                 data-testid="input-search"
               />
