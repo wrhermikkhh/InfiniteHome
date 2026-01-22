@@ -69,6 +69,7 @@ export const products = pgTable("products", {
   colors: jsonb("colors").$type<string[]>().default([]),
   variants: jsonb("variants").$type<{ size: string; price: number }[]>().default([]),
   stock: integer("stock").default(0),
+  variantStock: jsonb("variant_stock").$type<{ [key: string]: number }>().default({}),
   expressCharge: real("express_charge").default(0),
   rating: real("rating").default(5),
   reviews: integer("reviews").default(0),

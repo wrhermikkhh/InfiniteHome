@@ -23,8 +23,21 @@ export interface Product {
   colors?: string[] | null;
   variants?: ProductVariant[] | null;
   stock?: number | null;
+  variantStock?: { [key: string]: number } | null;
   expressCharge?: number | null;
   sizeGuide?: SizeGuideEntry[] | null;
+}
+
+export function getVariantStockKey(size?: string, color?: string): string {
+  return `${size || 'Standard'}-${color || 'Default'}`;
+}
+
+export function getVariantStock(product: Product, size?: string, color?: string): number {
+  const key = getVariantStockKey(size, color);
+  if (product.variantStock && product.variantStock[key] !== undefined) {
+    return product.variantStock[key];
+  }
+  return product.stock || 0;
 }
 
 export const formatCurrency = (amount: number) => {
