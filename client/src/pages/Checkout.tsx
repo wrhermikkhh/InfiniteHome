@@ -2,14 +2,14 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { useCart } from "@/lib/cart";
 import { formatCurrency, getVariantStock } from "@/lib/products";
-import { api } from "@/lib/api";
+import { api, CustomerAddress } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { CreditCard, Truck, Zap, Wallet, Upload, CheckCircle } from "lucide-react";
+import { CreditCard, Truck, Zap, Wallet, Upload, CheckCircle, MapPin, Plus } from "lucide-react";
 import { useUpload } from "@/hooks/use-upload";
 import { useAuth } from "@/lib/auth";
 
@@ -24,6 +24,10 @@ export default function Checkout() {
   const [couponError, setCouponError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentSlipPath, setPaymentSlipPath] = useState("");
+  const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
   const { uploadFile, isUploading } = useUpload({
     onSuccess: (response) => {
       setPaymentSlipPath(response.objectPath);
@@ -39,6 +43,8 @@ export default function Checkout() {
   });
 
   useEffect(() => {
+    let cancelled = false;
+    
     if (isAuthenticated && user) {
       setFormData(prev => ({
         ...prev,
@@ -46,8 +52,58 @@ export default function Checkout() {
         customerEmail: user.email || "",
         customerPhone: prev.customerPhone || user.phone || ""
       }));
+      
+      setLoadingAddresses(true);
+      api.getCustomerAddresses(user.id).then((addresses) => {
+        if (cancelled) return;
+        setSavedAddresses(addresses);
+        if (addresses.length > 0) {
+          const defaultAddr = addresses.find(a => a.isDefault) || addresses[0];
+          setSelectedAddressId(defaultAddr.id);
+          const streetParts = [defaultAddr.streetAddress, defaultAddr.addressLine2].filter(Boolean);
+          const streetAddress = streetParts.join(", ") || defaultAddr.fullAddress.split(", ").slice(0, -1).join(", ");
+          const city = defaultAddr.cityIsland || defaultAddr.fullAddress.split(", ").pop() || "";
+          setFormData(prev => ({
+            ...prev,
+            customerName: defaultAddr.fullName || prev.customerName,
+            shippingAddress: streetAddress,
+            city: city,
+            customerPhone: defaultAddr.mobileNo || prev.customerPhone
+          }));
+        } else {
+          setShowNewAddressForm(true);
+        }
+      }).catch(console.error).finally(() => {
+        if (!cancelled) setLoadingAddresses(false);
+      });
+    } else {
+      setSavedAddresses([]);
+      setSelectedAddressId(null);
+      setShowNewAddressForm(false);
     }
+    
+    return () => { cancelled = true; };
   }, [isAuthenticated, user]);
+
+  const applyAddress = (addr: CustomerAddress) => {
+    const streetParts = [addr.streetAddress, addr.addressLine2].filter(Boolean);
+    const streetAddress = streetParts.join(", ") || addr.fullAddress.split(", ").slice(0, -1).join(", ");
+    const city = addr.cityIsland || addr.fullAddress.split(", ").pop() || "";
+    setFormData(prev => ({
+      ...prev,
+      customerName: addr.fullName || prev.customerName,
+      shippingAddress: streetAddress,
+      city: city,
+      customerPhone: addr.mobileNo || prev.customerPhone
+    }));
+  };
+
+  const handleAddressSelect = (addressId: string) => {
+    setSelectedAddressId(addressId);
+    setShowNewAddressForm(false);
+    const addr = savedAddresses.find(a => a.id === addressId);
+    if (addr) applyAddress(addr);
+  };
 
   const subtotal = items.reduce((sum, item) => sum + item.price * (item.quantity || 0), 0);
   const hasStockIssues = items.some(item => {
@@ -145,58 +201,138 @@ export default function Checkout() {
           <div className="space-y-12">
             <section>
               <h2 className="text-2xl font-serif mb-6">Delivery Information</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <Input 
-                    placeholder="Full Name" 
-                    className="rounded-none h-12"
-                    value={formData.customerName}
-                    onChange={(e) => setFormData({...formData, customerName: e.target.value})}
-                    data-testid="input-name"
-                  />
+              
+              {isAuthenticated && loadingAddresses ? (
+                <div className="p-8 border border-border text-center">
+                  <p className="text-sm text-muted-foreground">Loading your saved addresses...</p>
                 </div>
-                <div className="col-span-2">
-                  <Input 
-                    placeholder="Email *" 
-                    type="email"
-                    className={`rounded-none h-12 ${isAuthenticated ? 'bg-muted' : ''}`}
-                    value={formData.customerEmail}
-                    onChange={(e) => setFormData({...formData, customerEmail: e.target.value})}
-                    readOnly={isAuthenticated}
-                    required
-                    data-testid="input-email"
-                  />
-                  {isAuthenticated ? (
+              ) : isAuthenticated && savedAddresses.length > 0 && !showNewAddressForm ? (
+                <div className="space-y-4">
+                  <RadioGroup value={selectedAddressId || ""} onValueChange={handleAddressSelect} className="grid gap-3">
+                    {savedAddresses.map((addr) => (
+                      <Label
+                        key={addr.id}
+                        className={`flex items-start gap-3 p-4 border cursor-pointer transition-colors ${selectedAddressId === addr.id ? "border-primary bg-secondary/10" : "border-border"}`}
+                        data-testid={`address-${addr.id}`}
+                      >
+                        <RadioGroupItem value={addr.id} className="mt-1" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <MapPin size={14} className="text-primary" />
+                            <span className="font-medium text-sm">{addr.label}</span>
+                            {addr.isDefault && (
+                              <span className="text-[10px] uppercase tracking-widest text-primary font-bold">Default</span>
+                            )}
+                          </div>
+                          {addr.fullName && <p className="text-sm mt-1">{addr.fullName}</p>}
+                          <p className="text-xs text-muted-foreground mt-1">{addr.fullAddress}</p>
+                          {addr.mobileNo && <p className="text-xs text-muted-foreground">Tel: {addr.mobileNo}</p>}
+                        </div>
+                      </Label>
+                    ))}
+                  </RadioGroup>
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-none h-10 text-xs uppercase tracking-widest"
+                    onClick={() => {
+                      setShowNewAddressForm(true);
+                      setSelectedAddressId(null);
+                      setFormData(prev => ({
+                        ...prev,
+                        customerName: user?.name || "",
+                        shippingAddress: "",
+                        city: "",
+                        customerPhone: user?.phone || ""
+                      }));
+                    }}
+                    data-testid="button-new-address"
+                  >
+                    <Plus size={14} className="mr-2" /> Use a Different Address
+                  </Button>
+                  
+                  <div className="col-span-2 pt-4 border-t border-border">
+                    <Input 
+                      placeholder="Email *" 
+                      type="email"
+                      className="rounded-none h-12 bg-muted"
+                      value={formData.customerEmail}
+                      readOnly
+                      data-testid="input-email"
+                    />
                     <p className="text-[10px] text-muted-foreground mt-1">Email linked to your account</p>
-                  ) : (
-                    <p className="text-[10px] text-muted-foreground mt-1">Required for order confirmation</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {isAuthenticated && savedAddresses.length > 0 && (
+                    <Button
+                      variant="outline"
+                      className="w-full rounded-none h-10 text-xs uppercase tracking-widest mb-4"
+                      onClick={() => {
+                        setShowNewAddressForm(false);
+                        const defaultAddr = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
+                        setSelectedAddressId(defaultAddr.id);
+                        applyAddress(defaultAddr);
+                      }}
+                      data-testid="button-use-saved-address"
+                    >
+                      <MapPin size={14} className="mr-2" /> Use Saved Address
+                    </Button>
                   )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <Input 
+                        placeholder="Full Name" 
+                        className="rounded-none h-12"
+                        value={formData.customerName}
+                        onChange={(e) => setFormData({...formData, customerName: e.target.value})}
+                        data-testid="input-name"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Input 
+                        placeholder="Email *" 
+                        type="email"
+                        className={`rounded-none h-12 ${isAuthenticated ? 'bg-muted' : ''}`}
+                        value={formData.customerEmail}
+                        onChange={(e) => setFormData({...formData, customerEmail: e.target.value})}
+                        readOnly={isAuthenticated}
+                        required
+                        data-testid="input-email"
+                      />
+                      {isAuthenticated ? (
+                        <p className="text-[10px] text-muted-foreground mt-1">Email linked to your account</p>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground mt-1">Required for order confirmation</p>
+                      )}
+                    </div>
+                    <div className="col-span-2">
+                      <Input 
+                        placeholder="Shipping Address" 
+                        className="rounded-none h-12"
+                        value={formData.shippingAddress}
+                        onChange={(e) => setFormData({...formData, shippingAddress: e.target.value})}
+                        data-testid="input-address"
+                      />
+                    </div>
+                    <Input 
+                      placeholder="City / Island / Boat Name" 
+                      className="rounded-none h-12"
+                      value={formData.city}
+                      onChange={(e) => setFormData({...formData, city: e.target.value})}
+                      data-testid="input-city"
+                    />
+                    <Input 
+                      placeholder="Phone *" 
+                      className="rounded-none h-12"
+                      value={formData.customerPhone}
+                      onChange={(e) => setFormData({...formData, customerPhone: e.target.value})}
+                      required
+                      data-testid="input-phone"
+                    />
+                  </div>
                 </div>
-                <div className="col-span-2">
-                  <Input 
-                    placeholder="Shipping Address" 
-                    className="rounded-none h-12"
-                    value={formData.shippingAddress}
-                    onChange={(e) => setFormData({...formData, shippingAddress: e.target.value})}
-                    data-testid="input-address"
-                  />
-                </div>
-                <Input 
-                  placeholder="City / Island / Boat Name" 
-                  className="rounded-none h-12"
-                  value={formData.city}
-                  onChange={(e) => setFormData({...formData, city: e.target.value})}
-                  data-testid="input-city"
-                />
-                <Input 
-                  placeholder="Phone *" 
-                  className="rounded-none h-12"
-                  value={formData.customerPhone}
-                  onChange={(e) => setFormData({...formData, customerPhone: e.target.value})}
-                  required
-                  data-testid="input-phone"
-                />
-              </div>
+              )}
             </section>
 
             <section>
