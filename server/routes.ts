@@ -378,6 +378,16 @@ export async function registerRoutes(
       const order = await storage.createOrder(data);
       console.log("Order created:", order.id, "Order Number:", order.orderNumber);
       
+      // Deduct stock for each item in the order
+      for (const item of items) {
+        if (item.productId) {
+          const size = item.size || 'Standard';
+          const color = item.color || 'Default';
+          await storage.deductStock(item.productId, size, color, item.qty);
+          console.log(`Stock deducted: ${item.name} (${size}/${color}) x${item.qty}`);
+        }
+      }
+      
       // Test log to verify order object
       console.log("Full order object for email:", JSON.stringify(order, null, 2));
       
@@ -395,8 +405,30 @@ export async function registerRoutes(
   app.patch("/api/orders/:id/status", async (req, res) => {
     try {
       const { status } = req.body;
+      
+      // Get the current order to check previous status and items
+      const currentOrder = await storage.getOrder(req.params.id);
+      if (!currentOrder) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      const previousStatus = currentOrder.status;
       const order = await storage.updateOrderStatus(req.params.id, status);
+      
       if (order) {
+        // Restore stock if order is being cancelled (and wasn't cancelled before)
+        if (status === 'cancelled' && previousStatus !== 'cancelled') {
+          const items = order.items as { productId?: string; name: string; qty: number; size?: string; color?: string }[];
+          for (const item of items) {
+            if (item.productId) {
+              const size = item.size || 'Standard';
+              const color = item.color || 'Default';
+              await storage.restoreStock(item.productId, size, color, item.qty);
+              console.log(`Stock restored: ${item.name} (${size}/${color}) x${item.qty}`);
+            }
+          }
+        }
+        
         res.json(order);
       } else {
         res.status(404).json({ message: "Order not found" });

@@ -59,6 +59,10 @@ export interface IStorage {
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
   
+  // Stock Management
+  deductStock(productId: string, size: string, color: string, quantity: number): Promise<void>;
+  restoreStock(productId: string, size: string, color: string, quantity: number): Promise<void>;
+  
   // Product Search
   searchProducts(query: string): Promise<Product[]>;
 }
@@ -246,6 +250,46 @@ export class DatabaseStorage implements IStorage {
         ilike(products.category, searchPattern)
       )
     );
+  }
+
+  async deductStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
+    const product = await this.getProduct(productId);
+    if (!product) return;
+
+    const variantKey = `${size}-${color}`;
+    const variantStock = (product.variantStock as { [key: string]: number } | null) || {};
+    
+    // Check if variant stock is being used
+    if (Object.keys(variantStock).length > 0 && variantStock[variantKey] !== undefined) {
+      // Deduct from variant stock
+      const newVariantStock = { ...variantStock };
+      newVariantStock[variantKey] = Math.max(0, (newVariantStock[variantKey] || 0) - quantity);
+      await db.update(products).set({ variantStock: newVariantStock }).where(eq(products.id, productId));
+    } else {
+      // Deduct from general stock
+      const newStock = Math.max(0, (product.stock || 0) - quantity);
+      await db.update(products).set({ stock: newStock }).where(eq(products.id, productId));
+    }
+  }
+
+  async restoreStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
+    const product = await this.getProduct(productId);
+    if (!product) return;
+
+    const variantKey = `${size}-${color}`;
+    const variantStock = (product.variantStock as { [key: string]: number } | null) || {};
+    
+    // Check if variant stock is being used
+    if (Object.keys(variantStock).length > 0 && variantStock[variantKey] !== undefined) {
+      // Restore to variant stock
+      const newVariantStock = { ...variantStock };
+      newVariantStock[variantKey] = (newVariantStock[variantKey] || 0) + quantity;
+      await db.update(products).set({ variantStock: newVariantStock }).where(eq(products.id, productId));
+    } else {
+      // Restore to general stock
+      const newStock = (product.stock || 0) + quantity;
+      await db.update(products).set({ stock: newStock }).where(eq(products.id, productId));
+    }
   }
 }
 
