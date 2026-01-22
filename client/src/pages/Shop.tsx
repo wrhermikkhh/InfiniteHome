@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { api, type Category } from "@/lib/api";
 import { useEffect } from "react";
+import { motion } from "framer-motion";
 
 export default function Shop() {
   const [location] = useLocation();
@@ -33,22 +34,44 @@ export default function Shop() {
     : products;
 
   return (
-    <div className="min-h-screen bg-background font-body">
+    <div className="min-h-screen bg-background font-body overflow-x-hidden">
       <Navbar />
       
       {/* Header */}
-      <div className="bg-secondary/30 pt-32 pb-16">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        className="bg-secondary/30 pt-32 pb-16"
+      >
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-serif mb-4">{category || "Shop All"}</h1>
-          <p className="text-muted-foreground max-w-lg mx-auto">
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-4xl md:text-5xl font-serif mb-4"
+          >
+            {category || "Shop All"}
+          </motion.h1>
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="text-muted-foreground max-w-lg mx-auto"
+          >
             Discover premium home essentials - from luxury bedding to modern furniture and appliances.
-          </p>
+          </motion.p>
         </div>
-      </div>
+      </motion.div>
 
       <div className="container mx-auto px-4 py-12">
         {/* Filters */}
-        <div className="flex flex-wrap gap-4 justify-center mb-12">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="flex flex-wrap gap-4 justify-center mb-12"
+        >
           {categories.map(cat => (
             <Link key={cat} href={cat === "Shop All" ? "/shop" : `/shop?category=${cat}`}>
               <Button 
@@ -64,23 +87,35 @@ export default function Shop() {
               </Button>
             </Link>
           ))}
-        </div>
+        </motion.div>
 
         {/* Grid */}
         {loading ? (
-          <div className="text-center py-24 text-muted-foreground">Loading products...</div>
+          <div className="text-center py-24 text-muted-foreground uppercase tracking-widest text-sm animate-pulse">Loading collection...</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-12">
-            {filteredProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
+            {filteredProducts.map((product, index) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ duration: 0.8, delay: (index % 4) * 0.1 }}
+              >
+                <ProductCard product={product} />
+              </motion.div>
             ))}
           </div>
         )}
 
         {!loading && filteredProducts.length === 0 && (
-          <div className="text-center py-24">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-24"
+          >
             <h3 className="text-2xl font-serif text-muted-foreground">No products found in this category.</h3>
-          </div>
+          </motion.div>
         )}
       </div>
 

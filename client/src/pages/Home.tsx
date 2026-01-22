@@ -66,50 +66,77 @@ export default function Home() {
       {/* Categories */}
       <section className="py-24 bg-background">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-16"
+          >
             <h2 className="text-3xl md:text-4xl font-serif mb-4 text-foreground">Shop by Category</h2>
             <p className="text-muted-foreground max-w-lg mx-auto">Discover our curated collection of premium home essentials tailored for your lifestyle.</p>
-          </div>
+          </motion.div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <Link href="/shop?category=Bedding">
-              <div className="group cursor-pointer space-y-4">
-                <div className="aspect-[4/5] overflow-hidden relative">
-                  <img src={beddingImage} alt="Bedding" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.1 }}
+            >
+              <Link href="/shop?category=Bedding">
+                <div className="group cursor-pointer space-y-4">
+                  <div className="aspect-[4/5] overflow-hidden relative">
+                    <img src={beddingImage} alt="Bedding" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                    <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="font-serif text-2xl mb-1 group-hover:text-primary/80 transition-colors">Bedding</h3>
+                    <span className="text-xs font-bold uppercase tracking-widest border-b border-transparent group-hover:border-foreground transition-all">Shop Now</span>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <h3 className="font-serif text-2xl mb-1 group-hover:text-primary/80 transition-colors">Bedding</h3>
-                  <span className="text-xs font-bold uppercase tracking-widest border-b border-transparent group-hover:border-foreground transition-all">Shop Now</span>
-                </div>
-              </div>
-            </Link>
+              </Link>
+            </motion.div>
             
-            <Link href="/shop?category=Furniture">
-              <div className="group cursor-pointer space-y-4">
-                <div className="aspect-[4/5] overflow-hidden relative">
-                  <img src={furnitureImage} alt="Furniture" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              <Link href="/shop?category=Furniture">
+                <div className="group cursor-pointer space-y-4">
+                  <div className="aspect-[4/5] overflow-hidden relative">
+                    <img src={furnitureImage} alt="Furniture" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                    <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="font-serif text-2xl mb-1 group-hover:text-primary/80 transition-colors">Furniture</h3>
+                    <span className="text-xs font-bold uppercase tracking-widest border-b border-transparent group-hover:border-foreground transition-all">Shop Now</span>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <h3 className="font-serif text-2xl mb-1 group-hover:text-primary/80 transition-colors">Furniture</h3>
-                  <span className="text-xs font-bold uppercase tracking-widest border-b border-transparent group-hover:border-foreground transition-all">Shop Now</span>
-                </div>
-              </div>
-            </Link>
+              </Link>
+            </motion.div>
             
-            <Link href="/shop?category=Appliances">
-              <div className="group cursor-pointer space-y-4">
-                <div className="aspect-[4/5] overflow-hidden relative">
-                  <img src={appliancesImage} alt="Appliances" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+            >
+              <Link href="/shop?category=Appliances">
+                <div className="group cursor-pointer space-y-4">
+                  <div className="aspect-[4/5] overflow-hidden relative">
+                    <img src={appliancesImage} alt="Appliances" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                    <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="font-serif text-2xl mb-1 group-hover:text-primary/80 transition-colors">Appliances</h3>
+                    <span className="text-xs font-bold uppercase tracking-widest border-b border-transparent group-hover:border-foreground transition-all">Shop Now</span>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <h3 className="font-serif text-2xl mb-1 group-hover:text-primary/80 transition-colors">Appliances</h3>
-                  <span className="text-xs font-bold uppercase tracking-widest border-b border-transparent group-hover:border-foreground transition-all">Shop Now</span>
-                </div>
-              </div>
-            </Link>
+              </Link>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -117,7 +144,13 @@ export default function Home() {
       {/* Best Sellers */}
       <section className="py-24 bg-secondary/20">
         <div className="container mx-auto px-4">
-          <div className="flex justify-between items-end mb-12">
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="flex justify-between items-end mb-12"
+          >
             <div>
               <h2 className="text-3xl md:text-4xl font-serif mb-2">Best Sellers</h2>
               <p className="text-muted-foreground">Our most loved products.</p>
@@ -127,14 +160,22 @@ export default function Home() {
                 View All <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
-          </div>
+          </motion.div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {loading ? (
               <div className="col-span-4 text-center py-12 text-muted-foreground">Loading products...</div>
             ) : (
-              products.slice(0, 4).map(product => (
-                <ProductCard key={product.id} product={product} />
+              products.slice(0, 4).map((product, index) => (
+                <motion.div
+                  key={product.id}
+                  initial={{ opacity: 0, y: 40 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, delay: index * 0.1 }}
+                >
+                  <ProductCard product={product} />
+                </motion.div>
               ))
             )}
           </div>
