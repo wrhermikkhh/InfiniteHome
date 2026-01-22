@@ -55,6 +55,12 @@ export interface CustomerAddress {
   id: string;
   customerId: string;
   label: string;
+  fullName?: string;
+  streetAddress?: string;
+  addressLine2?: string;
+  cityIsland?: string;
+  zipCode?: string;
+  mobileNo?: string;
   fullAddress: string;
   isDefault: boolean;
 }
@@ -259,7 +265,17 @@ export const api = {
     return res.json();
   },
 
-  async createCustomerAddress(customerId: string, data: { label: string; fullAddress: string; isDefault?: boolean }): Promise<CustomerAddress> {
+  async createCustomerAddress(customerId: string, data: { 
+    label: string; 
+    fullName?: string;
+    streetAddress?: string;
+    addressLine2?: string;
+    cityIsland?: string;
+    zipCode?: string;
+    mobileNo?: string;
+    fullAddress: string; 
+    isDefault?: boolean 
+  }): Promise<CustomerAddress> {
     const res = await fetch(`${API_BASE}/customers/${customerId}/addresses`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -268,7 +284,16 @@ export const api = {
     return res.json();
   },
 
-  async updateCustomerAddress(id: string, data: Partial<{ label: string; fullAddress: string }>): Promise<CustomerAddress> {
+  async updateCustomerAddress(id: string, data: Partial<{ 
+    label: string; 
+    fullName?: string;
+    streetAddress?: string;
+    addressLine2?: string;
+    cityIsland?: string;
+    zipCode?: string;
+    mobileNo?: string;
+    fullAddress: string 
+  }>): Promise<CustomerAddress> {
     const res = await fetch(`${API_BASE}/addresses/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

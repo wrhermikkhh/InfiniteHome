@@ -162,8 +162,7 @@ export default function AdminPanel() {
 
     const itemsHtml = selectedOrder.items.map((item: any) => `
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name} x ${item.qty}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.price * item.qty)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name}${item.size ? ` (${item.size})` : ''}${item.color ? ` - ${item.color}` : ''} x ${item.qty}</td>
       </tr>
     `).join('');
 
@@ -204,13 +203,9 @@ export default function AdminPanel() {
             </div>
 
             <div class="section">
-              <div class="section-title">Order Details:</div>
+              <div class="section-title">Order Items:</div>
               <table>
                 ${itemsHtml}
-                <tr>
-                  <td style="padding: 8px; font-weight: bold;">Total</td>
-                  <td style="padding: 8px; font-weight: bold; text-align: right;">${formatCurrency(selectedOrder.total)}</td>
-                </tr>
               </table>
             </div>
 

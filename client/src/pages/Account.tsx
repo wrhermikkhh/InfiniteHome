@@ -24,7 +24,15 @@ export default function Account() {
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [showAddAddress, setShowAddAddress] = useState(false);
-  const [newAddress, setNewAddress] = useState({ label: "", fullAddress: "" });
+  const [newAddress, setNewAddress] = useState({ 
+    label: "", 
+    fullName: "",
+    streetAddress: "",
+    addressLine2: "",
+    cityIsland: "",
+    zipCode: "",
+    mobileNo: ""
+  });
   const [formData, setFormData] = useState({
     name: user?.name || "",
     phone: user?.phone || "",
@@ -93,15 +101,39 @@ export default function Account() {
   };
 
   const handleAddAddress = async () => {
-    if (!newAddress.label || !newAddress.fullAddress) return;
+    if (!newAddress.label || !newAddress.fullName || !newAddress.streetAddress || !newAddress.cityIsland || !newAddress.mobileNo) {
+      toast({ title: "Error", description: "Please fill in all required fields.", variant: "destructive" });
+      return;
+    }
     try {
+      const fullAddress = [
+        newAddress.streetAddress,
+        newAddress.addressLine2,
+        newAddress.cityIsland,
+        newAddress.zipCode
+      ].filter(Boolean).join(", ");
+      
       const created = await api.createCustomerAddress(user.id, {
         label: newAddress.label,
-        fullAddress: newAddress.fullAddress,
+        fullName: newAddress.fullName,
+        streetAddress: newAddress.streetAddress,
+        addressLine2: newAddress.addressLine2 || undefined,
+        cityIsland: newAddress.cityIsland,
+        zipCode: newAddress.zipCode || undefined,
+        mobileNo: newAddress.mobileNo,
+        fullAddress: fullAddress,
         isDefault: addresses.length === 0,
       });
       setAddresses([...addresses, created]);
-      setNewAddress({ label: "", fullAddress: "" });
+      setNewAddress({ 
+        label: "", 
+        fullName: "",
+        streetAddress: "",
+        addressLine2: "",
+        cityIsland: "",
+        zipCode: "",
+        mobileNo: ""
+      });
       setShowAddAddress(false);
       toast({ title: "Address Added", description: "Your new address has been saved." });
     } catch (error) {
@@ -270,7 +302,9 @@ export default function Account() {
                           </span>
                         )}
                         <p className="font-medium text-sm">{addr.label}</p>
+                        {addr.fullName && <p className="text-xs mt-1">{addr.fullName}</p>}
                         <p className="text-xs text-muted-foreground mt-1">{addr.fullAddress}</p>
+                        {addr.mobileNo && <p className="text-xs text-muted-foreground">Tel: {addr.mobileNo}</p>}
                         <div className="flex gap-2 mt-2">
                           {!addr.isDefault && (
                             <Button 
@@ -297,13 +331,13 @@ export default function Account() {
                 )}
 
                 <Dialog open={showAddAddress} onOpenChange={setShowAddAddress}>
-                  <DialogContent className="rounded-none">
+                  <DialogContent className="rounded-none max-w-md">
                     <DialogHeader>
                       <DialogTitle className="font-serif">Add New Address</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 pt-4">
                       <div className="space-y-2">
-                        <Label className="text-xs uppercase tracking-widest font-bold">Label</Label>
+                        <Label className="text-xs uppercase tracking-widest font-bold">Label *</Label>
                         <Input
                           placeholder="e.g., Home, Office, etc."
                           value={newAddress.label}
@@ -313,13 +347,65 @@ export default function Account() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs uppercase tracking-widest font-bold">Full Address</Label>
+                        <Label className="text-xs uppercase tracking-widest font-bold">Full Name *</Label>
                         <Input
-                          placeholder="Your complete delivery address"
-                          value={newAddress.fullAddress}
-                          onChange={(e) => setNewAddress({ ...newAddress, fullAddress: e.target.value })}
+                          placeholder="Recipient's full name"
+                          value={newAddress.fullName}
+                          onChange={(e) => setNewAddress({ ...newAddress, fullName: e.target.value })}
                           className="rounded-none"
-                          data-testid="input-address-full"
+                          data-testid="input-address-fullname"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-widest font-bold">Street Address *</Label>
+                        <Input
+                          placeholder="House/Apt no., Street name"
+                          value={newAddress.streetAddress}
+                          onChange={(e) => setNewAddress({ ...newAddress, streetAddress: e.target.value })}
+                          className="rounded-none"
+                          data-testid="input-address-street"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-widest font-bold">Address Line 2</Label>
+                        <Input
+                          placeholder="Building name, floor, etc. (optional)"
+                          value={newAddress.addressLine2}
+                          onChange={(e) => setNewAddress({ ...newAddress, addressLine2: e.target.value })}
+                          className="rounded-none"
+                          data-testid="input-address-line2"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs uppercase tracking-widest font-bold">City/Island *</Label>
+                          <Input
+                            placeholder="e.g., Male', Hulhumale'"
+                            value={newAddress.cityIsland}
+                            onChange={(e) => setNewAddress({ ...newAddress, cityIsland: e.target.value })}
+                            className="rounded-none"
+                            data-testid="input-address-city"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs uppercase tracking-widest font-bold">Zip Code</Label>
+                          <Input
+                            placeholder="Optional"
+                            value={newAddress.zipCode}
+                            onChange={(e) => setNewAddress({ ...newAddress, zipCode: e.target.value })}
+                            className="rounded-none"
+                            data-testid="input-address-zip"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-widest font-bold">Mobile No. *</Label>
+                        <Input
+                          placeholder="e.g., 7840001"
+                          value={newAddress.mobileNo}
+                          onChange={(e) => setNewAddress({ ...newAddress, mobileNo: e.target.value })}
+                          className="rounded-none"
+                          data-testid="input-address-mobile"
                         />
                       </div>
                       <Button 
