@@ -258,9 +258,12 @@ export function Navbar() {
                 ) : (
                   <div className="space-y-4">
                     {items.map((item) => (
-                      <div key={item.id + (item.selectedColor || '') + (item.selectedSize || '')} className="flex gap-4 pb-4 border-b border-border">
-                        <div className="w-24 h-24 bg-secondary/30 flex-shrink-0">
+                      <div key={item.id + (item.selectedColor || '') + (item.selectedSize || '') + ((item as any).isPreOrder ? '-preorder' : '')} className="flex gap-4 pb-4 border-b border-border">
+                        <div className="w-24 h-24 bg-secondary/30 flex-shrink-0 relative">
                           <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                          {(item as any).isPreOrder && (
+                            <span className="absolute top-1 left-1 text-[8px] px-1.5 py-0.5 bg-amber-500 text-white uppercase tracking-wider font-bold">Pre-Order</span>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium text-sm truncate">{item.name}</h4>
@@ -269,23 +272,23 @@ export function Navbar() {
                             {item.selectedColor && item.selectedSize && <span> / </span>}
                             {item.selectedSize && <span>{item.selectedSize}</span>}
                           </p>
-                          <p className="text-sm font-bold mt-2">{formatCurrency(item.price)}</p>
+                          <p className="text-sm font-bold mt-2">{formatCurrency(item.price)}{(item as any).isPreOrder && <span className="text-[10px] text-muted-foreground font-normal ml-1">deposit</span>}</p>
                           <div className="flex items-center gap-2 mt-2">
                             <button 
-                              onClick={() => updateQuantity(item.id, (item.quantity || 0) - 1, item.selectedColor, item.selectedSize)}
+                              onClick={() => updateQuantity(item.id, (item.quantity || 0) - 1, item.selectedColor, item.selectedSize, (item as any).isPreOrder)}
                               className="p-1 border border-border hover:bg-secondary/50"
                             >
                               <Minus size={12} />
                             </button>
                             <span className="text-xs w-6 text-center">{item.quantity}</span>
                             <button 
-                              onClick={() => updateQuantity(item.id, (item.quantity || 0) + 1, item.selectedColor, item.selectedSize)}
+                              onClick={() => updateQuantity(item.id, (item.quantity || 0) + 1, item.selectedColor, item.selectedSize, (item as any).isPreOrder)}
                               className="p-1 border border-border hover:bg-secondary/50"
                             >
                               <Plus size={12} />
                             </button>
                             <button 
-                              onClick={() => removeItem(item.id, item.selectedColor, item.selectedSize)}
+                              onClick={() => removeItem(item.id, item.selectedColor, item.selectedSize, (item as any).isPreOrder)}
                               className="ml-auto p-1 text-muted-foreground hover:text-destructive"
                             >
                               <Trash2 size={14} />

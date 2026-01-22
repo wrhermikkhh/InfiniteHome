@@ -113,7 +113,11 @@ export default function AdminPanel() {
     stock: "",
     variantStock: {} as { [key: string]: string },
     expressCharge: "",
-    sizeGuide: [] as { measurement: string; sizes: { [key: string]: string } }[]
+    sizeGuide: [] as { measurement: string; sizes: { [key: string]: string } }[],
+    isPreOrder: false,
+    preOrderPrice: "",
+    preOrderInitialPayment: "",
+    preOrderEta: ""
   });
 
   const orderStatuses = [
@@ -282,7 +286,11 @@ export default function AdminPanel() {
       stock: productForm.stock ? Number(productForm.stock) : 0,
       variantStock: variantStockNumbers,
       expressCharge: productForm.expressCharge ? Number(productForm.expressCharge) : 0,
-      sizeGuide: productForm.sizeGuide.filter(sg => sg.measurement && Object.keys(sg.sizes).length > 0)
+      sizeGuide: productForm.sizeGuide.filter(sg => sg.measurement && Object.keys(sg.sizes).length > 0),
+      isPreOrder: productForm.isPreOrder,
+      preOrderPrice: productForm.isPreOrder && productForm.preOrderPrice ? Number(productForm.preOrderPrice) : null,
+      preOrderInitialPayment: productForm.isPreOrder && productForm.preOrderInitialPayment ? Number(productForm.preOrderInitialPayment) : null,
+      preOrderEta: productForm.isPreOrder ? productForm.preOrderEta : null
     };
 
     try {
@@ -313,7 +321,11 @@ export default function AdminPanel() {
       stock: "",
       variantStock: {},
       expressCharge: "",
-      sizeGuide: []
+      sizeGuide: [],
+      isPreOrder: false,
+      preOrderPrice: "",
+      preOrderInitialPayment: "",
+      preOrderEta: ""
     });
     setShowNewCategoryInput(false);
     setNewCategoryName("");
@@ -340,7 +352,11 @@ export default function AdminPanel() {
       stock: ((product as any).stock || 0).toString(),
       variantStock: variantStockStrings,
       expressCharge: (product.expressCharge || 0).toString(),
-      sizeGuide: (product as any).sizeGuide || []
+      sizeGuide: (product as any).sizeGuide || [],
+      isPreOrder: (product as any).isPreOrder || false,
+      preOrderPrice: ((product as any).preOrderPrice || "").toString(),
+      preOrderInitialPayment: ((product as any).preOrderInitialPayment || "").toString(),
+      preOrderEta: (product as any).preOrderEta || ""
     });
     setShowNewCategoryInput(false);
     setNewCategoryName("");
@@ -949,6 +965,63 @@ export default function AdminPanel() {
                           <p className="text-[10px] text-muted-foreground">Extra charge for express delivery (Male'/Hulhumale')</p>
                         </div>
                       </div>
+                      
+                      <div className="border border-border p-4 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <Label className="text-xs uppercase tracking-widest font-bold">Pre-Order Mode</Label>
+                            <p className="text-[10px] text-muted-foreground mt-1">Enable for items not currently in stock</p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant={productForm.isPreOrder ? "default" : "outline"}
+                            size="sm"
+                            className="h-8 text-xs uppercase tracking-widest rounded-none"
+                            onClick={() => setProductForm({...productForm, isPreOrder: !productForm.isPreOrder})}
+                            data-testid="button-toggle-preorder"
+                          >
+                            {productForm.isPreOrder ? "Pre-Order ON" : "Pre-Order OFF"}
+                          </Button>
+                        </div>
+                        
+                        {productForm.isPreOrder && (
+                          <div className="grid grid-cols-3 gap-4 pt-2 border-t border-border">
+                            <div className="space-y-2">
+                              <Label className="text-xs uppercase tracking-widest font-bold">Pre-Order Total Price (MVR)</Label>
+                              <Input 
+                                type="number"
+                                value={productForm.preOrderPrice}
+                                onChange={(e) => setProductForm({...productForm, preOrderPrice: e.target.value})}
+                                className="rounded-none"
+                                placeholder="Full price for pre-order"
+                                data-testid="input-preorder-price"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs uppercase tracking-widest font-bold">Initial Payment (MVR)</Label>
+                              <Input 
+                                type="number"
+                                value={productForm.preOrderInitialPayment}
+                                onChange={(e) => setProductForm({...productForm, preOrderInitialPayment: e.target.value})}
+                                className="rounded-none"
+                                placeholder="Deposit required"
+                                data-testid="input-preorder-initial"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs uppercase tracking-widest font-bold">Estimated Arrival (ETA)</Label>
+                              <Input 
+                                value={productForm.preOrderEta}
+                                onChange={(e) => setProductForm({...productForm, preOrderEta: e.target.value})}
+                                className="rounded-none"
+                                placeholder="e.g., 2-3 weeks"
+                                data-testid="input-preorder-eta"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
                       <div className="space-y-2">
                         <Label className="text-xs uppercase tracking-widest font-bold">Description</Label>
                         <Input 

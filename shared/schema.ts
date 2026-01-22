@@ -82,6 +82,10 @@ export const products = pgTable("products", {
   isNew: boolean("is_new").default(false),
   isBestSeller: boolean("is_best_seller").default(false),
   sizeGuide: jsonb("size_guide").$type<{ measurement: string; sizes: { [key: string]: string } }[]>().default([]),
+  isPreOrder: boolean("is_pre_order").default(false),
+  preOrderPrice: real("pre_order_price"),
+  preOrderInitialPayment: real("pre_order_initial_payment"),
+  preOrderEta: text("pre_order_eta"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -111,7 +115,7 @@ export const orders = pgTable("orders", {
   customerEmail: text("customer_email").notNull(),
   customerPhone: text("customer_phone").notNull(),
   shippingAddress: text("shipping_address").notNull(),
-  items: jsonb("items").$type<{ name: string; qty: number; price: number; color?: string; size?: string }[]>().notNull(),
+  items: jsonb("items").$type<{ name: string; qty: number; price: number; color?: string; size?: string; isPreOrder?: boolean; preOrderTotalPrice?: number; preOrderEta?: string }[]>().notNull(),
   subtotal: real("subtotal").notNull(),
   discount: real("discount").default(0),
   shipping: real("shipping").notNull(),

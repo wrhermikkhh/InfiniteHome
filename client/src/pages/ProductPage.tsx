@@ -4,7 +4,7 @@ import { formatCurrency, ProductVariant, getVariantStock, getVariantStockKey } f
 import { useProduct } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
 import { useRoute } from "wouter";
-import { Star, Truck, ShieldCheck, RefreshCcw, Minus, Plus } from "lucide-react";
+import { Star, Truck, ShieldCheck, RefreshCcw, Minus, Plus, Clock, Package } from "lucide-react";
 import { useState, useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import { useCart } from "@/lib/cart";
@@ -56,6 +56,12 @@ export default function ProductPage() {
   const currentPrice = currentVariant.price;
   const currentStock = product ? getVariantStock(product, selectedSize, selectedColor) : 0;
   const isOutOfStock = currentStock <= 0;
+  
+  const isPreOrder = (product as any)?.isPreOrder || false;
+  const preOrderPrice = (product as any)?.preOrderPrice;
+  const preOrderInitialPayment = (product as any)?.preOrderInitialPayment;
+  const preOrderEta = (product as any)?.preOrderEta;
+  const displayPrice = isPreOrder && preOrderPrice ? preOrderPrice : currentPrice;
 
   return (
     <div className="min-h-screen bg-background font-body overflow-x-hidden">
@@ -202,12 +208,38 @@ export default function ProductPage() {
                  </div>
               </div>
 
+              {/* Pre-Order Info */}
+              {isPreOrder && (
+                <div className="bg-amber-50 border border-amber-200 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-amber-800">
+                    <Package size={18} />
+                    <span className="text-sm font-bold uppercase tracking-widest">Pre-Order Available</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground text-xs uppercase tracking-wide">Total Price</p>
+                      <p className="font-bold text-lg">{formatCurrency(preOrderPrice || currentPrice)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs uppercase tracking-wide">Initial Payment</p>
+                      <p className="font-bold text-lg">{formatCurrency(preOrderInitialPayment || 0)}</p>
+                    </div>
+                  </div>
+                  {preOrderEta && (
+                    <div className="flex items-center gap-2 text-sm text-amber-700 pt-2 border-t border-amber-200">
+                      <Clock size={14} />
+                      <span>Estimated Arrival: <strong>{preOrderEta}</strong></span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Quantity & Add */}
               <div className="flex flex-col sm:flex-row gap-4 pt-6">
-                <div className={`flex items-center border border-border w-fit ${currentStock <= 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className={`flex items-center border border-border w-fit ${!isPreOrder && currentStock <= 0 ? 'opacity-50 pointer-events-none' : ''}`}>
                   <button 
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    disabled={currentStock <= 0}
+                    disabled={!isPreOrder && currentStock <= 0}
                     className="p-3 hover:bg-secondary/50 transition-colors"
                     data-testid="quantity-decrease"
                   >
@@ -215,8 +247,8 @@ export default function ProductPage() {
                   </button>
                   <span className="w-12 text-center font-medium" data-testid="quantity-value">{quantity}</span>
                   <button 
-                    onClick={() => setQuantity(Math.max(1, Math.min(currentStock, quantity + 1)))}
-                    disabled={currentStock <= 0}
+                    onClick={() => isPreOrder ? setQuantity(quantity + 1) : setQuantity(Math.max(1, Math.min(currentStock, quantity + 1)))}
+                    disabled={!isPreOrder && currentStock <= 0}
                     className="p-3 hover:bg-secondary/50 transition-colors"
                     data-testid="quantity-increase"
                   >
@@ -225,15 +257,25 @@ export default function ProductPage() {
                 </div>
                 <Button 
                   onClick={() => {
-                    if (currentStock > 0) {
+                    if (isPreOrder) {
+                      addItem(product, quantity, selectedColor, selectedSize, preOrderInitialPayment || displayPrice, true, preOrderPrice, preOrderEta);
+                    } else if (currentStock > 0) {
                       addItem(product, quantity, selectedColor, selectedSize, currentPrice);
                     }
                   }}
-                  disabled={currentStock <= 0}
-                  className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  disabled={!isPreOrder && currentStock <= 0}
+                  className={`flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                    isPreOrder 
+                      ? 'bg-amber-600 text-white hover:bg-amber-700' 
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  }`}
                   data-testid="add-to-cart"
                 >
-                  {currentStock > 0 ? `Add to Bag - ${formatCurrency(currentPrice * quantity)}` : "Out of Stock"}
+                  {isPreOrder 
+                    ? `Pre-Order - ${formatCurrency((preOrderInitialPayment || displayPrice) * quantity)} deposit`
+                    : currentStock > 0 
+                      ? `Add to Bag - ${formatCurrency(currentPrice * quantity)}` 
+                      : "Out of Stock"}
                 </Button>
               </div>
             </motion.div>

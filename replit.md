@@ -184,6 +184,12 @@ Alphanumeric 6-character format: IH-XXXXXX (e.g., IH-A3K7M9)
 - Mobile-responsive admin panel with hamburger menu navigation
 
 ## Recent Changes
+- Added pre-order system with toggle per product, custom pricing (initial payment + total price), and ETA tracking
+- Products can be marked as pre-order in admin panel with separate pre-order price from base price
+- Pre-order items display amber-styled badges on product page, cart, and checkout
+- Cart and checkout handle pre-order items without stock restrictions (unlimited quantity for pre-orders)
+- Order items now include isPreOrder, preOrderTotalPrice, and preOrderEta fields
+- Checkout shows balance due at delivery for pre-order items
 - Implemented variant-level stock management (e.g., "King-White" vs "King-Blue" tracked separately)
 - Added variantStock JSON field to products schema with compound key format "Size-Color"
 - Helper functions `getVariantStockKey()` and `getVariantStock()` in `client/src/lib/products.ts`

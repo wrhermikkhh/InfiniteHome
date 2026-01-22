@@ -107,6 +107,7 @@ export default function Checkout() {
 
   const subtotal = items.reduce((sum, item) => sum + item.price * (item.quantity || 0), 0);
   const hasStockIssues = items.some(item => {
+    if ((item as any).isPreOrder) return false;
     const variantStock = getVariantStock(item, item.selectedSize, item.selectedColor);
     return variantStock <= 0 || (item.quantity || 0) > variantStock;
   });
@@ -166,7 +167,10 @@ export default function Checkout() {
           qty: item.quantity,
           price: item.price,
           color: item.selectedColor,
-          size: item.selectedSize
+          size: item.selectedSize,
+          isPreOrder: (item as any).isPreOrder || false,
+          preOrderTotalPrice: (item as any).preOrderTotalPrice,
+          preOrderEta: (item as any).preOrderEta
         })),
         subtotal,
         discount,
@@ -497,24 +501,44 @@ export default function Checkout() {
               <div className="space-y-4 mb-6">
                 {items.map((item, index) => {
                   const itemVariantStock = getVariantStock(item, item.selectedSize, item.selectedColor);
-                  const isInStock = itemVariantStock > 0;
-                  const quantityExceedsStock = (item.quantity || 0) > itemVariantStock;
+                  const isPreOrderItem = (item as any).isPreOrder;
+                  const isInStock = isPreOrderItem || itemVariantStock > 0;
+                  const quantityExceedsStock = !isPreOrderItem && (item.quantity || 0) > itemVariantStock;
                   const hasIssue = !isInStock || quantityExceedsStock;
+                  const preOrderTotalPrice = (item as any).preOrderTotalPrice;
+                  const preOrderEta = (item as any).preOrderEta;
+                  const balanceDue = isPreOrderItem && preOrderTotalPrice ? (preOrderTotalPrice - item.price) * (item.quantity || 0) : 0;
                   return (
                     <div key={`${item.id}-${index}`} className="flex justify-between text-sm">
                       <div className="flex flex-col">
-                        <span className={`font-medium ${hasIssue ? 'text-destructive' : 'text-muted-foreground'}`}>
-                          {item.name} x {item.quantity}
-                          {!isInStock && " (Out of Stock)"}
-                          {isInStock && quantityExceedsStock && ` (Only ${itemVariantStock} available)`}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-medium ${hasIssue ? 'text-destructive' : 'text-muted-foreground'}`}>
+                            {item.name} x {item.quantity}
+                            {!isInStock && " (Out of Stock)"}
+                            {isInStock && quantityExceedsStock && ` (Only ${itemVariantStock} available)`}
+                          </span>
+                          {isPreOrderItem && (
+                            <span className="text-[8px] px-1.5 py-0.5 bg-amber-100 text-amber-800 uppercase tracking-widest font-bold">Pre-Order</span>
+                          )}
+                        </div>
                         <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
                           {item.selectedColor}{item.selectedSize ? ` / ${item.selectedSize}` : ''}
                         </span>
+                        {isPreOrderItem && preOrderEta && (
+                          <span className="text-[10px] text-amber-700">ETA: {preOrderEta}</span>
+                        )}
+                        {isPreOrderItem && balanceDue > 0 && (
+                          <span className="text-[10px] text-muted-foreground">Balance due on delivery: {formatCurrency(balanceDue)}</span>
+                        )}
                       </div>
-                      <span className={hasIssue ? 'text-destructive' : ''}>
-                        {formatCurrency(item.price * (item.quantity || 0))}
-                      </span>
+                      <div className="text-right">
+                        <span className={hasIssue ? 'text-destructive' : ''}>
+                          {formatCurrency(item.price * (item.quantity || 0))}
+                        </span>
+                        {isPreOrderItem && (
+                          <div className="text-[10px] text-muted-foreground">deposit</div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
