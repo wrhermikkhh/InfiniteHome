@@ -4,20 +4,150 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { eq, ilike, or, sql } from "drizzle-orm";
 import { Resend } from "resend";
-import * as schema from "../shared/schema";
-import {
-  admins, customers, customerAddresses, categories, products, coupons, orders,
-  insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema,
-  type Admin, type Customer, type CustomerAddress, type Category, type Product, type Coupon, type Order,
-  type InsertAdmin, type InsertCustomer, type InsertCustomerAddress, type InsertCategory, type InsertProduct, type InsertCoupon, type InsertOrder
-} from "../shared/schema";
+import { pgTable, text, varchar, integer, boolean, jsonb, timestamp, real } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+// ============ INLINED SCHEMA ============
+
+// Customers
+const customers = pgTable("customers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  phone: text("phone"),
+  address: text("address"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true });
+type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+type Customer = typeof customers.$inferSelect;
+
+// Customer Addresses
+const customerAddresses = pgTable("customer_addresses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull(),
+  label: text("label").notNull(),
+  fullName: text("full_name").default(""),
+  streetAddress: text("street_address").default(""),
+  addressLine2: text("address_line_2"),
+  cityIsland: text("city_island").default(""),
+  zipCode: text("zip_code"),
+  mobileNo: text("mobile_no").default(""),
+  fullAddress: text("full_address").notNull(),
+  isDefault: boolean("is_default").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+const insertCustomerAddressSchema = createInsertSchema(customerAddresses).omit({ id: true, createdAt: true });
+type InsertCustomerAddress = z.infer<typeof insertCustomerAddressSchema>;
+type CustomerAddress = typeof customerAddresses.$inferSelect;
+
+// Admin Users
+const admins = pgTable("admins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+const insertAdminSchema = createInsertSchema(admins).omit({ id: true, createdAt: true });
+type InsertAdmin = z.infer<typeof insertAdminSchema>;
+type Admin = typeof admins.$inferSelect;
+
+// Categories
+const categories = pgTable("categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+const insertCategorySchema = createInsertSchema(categories).omit({ id: true, createdAt: true });
+type InsertCategory = z.infer<typeof insertCategorySchema>;
+type Category = typeof categories.$inferSelect;
+
+// Products
+const products = pgTable("products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  price: real("price").notNull(),
+  category: text("category").notNull(),
+  image: text("image").notNull(),
+  images: jsonb("images").$type<string[]>().default([]),
+  colors: jsonb("colors").$type<string[]>().default([]),
+  variants: jsonb("variants").$type<{ size: string; price: number }[]>().default([]),
+  stock: integer("stock").default(0),
+  variantStock: jsonb("variant_stock").$type<{ [key: string]: number }>().default({}),
+  expressCharge: real("express_charge").default(0),
+  rating: real("rating").default(5),
+  reviews: integer("reviews").default(0),
+  isNew: boolean("is_new").default(false),
+  isBestSeller: boolean("is_best_seller").default(false),
+  sizeGuide: jsonb("size_guide").$type<{ measurement: string; sizes: { [key: string]: string } }[]>().default([]),
+  isPreOrder: boolean("is_pre_order").default(false),
+  preOrderPrice: real("pre_order_price"),
+  preOrderInitialPayment: real("pre_order_initial_payment"),
+  preOrderEta: text("pre_order_eta"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
+type InsertProduct = z.infer<typeof insertProductSchema>;
+type Product = typeof products.$inferSelect;
+
+// Coupons
+const coupons = pgTable("coupons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(),
+  discount: real("discount").notNull(),
+  type: text("type").notNull(),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+const insertCouponSchema = createInsertSchema(coupons).omit({ id: true, createdAt: true });
+type InsertCoupon = z.infer<typeof insertCouponSchema>;
+type Coupon = typeof coupons.$inferSelect;
+
+// Orders
+const orders = pgTable("orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderNumber: text("order_number").notNull().unique(),
+  customerName: text("customer_name").notNull(),
+  customerEmail: text("customer_email").notNull(),
+  customerPhone: text("customer_phone").notNull(),
+  shippingAddress: text("shipping_address").notNull(),
+  items: jsonb("items").$type<{ productId?: string; name: string; qty: number; price: number; color?: string; size?: string; isPreOrder?: boolean; preOrderTotalPrice?: number; preOrderEta?: string }[]>().notNull(),
+  subtotal: real("subtotal").notNull(),
+  discount: real("discount").default(0),
+  shipping: real("shipping").notNull(),
+  total: real("total").notNull(),
+  paymentMethod: text("payment_method").notNull(),
+  paymentSlip: text("payment_slip"),
+  status: text("status").notNull().default("pending"),
+  couponCode: text("coupon_code"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true });
+type InsertOrder = z.infer<typeof insertOrderSchema>;
+type Order = typeof orders.$inferSelect;
+
+const schema = { customers, customerAddresses, admins, categories, products, coupons, orders };
+
+// ============ DATABASE CONNECTION ============
 
 const { Pool } = pg;
 
 const databaseUrl = process.env.DATABASE_URL;
 
 let pool: pg.Pool | null = null;
-let db: ReturnType<typeof drizzle> | null = null;
+let db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
 if (databaseUrl) {
   const sslConfig = databaseUrl.includes('supabase.com') || databaseUrl.includes('neon.tech') || databaseUrl.includes('sslmode=require')
@@ -30,6 +160,8 @@ if (databaseUrl) {
   });
   db = drizzle(pool, { schema });
 }
+
+// ============ EXPRESS APP ============
 
 const app = express();
 
@@ -49,6 +181,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.use((req, res, next) => {
+  if (req.path === '/api/health') {
+    return next();
+  }
   if (!db) {
     return res.status(500).json({ 
       error: "Database not configured", 
@@ -69,6 +204,8 @@ app.get("/api/health", async (req, res) => {
     res.status(500).json({ status: "error", database: false, message: error.message });
   }
 });
+
+// ============ STORAGE CLASS ============
 
 class DatabaseStorage {
   private getDb() {
@@ -278,6 +415,8 @@ class DatabaseStorage {
 
 const storage = new DatabaseStorage();
 
+// ============ EMAIL FUNCTION ============
+
 async function sendOrderConfirmationEmail(order: any) {
   try {
     const apiKey = process.env.RESEND_API_KEY;
@@ -354,6 +493,9 @@ async function sendOrderConfirmationEmail(order: any) {
   }
 }
 
+// ============ API ROUTES ============
+
+// Customer Auth
 app.post("/api/customers/signup", async (req, res) => {
   try {
     const data = insertCustomerSchema.parse(req.body);
@@ -406,6 +548,7 @@ app.patch("/api/customers/:id", async (req, res) => {
   }
 });
 
+// Customer Addresses
 app.get("/api/customers/:customerId/addresses", async (req, res) => {
   const addresses = await storage.getCustomerAddresses(req.params.customerId);
   res.json(addresses);
@@ -444,6 +587,7 @@ app.post("/api/customers/:customerId/addresses/:addressId/default", async (req, 
   res.json({ success: true });
 });
 
+// Admin Auth
 app.post("/api/admin/login", async (req, res) => {
   const { email, password } = req.body;
   const admin = await storage.getAdminByEmail(email);
@@ -469,6 +613,7 @@ app.post("/api/admins", async (req, res) => {
   }
 });
 
+// Categories
 app.get("/api/categories", async (req, res) => {
   const allCategories = await storage.getAllCategories();
   res.json(allCategories);
@@ -506,6 +651,7 @@ app.delete("/api/categories/:id", async (req, res) => {
   res.json({ success: true });
 });
 
+// Products
 app.get("/api/products", async (req, res) => {
   const allProducts = await storage.getAllProducts();
   res.json(allProducts);
@@ -574,6 +720,7 @@ app.patch("/api/products/:id/stock", async (req, res) => {
   }
 });
 
+// Coupons
 app.get("/api/coupons", async (req, res) => {
   const allCoupons = await storage.getAllCoupons();
   res.json(allCoupons);
@@ -603,6 +750,7 @@ app.delete("/api/coupons/:id", async (req, res) => {
   res.json({ success: true });
 });
 
+// Orders
 app.get("/api/orders", async (req, res) => {
   const allOrders = await storage.getAllOrders();
   res.json(allOrders);
@@ -752,6 +900,8 @@ app.patch("/api/orders/:id/status", async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 });
+
+// ============ VERCEL HANDLER ============
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   return app(req as any, res as any);
