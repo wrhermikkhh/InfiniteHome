@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm run build:vercel",
+  "buildCommand": "npx vite build",
   "outputDirectory": "dist/public",
   "installCommand": "npm install",
   "framework": null,

@@ -43,7 +43,7 @@ Since Vercel is serverless, you need an external PostgreSQL database. Recommende
 2. Import your GitHub repository
 3. Configure the project:
    - **Framework Preset**: Other
-   - **Build Command**: `npm run build:vercel` (you need to add this script)
+   - **Build Command**: `npx vite build` (already configured in vercel.json)
    - **Output Directory**: `dist/public`
    - **Install Command**: `npm install`
 
@@ -53,19 +53,7 @@ Since Vercel is serverless, you need an external PostgreSQL database. Recommende
 
 5. Click "Deploy"
 
-## Step 4: Add Build Script
-
-Before deploying, you need to add the `build:vercel` script to package.json:
-
-```json
-{
-  "scripts": {
-    "build:vercel": "vite build"
-  }
-}
-```
-
-## Step 5: Run Database Migrations
+## Step 4: Run Database Migrations
 
 After deployment, you need to push the database schema:
 
