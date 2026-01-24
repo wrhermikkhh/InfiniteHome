@@ -7,6 +7,7 @@ import { Resend } from "resend";
 import { pgTable, text, varchar, integer, boolean, jsonb, timestamp, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { createClient } from "@supabase/supabase-js";
 
 // ============ INLINED SCHEMA ============
 
@@ -160,6 +161,16 @@ if (databaseUrl) {
     max: 1 // Serverless should use minimal connections
   });
   db = drizzle(pool, { schema });
+}
+
+// ============ SUPABASE CLIENT FOR STORAGE ============
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+
+let supabase: any = null;
+if (supabaseUrl && supabaseServiceKey) {
+  supabase = createClient(supabaseUrl, supabaseServiceKey);
 }
 
 // ============ EXPRESS APP ============
@@ -900,6 +911,51 @@ app.patch("/api/orders/:id/status", async (req, res) => {
   } catch (error: any) {
     res.status(400).json({ message: error.message });
   }
+});
+
+// ============ FILE UPLOADS (Supabase Storage) ============
+
+app.post("/api/uploads/request-url", async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(500).json({ 
+        error: "Storage not configured", 
+        message: "SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in environment variables" 
+      });
+    }
+
+    const fileId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const filePath = `uploads/${fileId}`;
+
+    const { data, error } = await supabase.storage
+      .from('infinite-home')
+      .createSignedUploadUrl(filePath);
+
+    if (error) {
+      console.error("Supabase storage error:", error);
+      return res.status(500).json({ error: "Failed to generate upload URL", details: error.message });
+    }
+
+    // Return the signed URL and the public URL path
+    const publicUrl = `${supabaseUrl}/storage/v1/object/public/infinite-home/${filePath}`;
+    
+    res.json({
+      uploadURL: data.signedUrl,
+      token: data.token,
+      path: data.path,
+      objectPath: publicUrl
+    });
+  } catch (error: any) {
+    console.error("Error generating upload URL:", error);
+    res.status(500).json({ error: "Failed to generate upload URL", details: error.message });
+  }
+});
+
+// Serve object paths (redirect to Supabase Storage public URL)
+app.get("/objects/*", (req, res) => {
+  // For legacy paths, redirect to placeholder or return 404
+  // New uploads use full Supabase URLs
+  res.status(404).json({ error: "Object not found" });
 });
 
 // ============ VERCEL HANDLER ============

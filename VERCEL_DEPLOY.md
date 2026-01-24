@@ -69,14 +69,49 @@ Make sure your local DATABASE_URL points to the production database when running
 |----------|-------------|
 | DATABASE_URL | PostgreSQL connection string |
 | RESEND_API_KEY | Resend API key for emails (optional) |
+| SUPABASE_URL | Your Supabase project URL (for file uploads) |
+| SUPABASE_SERVICE_KEY | Supabase service role key (for file uploads) |
+
+## Step 5: Set Up Supabase Storage for File Uploads
+
+Since Replit's Object Storage is NOT available on Vercel, the app uses Supabase Storage for product images and payment slips.
+
+### Create a Storage Bucket in Supabase:
+
+1. Go to your Supabase project dashboard
+2. Navigate to **Storage** in the left sidebar
+3. Click **New bucket**
+4. Create a bucket named exactly: `infinite-home`
+5. **IMPORTANT**: Enable **Public bucket** so images can be displayed on the website
+6. Click **Create bucket**
+
+### Get Your Supabase Credentials:
+
+1. Go to **Settings** → **API** in your Supabase dashboard
+2. Copy the **Project URL** → Set as `SUPABASE_URL` in Vercel
+3. Copy the **service_role** key (under "Project API keys") → Set as `SUPABASE_SERVICE_KEY` in Vercel
+
+### Add Environment Variables to Vercel:
+
+Go to your Vercel project → Settings → Environment Variables and add:
+- `SUPABASE_URL`: `https://iyudonvratogbluudxly.supabase.co` (your project URL)
+- `SUPABASE_SERVICE_KEY`: Your service role key (starts with `eyJ...`)
+
+### Storage Policies (Optional but Recommended):
+
+For public read access to uploaded images, add this RLS policy in Supabase SQL Editor:
+
+```sql
+-- Allow public read access to all objects
+CREATE POLICY "Public read access" ON storage.objects
+  FOR SELECT USING (bucket_id = 'infinite-home');
+
+-- Allow authenticated uploads (service key handles this)
+CREATE POLICY "Allow uploads" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'infinite-home');
+```
 
 ## Important Notes
-
-### File Uploads / Object Storage
-Replit's Object Storage is NOT available on Vercel. You will need to:
-1. Set up AWS S3, Cloudinary, or another file storage service
-2. Update the file upload code to use your chosen service
-3. Update the payment slip upload functionality
 
 ### Limitations
 - Vercel serverless functions have a 10-second timeout on free tier (30 seconds on Pro)
