@@ -1,7 +1,10 @@
+// Workaround for Supabase SSL certificate issue in serverless
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 import express, { type Request, Response, NextFunction } from "express";
 import { VercelRequest, VercelResponse } from "@vercel/node";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
 import { eq, ilike, or, sql } from "drizzle-orm";
 import { Resend } from "resend";
 import { pgTable, text, varchar, integer, boolean, jsonb, timestamp, real } from "drizzle-orm/pg-core";
@@ -144,15 +147,19 @@ const schema = { customers, customerAddresses, admins, categories, products, cou
 
 const databaseUrl = process.env.DATABASE_URL;
 
+const { Pool } = pg;
+
 let db: any = null;
-let sqlClient: any = null;
+let pool: pg.Pool | null = null;
 
 if (databaseUrl) {
-  sqlClient = postgres(databaseUrl, { 
-    ssl: 'require',
-    prepare: false // Required for serverless
+  // For Supabase Transaction Pooler, we need to handle SSL carefully
+  pool = new Pool({ 
+    connectionString: databaseUrl,
+    ssl: { rejectUnauthorized: false },
+    max: 1 // Serverless should use minimal connections
   });
-  db = drizzle(sqlClient, { schema });
+  db = drizzle(pool, { schema });
 }
 
 // ============ EXPRESS APP ============
@@ -188,11 +195,11 @@ app.use((req, res, next) => {
 });
 
 app.get("/api/health", async (req, res) => {
-  if (!sqlClient) {
+  if (!pool) {
     return res.status(500).json({ status: "error", database: false, message: "DATABASE_URL not configured" });
   }
   try {
-    await sqlClient`SELECT 1 as test`;
+    await pool.query('SELECT 1');
     res.json({ status: "ok", database: true });
   } catch (error: any) {
     res.status(500).json({ status: "error", database: false, message: error.message });
