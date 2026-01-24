@@ -41,3 +41,8 @@ waitForPort = 5000
 [agent]
 mockupState = "FULLSTACK"
 integrations = ["javascript_database:1.0.0", "javascript_object_storage:2.0.0", "resend:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+DATABASE_URL_PROD = "sb_publishable_t5NSUcBLz2WIc5j_BEo_cw_xIH6KEYb"
