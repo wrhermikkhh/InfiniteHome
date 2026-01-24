@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { VercelRequest, VercelResponse } from "@vercel/node";
-import { drizzle } from "drizzle-orm/node-postgres";
-import pg from "pg";
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
 import { eq, ilike, or, sql } from "drizzle-orm";
 import { Resend } from "resend";
 import { pgTable, text, varchar, integer, boolean, jsonb, timestamp, real } from "drizzle-orm/pg-core";
@@ -142,21 +142,14 @@ const schema = { customers, customerAddresses, admins, categories, products, cou
 
 // ============ DATABASE CONNECTION ============
 
-const { Pool } = pg;
-
 const databaseUrl = process.env.DATABASE_URL;
 
-let pool: pg.Pool | null = null;
-let db: ReturnType<typeof drizzle<typeof schema>> | null = null;
+let db: any = null;
+let sqlClient: any = null;
 
 if (databaseUrl) {
-  pool = new Pool({ 
-    connectionString: databaseUrl,
-    ssl: {
-      rejectUnauthorized: false
-    }
-  });
-  db = drizzle(pool, { schema });
+  sqlClient = neon(databaseUrl);
+  db = drizzle(sqlClient, { schema });
 }
 
 // ============ EXPRESS APP ============
@@ -192,11 +185,11 @@ app.use((req, res, next) => {
 });
 
 app.get("/api/health", async (req, res) => {
-  if (!pool) {
+  if (!sqlClient) {
     return res.status(500).json({ status: "error", database: false, message: "DATABASE_URL not configured" });
   }
   try {
-    await pool.query('SELECT 1');
+    await sqlClient`SELECT 1`;
     res.json({ status: "ok", database: true });
   } catch (error: any) {
     res.status(500).json({ status: "error", database: false, message: error.message });
