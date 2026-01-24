@@ -150,13 +150,11 @@ let pool: pg.Pool | null = null;
 let db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
 if (databaseUrl) {
-  const sslConfig = databaseUrl.includes('supabase.com') || databaseUrl.includes('neon.tech') || databaseUrl.includes('sslmode=require')
-    ? { ssl: { rejectUnauthorized: false } }
-    : {};
-  
   pool = new Pool({ 
     connectionString: databaseUrl,
-    ...sslConfig
+    ssl: {
+      rejectUnauthorized: false
+    }
   });
   db = drizzle(pool, { schema });
 }
