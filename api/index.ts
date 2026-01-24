@@ -1,6 +1,3 @@
-// Workaround for Supabase SSL certificate issue in serverless
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
 import express, { type Request, Response, NextFunction } from "express";
 import { VercelRequest, VercelResponse } from "@vercel/node";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -153,10 +150,13 @@ let db: any = null;
 let pool: pg.Pool | null = null;
 
 if (databaseUrl) {
-  // For Supabase Transaction Pooler, we need to handle SSL carefully
+  // If sslmode is in the connection string, don't add conflicting SSL options
+  const hasSSLMode = databaseUrl.includes('sslmode=');
+  
   pool = new Pool({ 
     connectionString: databaseUrl,
-    ssl: { rejectUnauthorized: false },
+    // Only set SSL if sslmode is not already in the connection string
+    ...(hasSSLMode ? {} : { ssl: { rejectUnauthorized: false } }),
     max: 1 // Serverless should use minimal connections
   });
   db = drizzle(pool, { schema });
