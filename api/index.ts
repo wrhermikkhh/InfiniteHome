@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { VercelRequest, VercelResponse } from "@vercel/node";
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import { eq, ilike, or, sql } from "drizzle-orm";
 import { Resend } from "resend";
 import { pgTable, text, varchar, integer, boolean, jsonb, timestamp, real } from "drizzle-orm/pg-core";
@@ -148,7 +148,10 @@ let db: any = null;
 let sqlClient: any = null;
 
 if (databaseUrl) {
-  sqlClient = neon(databaseUrl);
+  sqlClient = postgres(databaseUrl, { 
+    ssl: 'require',
+    prepare: false // Required for serverless
+  });
   db = drizzle(sqlClient, { schema });
 }
 
@@ -189,7 +192,7 @@ app.get("/api/health", async (req, res) => {
     return res.status(500).json({ status: "error", database: false, message: "DATABASE_URL not configured" });
   }
   try {
-    await sqlClient`SELECT 1`;
+    await sqlClient`SELECT 1 as test`;
     res.json({ status: "ok", database: true });
   } catch (error: any) {
     res.status(500).json({ status: "error", database: false, message: error.message });
