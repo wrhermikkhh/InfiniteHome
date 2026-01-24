@@ -92,14 +92,38 @@ Replit's Object Storage is NOT available on Vercel. You will need to:
 
 ## Troubleshooting
 
+### Cannot Sign In / API Not Working
+1. **Check DATABASE_URL is set in Vercel**:
+   - Go to your Vercel project → Settings → Environment Variables
+   - Ensure `DATABASE_URL` is set and contains your Supabase connection string
+   - For Supabase, use the **Transaction Pooler** connection string (port 6543) for serverless compatibility
+   
+2. **Test the API health endpoint**:
+   - Visit `https://your-app.vercel.app/api/health`
+   - If it returns `{"status":"ok","database":true}`, the API is working
+   - If `database` is `false`, the DATABASE_URL is not set correctly
+
+3. **Check Vercel Function Logs**:
+   - Go to your Vercel project → Deployments → Latest deployment → Functions tab
+   - Look for any error messages in the `api/index` function logs
+
 ### Database Connection Issues
-- Ensure your DATABASE_URL includes `?sslmode=require` for production databases
-- Check that your database allows connections from Vercel's IP ranges
+- For Supabase: Use Transaction Pooler (port 6543), NOT Session Pooler (port 5432)
+- Ensure your DATABASE_URL includes SSL (the API adds `ssl: { rejectUnauthorized: false }` automatically)
+- Example Supabase connection string:
+  ```
+  postgresql://postgres.[project-ref]:[password]@aws-1-ap-south-1.pooler.supabase.com:6543/postgres
+  ```
 
 ### API Routes Not Working
 - Check the Vercel function logs in the dashboard
 - Ensure the `vercel.json` rewrites are correct
+- Test individual endpoints like `/api/products` to verify database connectivity
 
 ### Build Failures
 - Check that all dependencies are listed in package.json
 - Ensure TypeScript types are correct
+
+### CORS Issues
+- The API includes CORS headers for cross-origin requests
+- If you're using a custom domain, ensure it's properly configured

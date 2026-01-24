@@ -14,174 +14,228 @@ import {
 
 const { Pool } = pg;
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const db = drizzle(pool, { schema });
+const databaseUrl = process.env.DATABASE_URL;
+
+let pool: pg.Pool | null = null;
+let db: ReturnType<typeof drizzle> | null = null;
+
+if (databaseUrl) {
+  const sslConfig = databaseUrl.includes('supabase.com') || databaseUrl.includes('neon.tech') || databaseUrl.includes('sslmode=require')
+    ? { ssl: { rejectUnauthorized: false } }
+    : {};
+  
+  pool = new Pool({ 
+    connectionString: databaseUrl,
+    ...sslConfig
+  });
+  db = drizzle(pool, { schema });
+}
 
 const app = express();
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+app.use((req, res, next) => {
+  if (!db) {
+    return res.status(500).json({ 
+      error: "Database not configured", 
+      message: "DATABASE_URL environment variable is not set. Please configure it in Vercel project settings." 
+    });
+  }
+  next();
+});
+
+app.get("/api/health", async (req, res) => {
+  if (!pool) {
+    return res.status(500).json({ status: "error", database: false, message: "DATABASE_URL not configured" });
+  }
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: "ok", database: true });
+  } catch (error: any) {
+    res.status(500).json({ status: "error", database: false, message: error.message });
+  }
+});
+
 class DatabaseStorage {
+  private getDb() {
+    if (!db) throw new Error("Database not configured");
+    return db;
+  }
+
   async getCustomerByEmail(email: string): Promise<Customer | undefined> {
-    const [customer] = await db.select().from(customers).where(eq(customers.email, email));
+    const [customer] = await this.getDb().select().from(customers).where(eq(customers.email, email));
     return customer || undefined;
   }
 
   async getCustomer(id: string): Promise<Customer | undefined> {
-    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+    const [customer] = await this.getDb().select().from(customers).where(eq(customers.id, id));
     return customer || undefined;
   }
 
   async createCustomer(customer: InsertCustomer): Promise<Customer> {
-    const [newCustomer] = await db.insert(customers).values(customer).returning();
+    const [newCustomer] = await this.getDb().insert(customers).values(customer).returning();
     return newCustomer;
   }
 
   async updateCustomer(id: string, data: Partial<InsertCustomer>): Promise<Customer | undefined> {
-    const [updated] = await db.update(customers).set(data).where(eq(customers.id, id)).returning();
+    const [updated] = await this.getDb().update(customers).set(data).where(eq(customers.id, id)).returning();
     return updated || undefined;
   }
 
   async getCustomerAddresses(customerId: string): Promise<CustomerAddress[]> {
-    return await db.select().from(customerAddresses).where(eq(customerAddresses.customerId, customerId));
+    return await this.getDb().select().from(customerAddresses).where(eq(customerAddresses.customerId, customerId));
   }
 
   async createCustomerAddress(address: InsertCustomerAddress): Promise<CustomerAddress> {
-    const [newAddress] = await db.insert(customerAddresses).values(address).returning();
+    const [newAddress] = await this.getDb().insert(customerAddresses).values(address).returning();
     return newAddress;
   }
 
   async updateCustomerAddress(id: string, data: Partial<InsertCustomerAddress>): Promise<CustomerAddress | undefined> {
-    const [updated] = await db.update(customerAddresses).set(data).where(eq(customerAddresses.id, id)).returning();
+    const [updated] = await this.getDb().update(customerAddresses).set(data).where(eq(customerAddresses.id, id)).returning();
     return updated || undefined;
   }
 
   async deleteCustomerAddress(id: string): Promise<boolean> {
-    await db.delete(customerAddresses).where(eq(customerAddresses.id, id));
+    await this.getDb().delete(customerAddresses).where(eq(customerAddresses.id, id));
     return true;
   }
 
   async setDefaultAddress(customerId: string, addressId: string): Promise<void> {
-    await db.update(customerAddresses).set({ isDefault: false }).where(eq(customerAddresses.customerId, customerId));
-    await db.update(customerAddresses).set({ isDefault: true }).where(eq(customerAddresses.id, addressId));
+    await this.getDb().update(customerAddresses).set({ isDefault: false }).where(eq(customerAddresses.customerId, customerId));
+    await this.getDb().update(customerAddresses).set({ isDefault: true }).where(eq(customerAddresses.id, addressId));
   }
 
   async getAdminByEmail(email: string): Promise<Admin | undefined> {
-    const [admin] = await db.select().from(admins).where(eq(admins.email, email));
+    const [admin] = await this.getDb().select().from(admins).where(eq(admins.email, email));
     return admin || undefined;
   }
 
   async createAdmin(admin: InsertAdmin): Promise<Admin> {
-    const [newAdmin] = await db.insert(admins).values(admin).returning();
+    const [newAdmin] = await this.getDb().insert(admins).values(admin).returning();
     return newAdmin;
   }
 
   async getAllAdmins(): Promise<Admin[]> {
-    return await db.select().from(admins);
+    return await this.getDb().select().from(admins);
   }
 
   async getAllCategories(): Promise<Category[]> {
-    return await db.select().from(categories);
+    return await this.getDb().select().from(categories);
   }
 
   async getCategoryByName(name: string): Promise<Category | undefined> {
-    const [category] = await db.select().from(categories).where(eq(categories.name, name));
+    const [category] = await this.getDb().select().from(categories).where(eq(categories.name, name));
     return category || undefined;
   }
 
   async createCategory(category: InsertCategory): Promise<Category> {
-    const [newCategory] = await db.insert(categories).values(category).returning();
+    const [newCategory] = await this.getDb().insert(categories).values(category).returning();
     return newCategory;
   }
 
   async updateCategory(id: string, data: Partial<InsertCategory>): Promise<Category | undefined> {
-    const [updated] = await db.update(categories).set(data).where(eq(categories.id, id)).returning();
+    const [updated] = await this.getDb().update(categories).set(data).where(eq(categories.id, id)).returning();
     return updated || undefined;
   }
 
   async deleteCategory(id: string): Promise<boolean> {
-    await db.delete(categories).where(eq(categories.id, id));
+    await this.getDb().delete(categories).where(eq(categories.id, id));
     return true;
   }
 
   async getAllProducts(): Promise<Product[]> {
-    return await db.select().from(products);
+    return await this.getDb().select().from(products);
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
-    const [product] = await db.select().from(products).where(eq(products.id, id));
+    const [product] = await this.getDb().select().from(products).where(eq(products.id, id));
     return product || undefined;
   }
 
   async createProduct(product: InsertProduct): Promise<Product> {
-    const [newProduct] = await db.insert(products).values(product).returning();
+    const [newProduct] = await this.getDb().insert(products).values(product).returning();
     return newProduct;
   }
 
   async updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined> {
-    const [updated] = await db.update(products).set(product).where(eq(products.id, id)).returning();
+    const [updated] = await this.getDb().update(products).set(product).where(eq(products.id, id)).returning();
     return updated || undefined;
   }
 
   async deleteProduct(id: string): Promise<boolean> {
-    await db.delete(products).where(eq(products.id, id));
+    await this.getDb().delete(products).where(eq(products.id, id));
     return true;
   }
 
   async updateProductStock(id: string, stock: number): Promise<Product | undefined> {
-    const [updated] = await db.update(products).set({ stock }).where(eq(products.id, id)).returning();
+    const [updated] = await this.getDb().update(products).set({ stock }).where(eq(products.id, id)).returning();
     return updated || undefined;
   }
 
   async getAllCoupons(): Promise<Coupon[]> {
-    return await db.select().from(coupons);
+    return await this.getDb().select().from(coupons);
   }
 
   async getCouponByCode(code: string): Promise<Coupon | undefined> {
-    const [coupon] = await db.select().from(coupons).where(eq(coupons.code, code));
+    const [coupon] = await this.getDb().select().from(coupons).where(eq(coupons.code, code));
     return coupon || undefined;
   }
 
   async createCoupon(coupon: InsertCoupon): Promise<Coupon> {
-    const [newCoupon] = await db.insert(coupons).values(coupon).returning();
+    const [newCoupon] = await this.getDb().insert(coupons).values(coupon).returning();
     return newCoupon;
   }
 
   async deleteCoupon(id: string): Promise<boolean> {
-    await db.delete(coupons).where(eq(coupons.id, id));
+    await this.getDb().delete(coupons).where(eq(coupons.id, id));
     return true;
   }
 
   async getAllOrders(): Promise<Order[]> {
-    return await db.select().from(orders);
+    return await this.getDb().select().from(orders);
   }
 
   async getOrder(id: string): Promise<Order | undefined> {
-    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    const [order] = await this.getDb().select().from(orders).where(eq(orders.id, id));
     return order || undefined;
   }
 
   async getOrderByNumber(orderNumber: string): Promise<Order | undefined> {
-    const [order] = await db.select().from(orders).where(eq(orders.orderNumber, orderNumber));
+    const [order] = await this.getDb().select().from(orders).where(eq(orders.orderNumber, orderNumber));
     return order || undefined;
   }
 
   async getOrdersByEmail(email: string): Promise<Order[]> {
-    return await db.select().from(orders).where(eq(orders.customerEmail, email));
+    return await this.getDb().select().from(orders).where(eq(orders.customerEmail, email));
   }
 
   async createOrder(order: InsertOrder): Promise<Order> {
-    const [newOrder] = await db.insert(orders).values(order).returning();
+    const [newOrder] = await this.getDb().insert(orders).values(order).returning();
     return newOrder;
   }
 
   async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
-    const [updated] = await db.update(orders).set({ status }).where(eq(orders.id, id)).returning();
+    const [updated] = await this.getDb().update(orders).set({ status }).where(eq(orders.id, id)).returning();
     return updated || undefined;
   }
 
   async searchProducts(query: string): Promise<Product[]> {
-    return await db.select().from(products).where(
+    return await this.getDb().select().from(products).where(
       or(
         ilike(products.name, `%${query}%`),
         ilike(products.description, `%${query}%`)
@@ -198,10 +252,10 @@ class DatabaseStorage {
 
     if (variantStock[variantKey] !== undefined) {
       variantStock[variantKey] = Math.max(0, variantStock[variantKey] - quantity);
-      await db.update(products).set({ variantStock }).where(eq(products.id, productId));
+      await this.getDb().update(products).set({ variantStock }).where(eq(products.id, productId));
     } else {
       const newStock = Math.max(0, (product.stock || 0) - quantity);
-      await db.update(products).set({ stock: newStock }).where(eq(products.id, productId));
+      await this.getDb().update(products).set({ stock: newStock }).where(eq(products.id, productId));
     }
   }
 
@@ -214,10 +268,10 @@ class DatabaseStorage {
 
     if (variantStock[variantKey] !== undefined) {
       variantStock[variantKey] = variantStock[variantKey] + quantity;
-      await db.update(products).set({ variantStock }).where(eq(products.id, productId));
+      await this.getDb().update(products).set({ variantStock }).where(eq(products.id, productId));
     } else {
       const newStock = (product.stock || 0) + quantity;
-      await db.update(products).set({ stock: newStock }).where(eq(products.id, productId));
+      await this.getDb().update(products).set({ stock: newStock }).where(eq(products.id, productId));
     }
   }
 }
