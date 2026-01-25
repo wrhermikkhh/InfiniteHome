@@ -149,17 +149,25 @@ const { Pool } = pg;
 let db: any = null;
 let pool: pg.Pool | null = null;
 
-if (databaseUrl) {
-  // If sslmode is in the connection string, don't add conflicting SSL options
-  const hasSSLMode = databaseUrl.includes('sslmode=');
-  
-  pool = new Pool({ 
-    connectionString: databaseUrl,
-    // Only set SSL if sslmode is not already in the connection string
-    ...(hasSSLMode ? {} : { ssl: { rejectUnauthorized: false } }),
-    max: 1 // Serverless should use minimal connections
-  });
-  db = drizzle(pool, { schema });
+// Wrap database initialization in try-catch to prevent serverless crashes
+try {
+  if (databaseUrl) {
+    // If sslmode is in the connection string, don't add conflicting SSL options
+    const hasSSLMode = databaseUrl.includes('sslmode=');
+    
+    pool = new Pool({ 
+      connectionString: databaseUrl,
+      // Only set SSL if sslmode is not already in the connection string
+      ...(hasSSLMode ? {} : { ssl: { rejectUnauthorized: false } }),
+      max: 1 // Serverless should use minimal connections
+    });
+    db = drizzle(pool, { schema });
+    console.log("Database pool initialized");
+  } else {
+    console.log("DATABASE_URL not configured");
+  }
+} catch (error: any) {
+  console.error("Failed to initialize database pool:", error.message);
 }
 
 // ============ SUPABASE CLIENT FOR STORAGE ============
@@ -221,6 +229,11 @@ app.use((req, res, next) => {
     });
   }
   next();
+});
+
+// Simple ping endpoint - no database required
+app.get("/api/ping", (req, res) => {
+  res.json({ pong: true, timestamp: new Date().toISOString() });
 });
 
 app.get("/api/health", async (req, res) => {
