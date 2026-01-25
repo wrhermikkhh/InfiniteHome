@@ -232,7 +232,7 @@ app.get("/api/health", async (req, res) => {
     return res.status(500).json({ status: "error", database: false, message: "DATABASE_URL not configured" });
   }
   try {
-    await sql_client('SELECT 1');
+    await sql_client`SELECT 1`;
     res.json({ status: "ok", database: true });
   } catch (error: any) {
     res.status(500).json({ status: "error", database: false, message: error.message });
