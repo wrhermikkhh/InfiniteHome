@@ -8,15 +8,6 @@ import { pgTable, text, varchar, integer, boolean, jsonb, timestamp, real } from
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Dynamic import for Supabase to prevent crashes if not configured
-let createClient: any = null;
-try {
-  const supabaseModule = await import("@supabase/supabase-js");
-  createClient = supabaseModule.createClient;
-} catch (e) {
-  console.log("Supabase module not available - file uploads will be disabled");
-}
-
 // ============ INLINED SCHEMA ============
 
 // Customers
@@ -176,18 +167,28 @@ if (databaseUrl) {
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
 
+// Lazy initialization for Supabase client
 let supabase: any = null;
-try {
-  if (createClient && supabaseUrl && supabaseServiceKey) {
+let supabaseInitialized = false;
+
+async function getSupabaseClient() {
+  if (supabaseInitialized) return supabase;
+  supabaseInitialized = true;
+  
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.log("Supabase Storage not configured - SUPABASE_URL or SUPABASE_SERVICE_KEY missing");
+    return null;
+  }
+  
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
     supabase = createClient(supabaseUrl, supabaseServiceKey);
     console.log("Supabase client initialized successfully");
-  } else if (!createClient) {
-    console.log("Supabase module not loaded - file uploads disabled");
-  } else {
-    console.log("Supabase Storage not configured - SUPABASE_URL or SUPABASE_SERVICE_KEY missing");
+    return supabase;
+  } catch (e: any) {
+    console.error("Failed to initialize Supabase client:", e.message);
+    return null;
   }
-} catch (e: any) {
-  console.error("Failed to initialize Supabase client:", e.message);
 }
 
 // ============ EXPRESS APP ============
@@ -936,21 +937,23 @@ app.patch("/api/orders/:id/status", async (req, res) => {
 app.get("/api/storage/health", async (req, res) => {
   const status: any = {
     supabaseUrl: supabaseUrl ? "configured" : "missing",
-    supabaseKey: supabaseServiceKey ? "configured" : "missing",
-    supabaseClient: supabase ? "initialized" : "not initialized"
+    supabaseKey: supabaseServiceKey ? "configured" : "missing"
   };
 
-  if (!supabase) {
-    return res.status(500).json({ 
-      status: "error", 
-      message: "Storage not configured - missing SUPABASE_URL or SUPABASE_SERVICE_KEY",
-      details: status
-    });
-  }
-
   try {
+    const client = await getSupabaseClient();
+    status.supabaseClient = client ? "initialized" : "not initialized";
+
+    if (!client) {
+      return res.status(500).json({ 
+        status: "error", 
+        message: "Storage not configured - missing SUPABASE_URL or SUPABASE_SERVICE_KEY",
+        details: status
+      });
+    }
+
     // Try to list buckets to verify connection
-    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    const { data: buckets, error: listError } = await client.storage.listBuckets();
     
     if (listError) {
       return res.status(500).json({ 
@@ -984,7 +987,9 @@ app.get("/api/storage/health", async (req, res) => {
 
 app.post("/api/uploads/request-url", async (req, res) => {
   try {
-    if (!supabase) {
+    const client = await getSupabaseClient();
+    
+    if (!client) {
       return res.status(500).json({ 
         error: "Storage not configured", 
         message: "SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in environment variables" 
@@ -996,7 +1001,7 @@ app.post("/api/uploads/request-url", async (req, res) => {
 
     console.log("Creating signed upload URL for:", filePath);
 
-    const { data, error } = await supabase.storage
+    const { data, error } = await client.storage
       .from('infinite-home')
       .createSignedUploadUrl(filePath);
 
