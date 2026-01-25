@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { VercelRequest, VercelResponse } from "@vercel/node";
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import { eq, ilike, or, sql } from "drizzle-orm";
 import { Resend } from "resend";
 import { pgTable, text, varchar, integer, boolean, jsonb, timestamp, real } from "drizzle-orm/pg-core";
@@ -150,10 +150,15 @@ let sql_client: any = null;
 // Wrap database initialization in try-catch to prevent serverless crashes
 try {
   if (databaseUrl) {
-    // Use Neon HTTP mode - no WebSocket needed, works in Vercel serverless
-    sql_client = neon(databaseUrl);
+    // Use postgres.js - pure JavaScript PostgreSQL client for serverless
+    sql_client = postgres(databaseUrl, {
+      ssl: 'require',
+      max: 1, // Limit connections in serverless
+      idle_timeout: 20,
+      connect_timeout: 10
+    });
     db = drizzle(sql_client, { schema });
-    console.log("Neon HTTP client initialized");
+    console.log("Postgres.js client initialized");
   } else {
     console.log("DATABASE_URL not configured");
   }
