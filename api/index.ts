@@ -1,12 +1,16 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { VercelRequest, VercelResponse } from "@vercel/node";
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-serverless";
 import { eq, ilike, or, sql } from "drizzle-orm";
 import { Resend } from "resend";
 import { pgTable, text, varchar, integer, boolean, jsonb, timestamp, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import ws from "ws";
+
+// Configure Neon for serverless
+neonConfig.webSocketConstructor = ws;
 
 // ============ INLINED SCHEMA ============
 
@@ -145,15 +149,15 @@ const schema = { customers, customerAddresses, admins, categories, products, cou
 const databaseUrl = process.env.DATABASE_URL;
 
 let db: any = null;
-let neonClient: any = null;
+let pool: any = null;
 
 // Wrap database initialization in try-catch to prevent serverless crashes
 try {
   if (databaseUrl) {
-    // Use Neon serverless driver - works better in Vercel serverless
-    neonClient = neon(databaseUrl);
-    db = drizzle(neonClient, { schema });
-    console.log("Neon database client initialized");
+    // Use Neon serverless Pool - works in Vercel serverless
+    pool = new Pool({ connectionString: databaseUrl });
+    db = drizzle(pool, { schema });
+    console.log("Neon database pool initialized");
   } else {
     console.log("DATABASE_URL not configured");
   }
@@ -228,11 +232,11 @@ app.get("/api/ping", (req, res) => {
 });
 
 app.get("/api/health", async (req, res) => {
-  if (!neonClient) {
+  if (!pool) {
     return res.status(500).json({ status: "error", database: false, message: "DATABASE_URL not configured" });
   }
   try {
-    await neonClient('SELECT 1');
+    await pool.query('SELECT 1');
     res.json({ status: "ok", database: true });
   } catch (error: any) {
     res.status(500).json({ status: "error", database: false, message: error.message });
