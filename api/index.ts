@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { VercelRequest, VercelResponse } from "@vercel/node";
-import { drizzle } from "drizzle-orm/node-postgres";
-import pg from "pg";
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
 import { eq, ilike, or, sql } from "drizzle-orm";
 import { Resend } from "resend";
 import { pgTable, text, varchar, integer, boolean, jsonb, timestamp, real } from "drizzle-orm/pg-core";
@@ -144,30 +144,21 @@ const schema = { customers, customerAddresses, admins, categories, products, cou
 
 const databaseUrl = process.env.DATABASE_URL;
 
-const { Pool } = pg;
-
 let db: any = null;
-let pool: pg.Pool | null = null;
+let neonClient: any = null;
 
 // Wrap database initialization in try-catch to prevent serverless crashes
 try {
   if (databaseUrl) {
-    // If sslmode is in the connection string, don't add conflicting SSL options
-    const hasSSLMode = databaseUrl.includes('sslmode=');
-    
-    pool = new Pool({ 
-      connectionString: databaseUrl,
-      // Only set SSL if sslmode is not already in the connection string
-      ...(hasSSLMode ? {} : { ssl: { rejectUnauthorized: false } }),
-      max: 1 // Serverless should use minimal connections
-    });
-    db = drizzle(pool, { schema });
-    console.log("Database pool initialized");
+    // Use Neon serverless driver - works better in Vercel serverless
+    neonClient = neon(databaseUrl);
+    db = drizzle(neonClient, { schema });
+    console.log("Neon database client initialized");
   } else {
     console.log("DATABASE_URL not configured");
   }
 } catch (error: any) {
-  console.error("Failed to initialize database pool:", error.message);
+  console.error("Failed to initialize database:", error.message);
 }
 
 // ============ SUPABASE CLIENT FOR STORAGE ============
@@ -237,11 +228,11 @@ app.get("/api/ping", (req, res) => {
 });
 
 app.get("/api/health", async (req, res) => {
-  if (!pool) {
+  if (!neonClient) {
     return res.status(500).json({ status: "error", database: false, message: "DATABASE_URL not configured" });
   }
   try {
-    await pool.query('SELECT 1');
+    await neonClient('SELECT 1');
     res.json({ status: "ok", database: true });
   } catch (error: any) {
     res.status(500).json({ status: "error", database: false, message: error.message });
