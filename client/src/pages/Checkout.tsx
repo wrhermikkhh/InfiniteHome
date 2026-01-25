@@ -424,10 +424,17 @@ export default function Checkout() {
                 <div className="mt-4 p-4 bg-secondary/20 border border-dashed border-border text-sm space-y-4">
                   <div className="space-y-2">
                     <p className="font-bold uppercase tracking-widest text-[10px]">Bank Details</p>
-                    <p>Bank: Bank of Maldives (BML)</p>
-                    <p>Account Name: INFINITE HOME PVT LTD</p>
-                    <p>Account Number: 7730000012345 (MVR)</p>
-                    <p className="text-muted-foreground text-xs">Please include your order ID as the transfer remark.</p>
+                    <div className="space-y-1">
+                      <p className="font-medium underline">Bank of Maldives (BML)</p>
+                      <p>Account Name: INFINITE LOOP PVT LTD</p>
+                      <p>Account Number: 7730000725601 (MVR)</p>
+                    </div>
+                    <div className="space-y-1 pt-2">
+                      <p className="font-medium underline">Maldives Islamic Bank (MIB)</p>
+                      <p>Account Name: INFINITE LOOP</p>
+                      <p>Account Number: 90401480025761000 (MVR)</p>
+                    </div>
+                    <p className="text-muted-foreground text-[10px] mt-2 italic">Please include your order ID as the transfer remark.</p>
                   </div>
                   <div className="pt-4 border-t border-border space-y-2">
                     <p className="font-bold uppercase tracking-widest text-[10px]">Upload Payment Slip</p>

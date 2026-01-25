@@ -434,7 +434,7 @@ export default function OrderTracking() {
                     recipient not available, or weather conditions. Our team is working to resolve this.
                   </p>
                   <p className="text-sm text-red-600">
-                    Please contact our support at <strong>support@infinitehome.mv</strong> or call <strong>+960 123 4567</strong>
+                    Please contact our support at <strong>support@infinitehome.mv</strong> or call <strong>7840001</strong> / WhatsApp <strong>9607840001</strong>
                   </p>
                 </div>
               </div>

@@ -163,6 +163,7 @@ export default function Shipping() {
             <ul className="space-y-2 text-muted-foreground">
               <li><strong>Email:</strong> support@infinitehome.mv</li>
               <li><strong>Phone:</strong> 7840001</li>
+              <li><strong>WhatsApp:</strong> 9607840001</li>
             </ul>
           </section>
         </div>

@@ -21,6 +21,7 @@ export function Footer() {
             <div className="pt-2 text-sm text-muted-foreground">
               <p>Email: <a href="mailto:info@infinitehome.mv" className="hover:text-primary transition-colors">info@infinitehome.mv</a></p>
               <p>Phone: 7840001</p>
+              <p>WhatsApp: 9607840001</p>
             </div>
           </div>
 

@@ -161,10 +161,15 @@ Professional shipping statuses matching major carriers:
 - **Returns**: 30-day free returns and exchanges policy
 
 ## Contact Information
-- **Email**: support@infinitehome.mv
+- **Email**: info@infinitehome.mv, support@infinitehome.mv
 - **Phone**: 7840001
+- **WhatsApp**: 9607840001
 - **Location**: Male', Maldives
 - **Hours**: Sunday - Thursday, 9:00 AM - 6:00 PM
+
+## Bank Account Details
+- **MIB (Maldives Islamic Bank)**: INFINITE LOOP - 90401480025761000
+- **BML (Bank of Maldives)**: INFINITE LOOP PVT LTD - 7730000725601
 
 ## Order ID Format
 Alphanumeric 6-character format: IH-XXXXXX (e.g., IH-A3K7M9)

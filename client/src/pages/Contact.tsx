@@ -63,8 +63,8 @@ export default function Contact() {
                   <Phone className="text-primary" size={24} />
                 </div>
                 <div>
-                  <h3 className="font-medium mb-1">Phone</h3>
-                  <p className="text-muted-foreground">7840001</p>
+                  <h3 className="font-medium mb-1">Phone & WhatsApp</h3>
+                  <p className="text-muted-foreground">7840001 / 9607840001</p>
                   <p className="text-sm text-muted-foreground/70">Available during business hours</p>
                 </div>
               </div>

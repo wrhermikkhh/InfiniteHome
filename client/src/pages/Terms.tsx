@@ -82,6 +82,7 @@ export default function Terms() {
             <ul className="mt-4 space-y-2 text-muted-foreground">
               <li>Email: support@infinitehome.mv</li>
               <li>Phone: 7840001</li>
+              <li>WhatsApp: 9607840001</li>
             </ul>
           </section>
         </div>
