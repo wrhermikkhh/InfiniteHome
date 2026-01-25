@@ -915,6 +915,56 @@ app.patch("/api/orders/:id/status", async (req, res) => {
 
 // ============ FILE UPLOADS (Supabase Storage) ============
 
+// Storage health check endpoint
+app.get("/api/storage/health", async (req, res) => {
+  const status: any = {
+    supabaseUrl: supabaseUrl ? "configured" : "missing",
+    supabaseKey: supabaseServiceKey ? "configured" : "missing",
+    supabaseClient: supabase ? "initialized" : "not initialized"
+  };
+
+  if (!supabase) {
+    return res.status(500).json({ 
+      status: "error", 
+      message: "Storage not configured - missing SUPABASE_URL or SUPABASE_SERVICE_KEY",
+      details: status
+    });
+  }
+
+  try {
+    // Try to list buckets to verify connection
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    
+    if (listError) {
+      return res.status(500).json({ 
+        status: "error", 
+        message: "Failed to connect to Supabase Storage",
+        error: listError.message,
+        details: status
+      });
+    }
+
+    const bucketNames = buckets?.map((b: any) => b.name) || [];
+    const hasInfiniteHome = bucketNames.includes('infinite-home');
+
+    res.json({
+      status: hasInfiniteHome ? "ok" : "bucket_missing",
+      message: hasInfiniteHome 
+        ? "Supabase Storage is configured correctly" 
+        : "Bucket 'infinite-home' not found. Please create it in Supabase Storage.",
+      buckets: bucketNames,
+      details: status
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      status: "error", 
+      message: "Failed to check storage status",
+      error: error.message,
+      details: status
+    });
+  }
+});
+
 app.post("/api/uploads/request-url", async (req, res) => {
   try {
     if (!supabase) {
@@ -927,6 +977,8 @@ app.post("/api/uploads/request-url", async (req, res) => {
     const fileId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const filePath = `uploads/${fileId}`;
 
+    console.log("Creating signed upload URL for:", filePath);
+
     const { data, error } = await supabase.storage
       .from('infinite-home')
       .createSignedUploadUrl(filePath);
@@ -938,6 +990,8 @@ app.post("/api/uploads/request-url", async (req, res) => {
 
     // Return the signed URL and the public URL path
     const publicUrl = `${supabaseUrl}/storage/v1/object/public/infinite-home/${filePath}`;
+    
+    console.log("Upload URL generated successfully, public path:", publicUrl);
     
     res.json({
       uploadURL: data.signedUrl,
