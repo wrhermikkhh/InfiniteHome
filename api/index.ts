@@ -244,6 +244,67 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
+// Email configuration check endpoint
+app.get("/api/email/status", async (req, res) => {
+  const apiKey = process.env.RESEND_API_KEY;
+  res.json({
+    configured: !!apiKey,
+    keyPrefix: apiKey ? apiKey.substring(0, 8) + '...' : null
+  });
+});
+
+// Test email endpoint (for debugging)
+app.post("/api/email/test", async (req, res) => {
+  try {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'RESEND_API_KEY not configured',
+        hint: 'Add RESEND_API_KEY to your Vercel environment variables'
+      });
+    }
+    
+    const { to } = req.body;
+    if (!to) {
+      return res.status(400).json({ success: false, error: 'Email address required in body: { "to": "email@example.com" }' });
+    }
+    
+    const resend = new Resend(apiKey);
+    
+    const result = await resend.emails.send({
+      from: 'INFINITE HOME <noreply@infinitehome.mv>',
+      to: to,
+      subject: 'Test Email from INFINITE HOME',
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #1a1a1a; color: white; padding: 20px; text-align: center;">
+            <h1>INFINITE HOME</h1>
+          </div>
+          <div style="padding: 20px;">
+            <h2>Test Email</h2>
+            <p>If you're seeing this, email is working correctly!</p>
+            <p>Sent at: ${new Date().toISOString()}</p>
+          </div>
+        </div>
+      `
+    });
+    
+    res.json({ 
+      success: true, 
+      messageId: result.data?.id,
+      to: to
+    });
+  } catch (error: any) {
+    console.error('Test email error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      details: error.response?.data || null
+    });
+  }
+});
+
 // ============ STORAGE CLASS ============
 
 class DatabaseStorage {
@@ -454,52 +515,80 @@ class DatabaseStorage {
 
 const storage = new DatabaseStorage();
 
-// ============ EMAIL FUNCTION ============
+// ============ EMAIL FUNCTIONS ============
+
+function getEmailBaseUrl() {
+  // Use custom domain for production
+  return 'https://infinite-home.vercel.app';
+}
+
+function getEmailHeader() {
+  return `
+    <div style="padding: 40px 20px; text-align: center; background-color: #1a1a1a; color: #ffffff;">
+      <h1 style="margin: 0; font-size: 28px; letter-spacing: 2px;">INFINITE HOME</h1>
+    </div>
+  `;
+}
+
+function getEmailFooter() {
+  return `
+    <div style="padding: 30px; background-color: #f5f5f5; text-align: center; font-size: 12px; color: #666;">
+      <p style="margin: 0 0 10px 0;">INFINITE HOME - Premium Bedding, Furniture & Appliances</p>
+      <p style="margin: 0 0 10px 0;">Male', Maldives | Phone: 7840001 | WhatsApp: 9607840001</p>
+      <p style="margin: 0;">Email: support@infinitehome.mv</p>
+    </div>
+  `;
+}
+
+function getItemsHtml(items: any[]) {
+  return items.map((item: any) => `
+    <tr>
+      <td style="padding: 12px 10px; border-bottom: 1px solid #eee;">
+        <div style="font-weight: bold; color: #1a1a1a;">${item.name}</div>
+        <div style="font-size: 12px; color: #666; margin-top: 4px;">
+          ${item.color ? `<span style="margin-right: 10px;">Color: ${item.color}</span>` : ''}
+          ${item.size ? `<span>Size: ${item.size}</span>` : ''}
+        </div>
+      </td>
+      <td style="padding: 12px 10px; border-bottom: 1px solid #eee; text-align: center; vertical-align: top;">
+        ${item.qty}
+      </td>
+      <td style="padding: 12px 10px; border-bottom: 1px solid #eee; text-align: right; vertical-align: top; font-weight: bold;">
+        MVR ${item.price.toLocaleString()}
+      </td>
+    </tr>
+  `).join('');
+}
 
 async function sendOrderConfirmationEmail(order: any) {
   try {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
       console.log('RESEND_API_KEY not set, skipping email');
-      return;
+      return { success: false, reason: 'API key not configured' };
     }
     
     const resend = new Resend(apiKey);
-    const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://infinitehome.mv';
+    const baseUrl = getEmailBaseUrl();
     const trackingUrl = `${baseUrl}/track?order=${order.orderNumber}`;
-
-    const itemsHtml = order.items.map((item: any) => `
-      <tr>
-        <td style="padding: 12px 10px; border-bottom: 1px solid #eee;">
-          <div style="font-weight: bold; color: #1a1a1a;">${item.name}</div>
-          <div style="font-size: 12px; color: #666; margin-top: 4px;">
-            ${item.color ? `<span style="margin-right: 10px;">Color: ${item.color}</span>` : ''}
-            ${item.size ? `<span>Size: ${item.size}</span>` : ''}
-          </div>
-        </td>
-        <td style="padding: 12px 10px; border-bottom: 1px solid #eee; text-align: center; vertical-align: top;">
-          ${item.qty}
-        </td>
-        <td style="padding: 12px 10px; border-bottom: 1px solid #eee; text-align: right; vertical-align: top; font-weight: bold;">
-          MVR ${item.price.toLocaleString()}
-        </td>
-      </tr>
-    `).join('');
 
     const html = `
       <!DOCTYPE html>
       <html>
-      <body style="margin: 0; padding: 0; background-color: #fcfaf7; font-family: sans-serif;">
+      <body style="margin: 0; padding: 0; background-color: #fcfaf7; font-family: 'Helvetica Neue', Arial, sans-serif;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-          <div style="padding: 40px 20px; text-align: center; background-color: #1a1a1a; color: #ffffff;">
-            <h1 style="margin: 0; font-size: 28px; letter-spacing: 2px;">INFINITE HOME</h1>
-          </div>
+          ${getEmailHeader()}
           <div style="padding: 40px 30px;">
-            <h2 style="color: #1a1a1a; font-size: 24px;">Order Confirmation</h2>
-            <p>Dear ${order.customerName},</p>
-            <p>Thank you for your order. Order Number: <strong>${order.orderNumber}</strong></p>
-            <p><a href="${trackingUrl}">Track Your Order</a></p>
-            <table style="width: 100%; border-collapse: collapse;">
+            <h2 style="color: #1a1a1a; font-size: 24px; margin-top: 0;">Order Confirmation</h2>
+            <p style="color: #333; line-height: 1.6;">Dear ${order.customerName},</p>
+            <p style="color: #333; line-height: 1.6;">Thank you for your order! We're excited to get your items ready.</p>
+            
+            <div style="background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; font-size: 14px; color: #666;">Order Number</p>
+              <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: bold; color: #1a1a1a;">${order.orderNumber}</p>
+            </div>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
               <thead>
                 <tr style="border-bottom: 2px solid #1a1a1a;">
                   <th style="padding: 10px; text-align: left;">Item</th>
@@ -507,28 +596,160 @@ async function sendOrderConfirmationEmail(order: any) {
                   <th style="padding: 10px; text-align: right;">Price</th>
                 </tr>
               </thead>
-              <tbody>${itemsHtml}</tbody>
+              <tbody>${getItemsHtml(order.items)}</tbody>
               <tfoot>
                 <tr>
                   <td colspan="2" style="padding: 15px 10px; text-align: right; font-weight: bold;">Total</td>
-                  <td style="padding: 15px 10px; text-align: right; font-weight: bold;">MVR ${order.total.toLocaleString()}</td>
+                  <td style="padding: 15px 10px; text-align: right; font-weight: bold; font-size: 18px;">MVR ${order.total.toLocaleString()}</td>
                 </tr>
               </tfoot>
             </table>
+            
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="${trackingUrl}" style="display: inline-block; background-color: #1a1a1a; color: #ffffff; padding: 14px 30px; text-decoration: none; border-radius: 4px; font-weight: bold;">Track Your Order</a>
+            </div>
+            
+            <p style="color: #666; font-size: 14px; margin-top: 30px; line-height: 1.6;">
+              We'll send you another email when your order ships. If you have any questions, please contact us at support@infinitehome.mv or call 7840001.
+            </p>
           </div>
+          ${getEmailFooter()}
         </div>
       </body>
       </html>
     `;
 
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: 'INFINITE HOME <noreply@infinitehome.mv>',
       to: order.customerEmail,
-      subject: `Order Confirmation - ${order.orderNumber}`,
+      subject: `Order Confirmed - ${order.orderNumber}`,
       html: html,
     });
-  } catch (error) {
-    console.error('Error sending email:', error);
+    
+    console.log('Order confirmation email sent:', result);
+    return { success: true, id: result.data?.id };
+  } catch (error: any) {
+    console.error('Error sending order confirmation email:', error);
+    return { success: false, reason: error.message };
+  }
+}
+
+async function sendOrderStatusEmail(order: any, newStatus: string) {
+  try {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      console.log('RESEND_API_KEY not set, skipping status email');
+      return { success: false, reason: 'API key not configured' };
+    }
+    
+    const resend = new Resend(apiKey);
+    const baseUrl = getEmailBaseUrl();
+    const trackingUrl = `${baseUrl}/track?order=${order.orderNumber}`;
+    
+    // Define email content based on status
+    const statusContent: { [key: string]: { subject: string; title: string; message: string; icon: string } } = {
+      confirmed: {
+        subject: `Order Confirmed - ${order.orderNumber}`,
+        title: 'Order Confirmed!',
+        message: 'Great news! Your order has been confirmed and payment verified. We are now preparing your items for shipment.',
+        icon: '✓'
+      },
+      processing: {
+        subject: `Preparing Your Order - ${order.orderNumber}`,
+        title: 'Preparing Your Order',
+        message: 'Your order is being prepared for shipment. Our team is carefully packing your items to ensure they arrive in perfect condition.',
+        icon: '📦'
+      },
+      shipped: {
+        subject: `Your Order Has Shipped! - ${order.orderNumber}`,
+        title: 'Order Shipped!',
+        message: 'Exciting news! Your order has been handed over to our delivery partner and is on its way to you.',
+        icon: '🚚'
+      },
+      in_transit: {
+        subject: `Order In Transit - ${order.orderNumber}`,
+        title: 'On The Way',
+        message: 'Your package is moving through our delivery network and will arrive soon.',
+        icon: '📍'
+      },
+      out_for_delivery: {
+        subject: `Out for Delivery Today! - ${order.orderNumber}`,
+        title: 'Arriving Today!',
+        message: 'Your order is out for delivery! Our delivery partner will arrive at your address today. Please ensure someone is available to receive the package.',
+        icon: '🏠'
+      },
+      delivered: {
+        subject: `Order Delivered - ${order.orderNumber}`,
+        title: 'Order Delivered!',
+        message: 'Your order has been successfully delivered! We hope you love your new items. Thank you for shopping with INFINITE HOME.',
+        icon: '🎉'
+      },
+      cancelled: {
+        subject: `Order Cancelled - ${order.orderNumber}`,
+        title: 'Order Cancelled',
+        message: 'Your order has been cancelled. If you did not request this cancellation, please contact us immediately.',
+        icon: '✕'
+      },
+      refunded: {
+        subject: `Refund Processed - ${order.orderNumber}`,
+        title: 'Refund Processed',
+        message: 'Your refund has been processed. Please allow 5-7 business days for the amount to reflect in your account.',
+        icon: '💰'
+      }
+    };
+    
+    const content = statusContent[newStatus];
+    if (!content) {
+      console.log(`No email template for status: ${newStatus}`);
+      return { success: false, reason: 'No template for this status' };
+    }
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <body style="margin: 0; padding: 0; background-color: #fcfaf7; font-family: 'Helvetica Neue', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+          ${getEmailHeader()}
+          <div style="padding: 40px 30px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <div style="font-size: 48px; margin-bottom: 10px;">${content.icon}</div>
+              <h2 style="color: #1a1a1a; font-size: 24px; margin: 0;">${content.title}</h2>
+            </div>
+            
+            <p style="color: #333; line-height: 1.6;">Dear ${order.customerName},</p>
+            <p style="color: #333; line-height: 1.6;">${content.message}</p>
+            
+            <div style="background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; font-size: 14px; color: #666;">Order Number</p>
+              <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: bold; color: #1a1a1a;">${order.orderNumber}</p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="${trackingUrl}" style="display: inline-block; background-color: #1a1a1a; color: #ffffff; padding: 14px 30px; text-decoration: none; border-radius: 4px; font-weight: bold;">Track Your Order</a>
+            </div>
+            
+            <p style="color: #666; font-size: 14px; margin-top: 30px; line-height: 1.6;">
+              If you have any questions, please contact us at support@infinitehome.mv or call 7840001.
+            </p>
+          </div>
+          ${getEmailFooter()}
+        </div>
+      </body>
+      </html>
+    `;
+
+    const result = await resend.emails.send({
+      from: 'INFINITE HOME <noreply@infinitehome.mv>',
+      to: order.customerEmail,
+      subject: content.subject,
+      html: html,
+    });
+    
+    console.log(`Status email (${newStatus}) sent:`, result);
+    return { success: true, id: result.data?.id };
+  } catch (error: any) {
+    console.error('Error sending status email:', error);
+    return { success: false, reason: error.message };
   }
 }
 
@@ -929,6 +1150,13 @@ app.patch("/api/orders/:id/status", async (req, res) => {
             await storage.restoreStock(item.productId, size, color, item.qty);
           }
         }
+      }
+      
+      // Send status update email if status changed
+      if (previousStatus !== status) {
+        sendOrderStatusEmail(order, status).catch(err => {
+          console.error("Status email delivery failed:", err);
+        });
       }
       
       res.json(order);
