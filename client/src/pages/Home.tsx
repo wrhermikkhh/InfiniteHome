@@ -45,7 +45,7 @@ export default function Home() {
             transition={{ delay: 0.4 }}
             className="text-5xl md:text-7xl lg:text-8xl font-serif font-medium leading-tight"
           >
-            WELCOME <br/> INFINITE HOME
+            Sleep Like <br/> Never Before
           </motion.h1>
           <motion.div
             initial={{ opacity: 0, y: 20 }}

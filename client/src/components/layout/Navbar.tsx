@@ -96,7 +96,7 @@ export function Navbar() {
           href="/"
           className="text-xl md:text-2xl font-serif font-bold tracking-widest uppercase cursor-pointer whitespace-nowrap"
         >
-          {searchOpen ? "IH" : "WELCOME INFINITE HOME"}
+          {searchOpen ? "IH" : "INFINITE HOME"}
         </Link>
 
         {searchOpen ? (
