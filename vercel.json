@@ -6,6 +6,10 @@
   "framework": null,
   "rewrites": [
     {
+      "source": "/api/test",
+      "destination": "/api/test"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/index"
     },
@@ -18,6 +22,10 @@
     "api/index.ts": {
       "memory": 1024,
       "maxDuration": 30
+    },
+    "api/test.ts": {
+      "memory": 128,
+      "maxDuration": 10
     }
   }
 }
