@@ -129,7 +129,7 @@ export default function Consultation() {
                       <FormItem>
                         <FormLabel className="uppercase text-xs font-bold tracking-widest">Phone</FormLabel>
                         <FormControl>
-                          <Input placeholder="+960..." {...field} className="rounded-none border-border focus-visible:ring-primary" />
+                          <Input placeholder="7840001" {...field} className="rounded-none border-border focus-visible:ring-primary" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
