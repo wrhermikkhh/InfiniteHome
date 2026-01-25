@@ -1,8 +1,8 @@
-# INFINITE HOME - Luxury E-commerce Platform
+# INFINITE HOME - E-commerce Platform
 
 ## Overview
 
-INFINITE HOME is a luxury e-commerce platform specializing in premium bedding, furniture, and home appliances. The application features a full-stack architecture with a React frontend and Express backend, using PostgreSQL for data persistence. Key features include product catalog management, shopping cart functionality, order processing with coupon support, admin dashboard, and order tracking.
+INFINITE HOME is an e-commerce platform specializing in premium bedding, furniture, and home appliances. The application features a full-stack architecture with a React frontend and Express backend, using PostgreSQL for data persistence. Key features include product catalog management, shopping cart functionality, order processing with coupon support, admin dashboard, and order tracking.
 
 ## User Preferences
 

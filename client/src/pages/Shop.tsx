@@ -59,7 +59,7 @@ export default function Shop() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="text-muted-foreground max-w-lg mx-auto"
           >
-            Discover premium home essentials - from luxury bedding to modern furniture and appliances.
+            Discover premium home essentials - from bedding to modern furniture and appliances.
           </motion.p>
         </div>
       </motion.div>

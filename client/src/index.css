@@ -39,7 +39,7 @@
 }
 
 :root {
-  /* Luxury, Soft, Clean Palette */
+  /* Soft, Clean Palette */
   /* Background: Warm Cream / Cozy vibe */
   --background: 36 33% 94%; 
   /* Foreground: Soft Charcoal */
@@ -73,7 +73,7 @@
   --popover: 36 33% 96%;
   --popover-foreground: 220 10% 15%;
 
-  --radius: 0rem; /* Sharp or very slightly rounded for luxury feel */
+  --radius: 0rem; /* Sharp or very slightly rounded feel */
 }
 
 .dark {

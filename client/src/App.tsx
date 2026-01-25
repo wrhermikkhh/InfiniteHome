@@ -22,6 +22,29 @@ import Signup from "@/pages/Signup";
 import Account from "@/pages/Account";
 import SizeGuide from "@/pages/SizeGuide";
 
+function PageTitle() {
+  const [location] = useLocation();
+  
+  useEffect(() => {
+    const baseTitle = "WELCOME INFINITE HOME";
+    let pageName = "";
+    
+    if (location === "/") {
+      pageName = "Home";
+    } else {
+      // Convert /contact to Contact, /order-tracking to Order Tracking
+      const path = location.split("/")[1];
+      if (path) {
+        pageName = path.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+      }
+    }
+    
+    document.title = pageName ? `${baseTitle} | ${pageName}` : baseTitle;
+  }, [location]);
+  
+  return null;
+}
+
 function ScrollToTop() {
   const [location] = useLocation();
   
@@ -36,6 +59,7 @@ function Router() {
   return (
     <>
       <ScrollToTop />
+      <PageTitle />
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/shop" component={Shop} />

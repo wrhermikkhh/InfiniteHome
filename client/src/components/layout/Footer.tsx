@@ -10,7 +10,7 @@ export function Footer() {
           <div className="space-y-4">
             <h3 className="font-serif text-xl font-bold tracking-widest uppercase whitespace-nowrap">INFINITE HOME</h3>
             <p className="text-muted-foreground text-sm leading-relaxed max-w-xs">
-              Premium home essentials including luxury bedding, furniture, and appliances. Transform your living space with our curated collection.
+              Premium home essentials including bedding, furniture, and appliances. Transform your living space with our curated collection.
             </p>
             <div className="flex space-x-4 pt-2">
               <a href="https://www.instagram.com/infiniteloop.mv?igsh=ODJxMmQ4NHFxM3k5&utm_source=qr" target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-primary/70 transition-colors"><Instagram size={20} /></a>

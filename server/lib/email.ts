@@ -53,7 +53,7 @@ export async function sendOrderConfirmationEmail(order: any) {
           <!-- Header -->
           <div style="padding: 40px 20px; text-align: center; background-color: #1a1a1a; color: #ffffff;">
             <h1 style="font-family: 'Playfair Display', serif; margin: 0; font-size: 28px; letter-spacing: 2px;">INFINITE HOME</h1>
-            <p style="margin: 10px 0 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.8;">Luxury E-commerce</p>
+            <p style="margin: 10px 0 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.8;">Premium E-commerce</p>
           </div>
 
           <!-- Body -->
@@ -127,7 +127,7 @@ export async function sendOrderConfirmationEmail(order: any) {
 
           <!-- Footer -->
           <div style="padding: 40px 20px; background-color: #f8f8f8; text-align: center; border-top: 1px solid #eee;">
-            <p style="margin: 0 0 15px; font-size: 14px; color: #666;">Questions? Contact our luxury concierge team.</p>
+            <p style="margin: 0 0 15px; font-size: 14px; color: #666;">Questions? Contact our concierge team.</p>
             <div style="margin-bottom: 20px;">
               <a href="mailto:support@infinitehome.mv" style="color: #1a1a1a; font-weight: 600; text-decoration: none; margin: 0 10px;">support@infinitehome.mv</a>
               <span style="color: #ccc;">|</span>
