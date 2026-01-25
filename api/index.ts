@@ -368,12 +368,12 @@ class DatabaseStorage {
   }
 
   async getCouponByCode(code: string): Promise<Coupon | undefined> {
-    const [coupon] = await this.getDb().select().from(coupons).where(eq(coupons.code, code));
+    const [coupon] = await this.getDb().select().from(coupons).where(eq(coupons.code, code.toUpperCase()));
     return coupon || undefined;
   }
 
   async createCoupon(coupon: InsertCoupon): Promise<Coupon> {
-    const [newCoupon] = await this.getDb().insert(coupons).values(coupon).returning();
+    const [newCoupon] = await this.getDb().insert(coupons).values({ ...coupon, code: coupon.code.toUpperCase() }).returning();
     return newCoupon;
   }
 
