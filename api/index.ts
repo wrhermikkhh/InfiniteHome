@@ -1032,7 +1032,7 @@ app.post("/api/uploads/request-url", async (req, res) => {
 });
 
 // Serve object paths (redirect to Supabase Storage public URL)
-app.get("/objects/*", (req, res) => {
+app.get("/objects/{*path}", (req, res) => {
   // For legacy paths, redirect to placeholder or return 404
   // New uploads use full Supabase URLs
   res.status(404).json({ error: "Object not found" });
