@@ -1,4 +1,4 @@
-import oekoTexLogo from "@assets/certifications/oeko-tex.png";
+import oekoTexLogo from "@assets/certifications/oeko-tex.webp";
 import gotsLogo from "@assets/certifications/gots.png";
 import bsciLogo from "@assets/certifications/bsci.png";
 import isoLogo from "@assets/certifications/iso.png";
