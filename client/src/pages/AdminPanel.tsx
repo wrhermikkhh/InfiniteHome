@@ -859,7 +859,7 @@ export default function AdminPanel() {
                       <Plus className="mr-2" size={18} /> Add Product
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md rounded-none max-h-[90vh] overflow-y-auto">
+                  <DialogContent className="max-w-md md:max-w-2xl lg:max-w-4xl rounded-none max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle className="font-serif text-2xl">{editingProduct ? "Edit Product" : "Add New Product"}</DialogTitle>
                     </DialogHeader>

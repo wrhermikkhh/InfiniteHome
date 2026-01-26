@@ -21,6 +21,7 @@ import Login from "@/pages/Login";
 import Signup from "@/pages/Signup";
 import Account from "@/pages/Account";
 import SizeGuide from "@/pages/SizeGuide";
+import CustomMattress from "@/pages/CustomMattress";
 
 function PageTitle() {
   const [location] = useLocation();
@@ -77,6 +78,7 @@ function Router() {
         <Route path="/signup" component={Signup} />
         <Route path="/account" component={Account} />
         <Route path="/size-guide" component={SizeGuide} />
+        <Route path="/custom-mattress" component={CustomMattress} />
         <Route component={NotFound} />
       </Switch>
     </>

@@ -193,7 +193,10 @@ export default function ProductPage() {
 
               {/* Size */}
               <div className="space-y-3">
-                 <span className="text-sm font-bold uppercase tracking-widest">Size: <span className="text-muted-foreground font-normal normal-case">{selectedSize}</span></span>
+                 <div className="flex items-center justify-between">
+                   <span className="text-sm font-bold uppercase tracking-widest">Size: <span className="text-muted-foreground font-normal normal-case">{selectedSize}</span></span>
+                   <a href="/size-guide" className="text-sm text-primary hover:underline transition-colors" data-testid="link-size-guide">Size Guide</a>
+                 </div>
                  <div className="flex flex-wrap gap-2">
                    {variants.map((v: ProductVariant) => (
                      <button
@@ -206,6 +209,12 @@ export default function ProductPage() {
                      </button>
                    ))}
                  </div>
+                 {(product.category?.toLowerCase().includes('mattress') || product.category?.toLowerCase().includes('bedding')) && (
+                   <a href="/custom-mattress" className="inline-flex items-center gap-2 text-sm text-amber-700 hover:text-amber-800 transition-colors" data-testid="link-custom-mattress">
+                     <span>Can't find your size?</span>
+                     <span className="underline font-medium">Get a custom mattress</span>
+                   </a>
+                 )}
               </div>
 
               {/* Pre-Order Info */}

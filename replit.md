@@ -231,3 +231,12 @@ Alphanumeric 6-character format: IH-XXXXXX (e.g., IH-A3K7M9)
 - Updated order ID format to alphanumeric 6-character format (IH-XXXXXX)
 - Enhanced product color selection to display as text buttons with color indicators
 - Added more color options support (Navy, Emerald, Blush, Natural Oak, etc.)
+- Added automatic email notifications for order status changes (confirmed, processing, shipped, in_transit, out_for_delivery, delivered, cancelled, refunded)
+- Added email debug endpoints (GET /api/email/status, POST /api/email/test) for Vercel troubleshooting
+- Made admin product dialog responsive for desktop (expands to larger width on md/lg screens)
+- Fixed SelectContent dropdown background (now solid bg-background instead of transparent)
+- Added Size Guide link on product detail page next to size selection
+- Created Custom Size Mattress page (/custom-mattress) with friendly messaging and request form
+- Custom mattress page includes terms and conditions (45-90 day delivery, 50% deposit, non-refundable)
+- Added "Can't find your size? Get a custom mattress" link on bedding/mattress product pages
+- Added Custom Size Mattress link to footer navigation
