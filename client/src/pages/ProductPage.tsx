@@ -57,10 +57,10 @@ export default function ProductPage() {
   const currentStock = product ? getVariantStock(product, selectedSize, selectedColor) : 0;
   const isOutOfStock = currentStock <= 0;
   
-  const isPreOrder = (product as any)?.isPreOrder || false;
-  const preOrderPrice = (product as any)?.preOrderPrice;
-  const preOrderInitialPayment = (product as any)?.preOrderInitialPayment;
-  const preOrderEta = (product as any)?.preOrderEta;
+  const isPreOrder = product.isPreOrder || false;
+  const preOrderPrice = product.preOrderPrice;
+  const preOrderInitialPayment = product.preOrderInitialPayment;
+  const preOrderEta = product.preOrderEta;
   const displayPrice = isPreOrder && preOrderPrice ? preOrderPrice : currentPrice;
 
   return (
@@ -138,6 +138,9 @@ export default function ProductPage() {
                  {isOutOfStock && (
                    <span className="text-xs font-bold uppercase tracking-widest text-destructive bg-destructive/10 px-2 py-1 ml-2">Out of Stock</span>
                  )}
+                 {isPreOrder && (
+                   <span className="text-xs font-bold uppercase tracking-widest bg-amber-500 text-white px-2 py-1 ml-2">Pre-Order</span>
+                 )}
               </motion.div>
               <motion.h1 
                 initial={{ opacity: 0, y: 10 }}
@@ -153,7 +156,7 @@ export default function ProductPage() {
                 transition={{ delay: 0.4 }}
                 className="text-2xl font-medium text-foreground"
               >
-                {formatCurrency(currentPrice)}
+                {formatCurrency(displayPrice)}
               </motion.p>
             </div>
 
@@ -165,6 +168,27 @@ export default function ProductPage() {
             >
               {product.description || "Experience the difference of our premium bamboo viscose fabric. Cooler than cotton, softer than silk."}
             </motion.p>
+
+            {/* Certifications */}
+            {product.certifications && product.certifications.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.55 }}
+                className="flex flex-wrap gap-2"
+              >
+                {product.certifications.map((cert) => (
+                  <span 
+                    key={cert} 
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-medium border border-green-200"
+                    data-testid={`certification-${cert.replace(/\s+/g, '-').toLowerCase()}`}
+                  >
+                    <ShieldCheck size={12} />
+                    {cert}
+                  </span>
+                ))}
+              </motion.div>
+            )}
 
             {/* Configurator */}
             <motion.div 

@@ -26,6 +26,11 @@ export interface Product {
   variantStock?: { [key: string]: number } | null;
   expressCharge?: number | null;
   sizeGuide?: SizeGuideEntry[] | null;
+  certifications?: string[] | null;
+  isPreOrder?: boolean | null;
+  preOrderPrice?: number | null;
+  preOrderInitialPayment?: number | null;
+  preOrderEta?: string | null;
 }
 
 export function getVariantStockKey(size?: string, color?: string): string {
