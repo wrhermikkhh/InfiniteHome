@@ -7,6 +7,24 @@ import { Resend } from "resend";
 import { pgTable, text, varchar, integer, boolean, jsonb, timestamp, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
+
+// ============ PASSWORD HASHING ============
+const scryptAsync = promisify(scrypt);
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
+}
+
+async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
+  const [hashed, salt] = stored.split(".");
+  const hashedBuf = Buffer.from(hashed, "hex");
+  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+  return timingSafeEqual(hashedBuf, suppliedBuf);
+}
 
 // ============ INLINED SCHEMA ============
 
@@ -764,7 +782,10 @@ app.post("/api/customers/signup", async (req, res) => {
     if (existing) {
       return res.status(400).json({ success: false, message: "Email already registered" });
     }
-    const customer = await storage.createCustomer(data);
+    
+    const hashedPassword = await hashPassword(data.password);
+    const customer = await storage.createCustomer({ ...data, password: hashedPassword });
+    
     res.json({ 
       success: true, 
       customer: { id: customer.id, name: customer.name, email: customer.email, phone: customer.phone, address: customer.address } 
@@ -777,7 +798,7 @@ app.post("/api/customers/signup", async (req, res) => {
 app.post("/api/customers/login", async (req, res) => {
   const { email, password } = req.body;
   const customer = await storage.getCustomerByEmail(email);
-  if (customer && customer.password === password) {
+  if (customer && await comparePasswords(password, customer.password)) {
     res.json({ 
       success: true, 
       customer: { id: customer.id, name: customer.name, email: customer.email, phone: customer.phone, address: customer.address } 
@@ -852,7 +873,7 @@ app.post("/api/customers/:customerId/addresses/:addressId/default", async (req, 
 app.post("/api/admin/login", async (req, res) => {
   const { email, password } = req.body;
   const admin = await storage.getAdminByEmail(email);
-  if (admin && admin.password === password) {
+  if (admin && await comparePasswords(password, admin.password)) {
     res.json({ success: true, admin: { id: admin.id, name: admin.name, email: admin.email } });
   } else {
     res.status(401).json({ success: false, message: "Invalid credentials" });
@@ -867,7 +888,8 @@ app.get("/api/admins", async (req, res) => {
 app.post("/api/admins", async (req, res) => {
   try {
     const data = insertAdminSchema.parse(req.body);
-    const admin = await storage.createAdmin(data);
+    const hashedPassword = await hashPassword(data.password);
+    const admin = await storage.createAdmin({ ...data, password: hashedPassword });
     res.json({ id: admin.id, name: admin.name, email: admin.email });
   } catch (error: any) {
     res.status(400).json({ message: error.message });
