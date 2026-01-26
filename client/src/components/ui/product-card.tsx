@@ -21,11 +21,11 @@ export function ProductCard({ product }: ProductCardProps) {
           whileHover={{ y: -4 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
-          <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100 mb-4 rounded-sm">
+          <div className="relative overflow-hidden bg-neutral-100 mb-4 rounded-sm">
             <img 
               src={product.image} 
               alt={product.name}
-              className="object-contain w-full h-full transition-all duration-500 group-hover:scale-105"
+              className="w-full h-auto transition-all duration-500 group-hover:scale-105 block"
             />
             
             <div className="absolute top-3 left-3 flex flex-col gap-2">
