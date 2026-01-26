@@ -4,7 +4,7 @@ import { formatCurrency, ProductVariant, getVariantStock, getVariantStockKey } f
 import { useProduct } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
 import { useRoute } from "wouter";
-import { Star, Truck, ShieldCheck, RefreshCcw, Minus, Plus, Clock, Package } from "lucide-react";
+import { Star, Truck, ShieldCheck, RefreshCcw, Minus, Plus, Clock, Package, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import { useCart } from "@/lib/cart";
@@ -22,10 +22,48 @@ export default function ProductPage() {
   const { product, loading, error } = useProduct(productId);
 
   const [mainImage, setMainImage] = useState("");
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  const allImages = product ? [product.image, ...(product.images || [])] : [];
 
   useEffect(() => {
-    if (product?.image) setMainImage(product.image);
+    if (product?.image) {
+      setMainImage(product.image);
+      setCurrentImageIndex(0);
+    }
   }, [product]);
+
+  const goToImage = (index: number) => {
+    if (allImages.length === 0) return;
+    const newIndex = (index + allImages.length) % allImages.length;
+    setCurrentImageIndex(newIndex);
+    setMainImage(allImages[newIndex]);
+  };
+
+  const nextImage = () => goToImage(currentImageIndex + 1);
+  const prevImage = () => goToImage(currentImageIndex - 1);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const minSwipeDistance = 50;
+    if (distance > minSwipeDistance) {
+      nextImage();
+    } else if (distance < -minSwipeDistance) {
+      prevImage();
+    }
+  };
 
   const colors: string[] = product?.colors && product.colors.length > 0 ? product.colors : ["White"];
   const variants: ProductVariant[] = product?.variants && product.variants.length > 0 
@@ -78,7 +116,12 @@ export default function ProductPage() {
             transition={{ duration: 0.8 }}
             className="space-y-4"
           >
-            <div className="aspect-[4/5] bg-secondary/20 overflow-hidden w-full">
+            <div 
+              className="aspect-[4/5] bg-secondary/20 overflow-hidden w-full relative"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
                <motion.img 
                  key={mainImage}
                  initial={{ opacity: 0 }}
@@ -86,32 +129,51 @@ export default function ProductPage() {
                  transition={{ duration: 0.5 }}
                  src={mainImage} 
                  alt={product.name} 
-                 className="w-full h-full object-cover" 
+                 className="w-full h-full object-contain" 
                />
+               
+               {/* Navigation Arrows */}
+               {allImages.length > 1 && (
+                 <>
+                   <button
+                     onClick={prevImage}
+                     className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background p-2 rounded-full shadow-lg transition-all"
+                     aria-label="Previous image"
+                     data-testid="button-prev-image"
+                   >
+                     <ChevronLeft size={24} />
+                   </button>
+                   <button
+                     onClick={nextImage}
+                     className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background p-2 rounded-full shadow-lg transition-all"
+                     aria-label="Next image"
+                     data-testid="button-next-image"
+                   >
+                     <ChevronRight size={24} />
+                   </button>
+                   
+                   {/* Image Counter */}
+                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-background/80 px-3 py-1 rounded-full text-sm">
+                     {currentImageIndex + 1} / {allImages.length}
+                   </div>
+                 </>
+               )}
             </div>
             
-            {/* Gallery Images */}
-            {product.images && product.images.length > 0 && (
+            {/* Gallery Thumbnails */}
+            {allImages.length > 1 && (
               <div className="grid grid-cols-4 gap-4">
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className={`aspect-square bg-secondary/20 overflow-hidden border-2 cursor-pointer transition-all ${mainImage === product.image ? 'border-primary' : 'border-transparent'}`}
-                  onClick={() => setMainImage(product.image)}
-                >
-                  <img src={product.image} alt={`${product.name} main`} className="w-full h-full object-cover" />
-                </motion.div>
-                {product.images.map((img, idx) => (
+                {allImages.map((img, idx) => (
                   <motion.div 
                     key={idx} 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 + (idx + 1) * 0.1 }}
-                    className={`aspect-square bg-secondary/20 overflow-hidden border-2 cursor-pointer transition-all ${mainImage === img ? 'border-primary' : 'border-transparent hover:border-primary/50'}`}
-                    onClick={() => setMainImage(img)}
+                    transition={{ delay: 0.1 + idx * 0.1 }}
+                    className={`aspect-square bg-secondary/20 overflow-hidden border-2 cursor-pointer transition-all ${currentImageIndex === idx ? 'border-primary' : 'border-transparent hover:border-primary/50'}`}
+                    onClick={() => goToImage(idx)}
+                    data-testid={`thumbnail-image-${idx}`}
                   >
-                    <img src={img} alt={`${product.name} ${idx + 1}`} className="w-full h-full object-cover" />
+                    <img src={img} alt={`${product.name} ${idx + 1}`} className="w-full h-full object-contain" />
                   </motion.div>
                 ))}
               </div>
