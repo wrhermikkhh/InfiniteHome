@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import { useCart } from "@/lib/cart";
 import { motion } from "framer-motion";
+import { getCertificationInfo } from "@/lib/certifications";
 
 export default function ProductPage() {
   const [match, params] = useRoute("/product/:id");
@@ -175,18 +176,37 @@ export default function ProductPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.55 }}
-                className="flex flex-wrap gap-2"
+                className="flex flex-wrap items-center gap-4 mt-4"
               >
-                {product.certifications.map((cert) => (
-                  <span 
-                    key={cert} 
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-medium border border-green-200"
-                    data-testid={`certification-${cert.replace(/\s+/g, '-').toLowerCase()}`}
-                  >
-                    <ShieldCheck size={12} />
-                    {cert}
-                  </span>
-                ))}
+                {product.certifications.map((cert) => {
+                  const certInfo = getCertificationInfo(cert);
+                  return certInfo ? (
+                    <a 
+                      key={cert}
+                      href={certInfo.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center p-2 bg-white border border-gray-200 rounded hover:shadow-md transition-shadow"
+                      title={certInfo.name}
+                      data-testid={`certification-${cert.replace(/\s+/g, '-').toLowerCase()}`}
+                    >
+                      <img 
+                        src={certInfo.logo} 
+                        alt={certInfo.name} 
+                        className="h-10 w-auto object-contain"
+                      />
+                    </a>
+                  ) : (
+                    <span 
+                      key={cert} 
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-medium border border-green-200"
+                      data-testid={`certification-${cert.replace(/\s+/g, '-').toLowerCase()}`}
+                    >
+                      <ShieldCheck size={12} />
+                      {cert}
+                    </span>
+                  );
+                })}
               </motion.div>
             )}
 
@@ -305,7 +325,7 @@ export default function ProductPage() {
                   {isPreOrder && (
                     <Button 
                       onClick={() => {
-                        addItem(product, quantity, selectedColor, selectedSize, preOrderInitialPayment || displayPrice, true, preOrderPrice, preOrderEta);
+                        addItem(product, quantity, selectedColor, selectedSize, preOrderInitialPayment || displayPrice, true, preOrderPrice || undefined, preOrderEta || undefined);
                       }}
                       className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] bg-amber-600 text-white hover:bg-amber-700"
                       data-testid="add-to-cart-preorder"
@@ -323,32 +343,6 @@ export default function ProductPage() {
               </div>
             </motion.div>
 
-            {/* Certifications */}
-            {(product as any).certifications && (product as any).certifications.length > 0 && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.68 }}
-                className="pt-6 border-t border-border"
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <ShieldCheck size={18} className="text-green-600" />
-                  <span className="text-sm font-bold uppercase tracking-widest">Certifications</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {((product as any).certifications as string[]).map((cert: string) => (
-                    <span 
-                      key={cert} 
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-medium border border-green-200"
-                      data-testid={`certification-${cert.replace(/\s+/g, '-').toLowerCase()}`}
-                    >
-                      <ShieldCheck size={12} />
-                      {cert}
-                    </span>
-                  ))}
-                </div>
-              </motion.div>
-            )}
 
             {/* Benefits */}
             <motion.div 
