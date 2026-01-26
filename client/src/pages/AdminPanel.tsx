@@ -114,11 +114,25 @@ export default function AdminPanel() {
     variantStock: {} as { [key: string]: string },
     expressCharge: "",
     sizeGuide: [] as { measurement: string; sizes: { [key: string]: string } }[],
+    certifications: [] as string[],
     isPreOrder: false,
     preOrderPrice: "",
     preOrderInitialPayment: "",
     preOrderEta: ""
   });
+  
+  const availableCertifications = [
+    "OEKO-TEX Standard 100",
+    "GOTS (Global Organic Textile Standard)",
+    "BSCI Certified",
+    "ISO 9001",
+    "ISO 14001",
+    "FSC Certified",
+    "CE Certified",
+    "RoHS Compliant",
+    "Energy Star",
+    "CertiPUR-US"
+  ];
 
   const orderStatuses = [
     "pending",
@@ -287,6 +301,7 @@ export default function AdminPanel() {
       variantStock: variantStockNumbers,
       expressCharge: productForm.expressCharge ? Number(productForm.expressCharge) : 0,
       sizeGuide: productForm.sizeGuide.filter(sg => sg.measurement && Object.keys(sg.sizes).length > 0),
+      certifications: productForm.certifications,
       isPreOrder: productForm.isPreOrder,
       preOrderPrice: productForm.isPreOrder && productForm.preOrderPrice ? Number(productForm.preOrderPrice) : null,
       preOrderInitialPayment: productForm.isPreOrder && productForm.preOrderInitialPayment ? Number(productForm.preOrderInitialPayment) : null,
@@ -322,6 +337,7 @@ export default function AdminPanel() {
       variantStock: {},
       expressCharge: "",
       sizeGuide: [],
+      certifications: [],
       isPreOrder: false,
       preOrderPrice: "",
       preOrderInitialPayment: "",
@@ -353,6 +369,7 @@ export default function AdminPanel() {
       variantStock: variantStockStrings,
       expressCharge: (product.expressCharge || 0).toString(),
       sizeGuide: (product as any).sizeGuide || [],
+      certifications: (product as any).certifications || [],
       isPreOrder: (product as any).isPreOrder || false,
       preOrderPrice: ((product as any).preOrderPrice || "").toString(),
       preOrderInitialPayment: ((product as any).preOrderInitialPayment || "").toString(),
@@ -963,6 +980,31 @@ export default function AdminPanel() {
                             data-testid="input-express-charge"
                           />
                           <p className="text-[10px] text-muted-foreground">Extra charge for express delivery (Male'/Hulhumale')</p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-widest font-bold">Product Certifications</Label>
+                        <p className="text-[10px] text-muted-foreground">Select applicable certifications for this product</p>
+                        <div className="grid grid-cols-2 gap-2 p-3 border border-border bg-secondary/10">
+                          {availableCertifications.map((cert) => (
+                            <label key={cert} className="flex items-center gap-2 cursor-pointer text-sm">
+                              <input
+                                type="checkbox"
+                                checked={productForm.certifications.includes(cert)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setProductForm({...productForm, certifications: [...productForm.certifications, cert]});
+                                  } else {
+                                    setProductForm({...productForm, certifications: productForm.certifications.filter(c => c !== cert)});
+                                  }
+                                }}
+                                className="w-4 h-4"
+                                data-testid={`checkbox-cert-${cert.replace(/\s+/g, '-').toLowerCase()}`}
+                              />
+                              <span className="text-xs">{cert}</span>
+                            </label>
+                          ))}
                         </div>
                       </div>
                       

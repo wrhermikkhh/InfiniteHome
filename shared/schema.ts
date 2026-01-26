@@ -82,6 +82,7 @@ export const products = pgTable("products", {
   isNew: boolean("is_new").default(false),
   isBestSeller: boolean("is_best_seller").default(false),
   sizeGuide: jsonb("size_guide").$type<{ measurement: string; sizes: { [key: string]: string } }[]>().default([]),
+  certifications: jsonb("certifications").$type<string[]>().default([]),
   isPreOrder: boolean("is_pre_order").default(false),
   preOrderPrice: real("pre_order_price"),
   preOrderInitialPayment: real("pre_order_initial_payment"),

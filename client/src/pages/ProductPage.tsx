@@ -299,6 +299,33 @@ export default function ProductPage() {
               </div>
             </motion.div>
 
+            {/* Certifications */}
+            {(product as any).certifications && (product as any).certifications.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.68 }}
+                className="pt-6 border-t border-border"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <ShieldCheck size={18} className="text-green-600" />
+                  <span className="text-sm font-bold uppercase tracking-widest">Certifications</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {((product as any).certifications as string[]).map((cert: string) => (
+                    <span 
+                      key={cert} 
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-medium border border-green-200"
+                      data-testid={`certification-${cert.replace(/\s+/g, '-').toLowerCase()}`}
+                    >
+                      <ShieldCheck size={12} />
+                      {cert}
+                    </span>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
             {/* Benefits */}
             <motion.div 
               initial={{ opacity: 0, y: 10 }}

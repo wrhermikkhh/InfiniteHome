@@ -240,3 +240,6 @@ Alphanumeric 6-character format: IH-XXXXXX (e.g., IH-A3K7M9)
 - Custom mattress page includes terms and conditions (45-90 day delivery, 50% deposit, non-refundable)
 - Added "Can't find your size? Get a custom mattress" link on bedding/mattress product pages
 - Added Custom Size Mattress link to footer navigation
+- Added product certifications feature (OEKO-TEX Standard 100, GOTS, BSCI, ISO, FSC, CE, RoHS, Energy Star, CertiPUR-US)
+- Admin panel now has checkbox selection for certifications in product form
+- Product detail page displays certifications with green badges when available
