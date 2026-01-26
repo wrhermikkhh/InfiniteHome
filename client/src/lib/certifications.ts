@@ -7,7 +7,7 @@ export interface CertificationInfo {
 export const certificationLogos: Record<string, CertificationInfo> = {
   "OEKO-TEX Standard 100": {
     name: "OEKO-TEX Standard 100",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Oeko-tex-logo.svg/200px-Oeko-tex-logo.svg.png",
+    logo: "https://www.oeko-tex.com/fileadmin/oeko-tex/logos/STANDARD100_label_RGB.png",
     url: "https://www.oeko-tex.com/en/our-standards/oeko-tex-standard-100"
   },
   "GOTS": {
