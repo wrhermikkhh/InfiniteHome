@@ -253,7 +253,7 @@ export default function ProductPage() {
                      </button>
                    ))}
                  </div>
-                 {(product.category?.toLowerCase().includes('mattress') || product.category?.toLowerCase().includes('bedding')) && (
+                 {(product.category?.toLowerCase().includes('mattress') || product.name?.toLowerCase().includes('mattress')) && (
                    <a href="/custom-mattress" className="inline-flex items-center gap-2 text-sm text-amber-700 hover:text-amber-800 transition-colors" data-testid="link-custom-mattress">
                      <span>Can't find your size?</span>
                      <span className="underline font-medium">Get a custom mattress</span>
