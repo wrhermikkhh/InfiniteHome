@@ -188,6 +188,13 @@ Alphanumeric 6-character format: IH-XXXXXX (e.g., IH-A3K7M9)
 - Default credentials: admin@infinitehome.mv / admin123
 - Mobile-responsive admin panel with hamburger menu navigation
 
+### Image Specifications
+- **Recommended Resolution**: 1200x1500px (4:5 aspect ratio)
+- **File Format**: JPG or PNG
+- **File Size**: Under 2MB
+- **Style**: Professional product photography with clean background
+- **Display Mode**: Images are displayed using `object-contain` to ensure full visibility without cropping, which may show empty space if the image aspect ratio doesn't match the card's container. Using the recommended 4:5 aspect ratio will minimize empty space.
+
 ## Recent Changes
 - Added pre-order system with toggle per product, custom pricing (initial payment + total price), and ETA tracking
 - Products can be marked as pre-order in admin panel with separate pre-order price from base price
