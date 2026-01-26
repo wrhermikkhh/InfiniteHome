@@ -243,3 +243,18 @@ Alphanumeric 6-character format: IH-XXXXXX (e.g., IH-A3K7M9)
 - Added product certifications feature (OEKO-TEX Standard 100, GOTS, BSCI, ISO, FSC, CE, RoHS, Energy Star, CertiPUR-US)
 - Admin panel now has checkbox selection for certifications in product form
 - Product detail page displays certifications with green badges when available
+- Added product image slider with swipe gestures, navigation arrows, and image counter
+- Changed product images to object-contain for full visibility without cropping
+- Added sale price system with isOnSale toggle and salePrice field in products schema
+- Admin panel now has sale toggle and sale price input for each product
+- Product cards show sale badge with discount percentage (-10%, -25%, etc.)
+- Product page shows original price with strikethrough and discount badge when on sale
+- Homepage redesigned with clean, modern styling inspired by furnituremaldives.com:
+  - Added rotating announcement bar at top with delivery/return info
+  - Horizontal scrolling product sections for each category (Bedding, Furniture, Appliances)
+  - Sale section displays products marked as on sale with red badges
+  - Cleaner product cards with hover effects and smooth animations
+  - Category cards with gradient overlays and hover effects
+  - "Why Choose Us" section with features grid
+- Added ProductScrollSection component for horizontal product carousels with navigation arrows
+- Added AnnouncementBar component with rotating messages and close button

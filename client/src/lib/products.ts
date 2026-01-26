@@ -12,6 +12,8 @@ export interface Product {
   id: string;
   name: string;
   price: number;
+  salePrice?: number | null;
+  isOnSale?: boolean | null;
   category: string;
   image: string;
   images?: string[] | null;
@@ -31,6 +33,20 @@ export interface Product {
   preOrderPrice?: number | null;
   preOrderInitialPayment?: number | null;
   preOrderEta?: string | null;
+}
+
+export function getDiscountPercentage(product: Product): number | null {
+  if (product.isOnSale && product.salePrice && product.salePrice < product.price) {
+    return Math.round(((product.price - product.salePrice) / product.price) * 100);
+  }
+  return null;
+}
+
+export function getDisplayPrice(product: Product): number {
+  if (product.isOnSale && product.salePrice) {
+    return product.salePrice;
+  }
+  return product.price;
 }
 
 export function getVariantStockKey(size?: string, color?: string): string {

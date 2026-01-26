@@ -78,10 +78,10 @@ export function Navbar() {
   return (
     <header
       className={cn(
-        "fixed top-0 w-full z-50 transition-all duration-300 border-b border-transparent",
+        "fixed w-full z-50 transition-all duration-300 border-b border-transparent",
         isScrolled || mobileMenuOpen || location !== "/"
-          ? "bg-background border-border py-3 shadow-sm" 
-          : "bg-transparent py-5 text-white"
+          ? "bg-background/95 backdrop-blur-sm border-border py-3 shadow-sm top-0" 
+          : "bg-transparent py-4 text-white top-0"
       )}
     >
       <div className="container mx-auto px-4 flex items-center justify-between">

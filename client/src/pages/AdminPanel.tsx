@@ -104,6 +104,8 @@ export default function AdminPanel() {
   const [productForm, setProductForm] = useState({
     name: "",
     price: "",
+    salePrice: "",
+    isOnSale: false,
     category: "",
     description: "",
     image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80",
@@ -288,6 +290,8 @@ export default function AdminPanel() {
       price: productForm.variants.length > 0 && productForm.variants[0].price 
         ? Number(productForm.variants[0].price) 
         : Number(productForm.price),
+      salePrice: productForm.isOnSale && productForm.salePrice ? Number(productForm.salePrice) : null,
+      isOnSale: productForm.isOnSale,
       category: productForm.category,
       description: productForm.description,
       image: productForm.image,
@@ -326,7 +330,9 @@ export default function AdminPanel() {
   const resetProductForm = () => {
     setProductForm({ 
       name: "", 
-      price: "", 
+      price: "",
+      salePrice: "",
+      isOnSale: false,
       category: "", 
       description: "", 
       image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80", 
@@ -357,6 +363,8 @@ export default function AdminPanel() {
     setProductForm({
       name: product.name,
       price: product.price.toString(),
+      salePrice: ((product as any).salePrice || "").toString(),
+      isOnSale: (product as any).isOnSale || false,
       category: product.category,
       description: product.description || "",
       image: product.image,
@@ -900,6 +908,29 @@ export default function AdminPanel() {
                           />
                         </div>
                         <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs uppercase tracking-widest font-bold">Sale Price</Label>
+                            <button
+                              type="button"
+                              className={`w-10 h-5 rounded-full transition-colors ${productForm.isOnSale ? 'bg-red-500' : 'bg-gray-300'}`}
+                              onClick={() => setProductForm({...productForm, isOnSale: !productForm.isOnSale})}
+                              data-testid="toggle-sale"
+                            >
+                              <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${productForm.isOnSale ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                            </button>
+                          </div>
+                          <Input 
+                            type="number"
+                            value={productForm.salePrice}
+                            onChange={(e) => setProductForm({...productForm, salePrice: e.target.value})}
+                            className="rounded-none"
+                            placeholder="Sale price"
+                            disabled={!productForm.isOnSale}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
                           <Label className="text-xs uppercase tracking-widest font-bold">Category</Label>
                           {showNewCategoryInput ? (
                             <div className="flex gap-2">
@@ -956,8 +987,6 @@ export default function AdminPanel() {
                             </Select>
                           )}
                         </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label className="text-xs uppercase tracking-widest font-bold">Stock</Label>
                           <Input 

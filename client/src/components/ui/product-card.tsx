@@ -1,7 +1,6 @@
 import { Link } from "wouter";
-import { Product, formatCurrency } from "@/lib/products";
+import { Product, formatCurrency, getDiscountPercentage, getDisplayPrice } from "@/lib/products";
 import { Button } from "@/components/ui/button";
-import { Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCart } from "@/lib/cart";
 
@@ -11,67 +10,79 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
+  const discountPercent = getDiscountPercentage(product);
+  const displayPrice = getDisplayPrice(product);
 
   return (
-    <div className="group block">
+    <div className="group block" data-testid={`card-product-${product.id}`}>
       <Link href={`/product/${product.id}`}>
         <motion.div 
           className="cursor-pointer block"
-          whileHover={{ y: -5 }}
-          transition={{ duration: 0.2 }}
+          whileHover={{ y: -4 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
         >
-          <div className="relative aspect-[4/5] overflow-hidden bg-secondary/20 mb-4">
+          <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100 mb-4 rounded-sm">
             <img 
               src={product.image} 
               alt={product.name}
-              className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105"
+              className="object-contain w-full h-full transition-all duration-500 group-hover:scale-105"
             />
-            {product.isBestSeller && (
-              <span className="absolute top-2 left-2 bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-wider px-2 py-1">
-                Best Seller
-              </span>
-            )}
-            {product.isNew && (
-              <span className="absolute top-2 left-2 bg-white text-foreground text-[10px] font-bold uppercase tracking-wider px-2 py-1 border border-border">
-                New
-              </span>
-            )}
-            <div className="absolute bottom-0 left-0 w-full p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+            
+            <div className="absolute top-3 left-3 flex flex-col gap-2">
+              {discountPercent && (
+                <span className="bg-red-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-sm shadow-sm">
+                  -{discountPercent}%
+                </span>
+              )}
+              {product.isBestSeller && !discountPercent && (
+                <span className="bg-primary text-primary-foreground text-[11px] font-semibold px-2.5 py-1 rounded-sm">
+                  Best Seller
+                </span>
+              )}
+              {product.isNew && !discountPercent && !product.isBestSeller && (
+                <span className="bg-white text-foreground text-[11px] font-semibold px-2.5 py-1 border border-border/50 rounded-sm shadow-sm">
+                  New
+                </span>
+              )}
+              {product.isPreOrder && (
+                <span className="bg-amber-500 text-white text-[11px] font-semibold px-2.5 py-1 rounded-sm">
+                  Pre-Order
+                </span>
+              )}
+            </div>
+
+            <div className="absolute bottom-0 left-0 w-full p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
                <Button 
                  onClick={(e) => {
                    e.preventDefault();
                    e.stopPropagation();
-                   if ((product.stock || 0) > 0) {
+                   if ((product.stock || 0) > 0 || product.isPreOrder) {
                      addItem(product);
                    }
                  }}
-                 disabled={(product.stock || 0) <= 0}
-                 className="w-full rounded-none uppercase text-xs tracking-widest font-bold"
+                 disabled={(product.stock || 0) <= 0 && !product.isPreOrder}
+                 className="w-full rounded-sm h-10 text-xs tracking-wide font-semibold shadow-lg"
+                 data-testid={`button-quick-add-${product.id}`}
                >
-                 {(product.stock || 0) > 0 ? "Quick Add" : "Out of Stock"}
+                 {(product.stock || 0) > 0 || product.isPreOrder ? "Quick Add" : "Out of Stock"}
                </Button>
             </div>
           </div>
           
-          <div className="space-y-1">
-            <div className="flex items-center space-x-1">
-              <div className="flex">
-                {[...Array(5)].map((_, i) => (
-                  <Star 
-                    key={i} 
-                    size={12} 
-                    className={i < Math.floor(product.rating || 5) ? "fill-primary text-primary" : "text-muted-foreground"} 
-                  />
-                ))}
-              </div>
-              <span className="text-[10px] text-muted-foreground">({product.reviews || 0})</span>
-            </div>
-            <h3 className="font-serif text-lg text-foreground group-hover:underline decoration-1 underline-offset-4 decoration-muted-foreground/50">
+          <div className="space-y-1.5 px-0.5">
+            <h3 className="font-medium text-[15px] text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors duration-200">
               {product.name}
             </h3>
-            <p className="text-sm font-medium text-foreground/80">
-              {formatCurrency(product.price)}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-[15px] font-semibold text-foreground">
+                {formatCurrency(displayPrice)}
+              </p>
+              {discountPercent && (
+                <p className="text-sm text-muted-foreground line-through">
+                  {formatCurrency(product.price)}
+                </p>
+              )}
+            </div>
           </div>
         </motion.div>
       </Link>

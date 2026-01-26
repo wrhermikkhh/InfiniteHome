@@ -1,6 +1,6 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { formatCurrency, ProductVariant, getVariantStock, getVariantStockKey } from "@/lib/products";
+import { formatCurrency, ProductVariant, getVariantStock, getVariantStockKey, getDiscountPercentage } from "@/lib/products";
 import { useProduct } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
 import { useRoute } from "wouter";
@@ -98,9 +98,14 @@ export default function ProductPage() {
   
   const isPreOrder = product.isPreOrder || false;
   const preOrderPrice = product.preOrderPrice;
+  const isOnSale = product.isOnSale || false;
+  const salePrice = product.salePrice;
+  const discountPercent = getDiscountPercentage(product);
   const preOrderInitialPayment = product.preOrderInitialPayment;
   const preOrderEta = product.preOrderEta;
-  const displayPrice = isPreOrder && preOrderPrice ? preOrderPrice : currentPrice;
+  const displayPrice = isPreOrder && preOrderPrice 
+    ? preOrderPrice 
+    : (isOnSale && salePrice ? salePrice : currentPrice);
 
   return (
     <div className="min-h-screen bg-background font-body overflow-x-hidden">
@@ -213,14 +218,26 @@ export default function ProductPage() {
               >
                 {product.name}
               </motion.h1>
-              <motion.p 
+              <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="text-2xl font-medium text-foreground"
+                className="flex items-center gap-3"
               >
-                {formatCurrency(displayPrice)}
-              </motion.p>
+                <p className="text-2xl font-medium text-foreground">
+                  {formatCurrency(displayPrice)}
+                </p>
+                {isOnSale && salePrice && !isPreOrder && (
+                  <>
+                    <p className="text-xl text-muted-foreground line-through">
+                      {formatCurrency(currentPrice)}
+                    </p>
+                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-sm">
+                      -{discountPercent}%
+                    </span>
+                  </>
+                )}
+              </motion.div>
             </div>
 
             <motion.p 
