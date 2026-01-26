@@ -26,12 +26,27 @@ export const certificationLogos: Record<string, CertificationInfo> = {
     logo: gotsLogo,
     url: "https://global-standard.org/"
   },
+  "GOTS (Global Organic Textile Standard)": {
+    name: "GOTS (Global Organic Textile Standard)",
+    logo: gotsLogo,
+    url: "https://global-standard.org/"
+  },
   "BSCI": {
     name: "BSCI (Business Social Compliance Initiative)",
     logo: bsciLogo,
     url: "https://www.amfori.org/content/amfori-bsci"
   },
+  "BSCI Certified": {
+    name: "BSCI Certified",
+    logo: bsciLogo,
+    url: "https://www.amfori.org/content/amfori-bsci"
+  },
   "ISO": {
+    name: "ISO Certified",
+    logo: isoLogo,
+    url: "https://www.iso.org/"
+  },
+  "ISO 9001": {
     name: "ISO 9001 Certified",
     logo: isoLogo,
     url: "https://www.iso.org/"
@@ -46,12 +61,27 @@ export const certificationLogos: Record<string, CertificationInfo> = {
     logo: fscLogo,
     url: "https://fsc.org/"
   },
+  "FSC Certified": {
+    name: "FSC Certified",
+    logo: fscLogo,
+    url: "https://fsc.org/"
+  },
   "CE": {
     name: "CE Marking",
     logo: ceLogo,
     url: "https://ec.europa.eu/growth/single-market/ce-marking_en"
   },
+  "CE Certified": {
+    name: "CE Certified",
+    logo: ceLogo,
+    url: "https://ec.europa.eu/growth/single-market/ce-marking_en"
+  },
   "RoHS": {
+    name: "RoHS Compliant",
+    logo: rohsLogo,
+    url: "https://ec.europa.eu/environment/topics/waste-and-recycling/rohs-directive_en"
+  },
+  "RoHS Compliant": {
     name: "RoHS Compliant",
     logo: rohsLogo,
     url: "https://ec.europa.eu/environment/topics/waste-and-recycling/rohs-directive_en"
