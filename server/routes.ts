@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema } from "@shared/schema";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { sendOrderConfirmationEmail } from "./lib/email";
+import { hashPassword, comparePasswords } from "./auth";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -21,7 +22,10 @@ export async function registerRoutes(
       if (existing) {
         return res.status(400).json({ success: false, message: "Email already registered" });
       }
-      const customer = await storage.createCustomer(data);
+      
+      const hashedPassword = await hashPassword(data.password);
+      const customer = await storage.createCustomer({ ...data, password: hashedPassword });
+      
       res.json({ 
         success: true, 
         customer: { id: customer.id, name: customer.name, email: customer.email, phone: customer.phone, address: customer.address } 
@@ -34,7 +38,7 @@ export async function registerRoutes(
   app.post("/api/customers/login", async (req, res) => {
     const { email, password } = req.body;
     const customer = await storage.getCustomerByEmail(email);
-    if (customer && customer.password === password) {
+    if (customer && await comparePasswords(password, customer.password)) {
       res.json({ 
         success: true, 
         customer: { id: customer.id, name: customer.name, email: customer.email, phone: customer.phone, address: customer.address } 
@@ -109,7 +113,7 @@ export async function registerRoutes(
   app.post("/api/admin/login", async (req, res) => {
     const { email, password } = req.body;
     const admin = await storage.getAdminByEmail(email);
-    if (admin && admin.password === password) {
+    if (admin && await comparePasswords(password, admin.password)) {
       res.json({ success: true, admin: { id: admin.id, name: admin.name, email: admin.email } });
     } else {
       res.status(401).json({ success: false, message: "Invalid credentials" });
@@ -124,7 +128,8 @@ export async function registerRoutes(
   app.post("/api/admins", async (req, res) => {
     try {
       const data = insertAdminSchema.parse(req.body);
-      const admin = await storage.createAdmin(data);
+      const hashedPassword = await hashPassword(data.password);
+      const admin = await storage.createAdmin({ ...data, password: hashedPassword });
       res.json({ id: admin.id, name: admin.name, email: admin.email });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
