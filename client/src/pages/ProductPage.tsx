@@ -16,7 +16,7 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState("");
   const [selectedSize, setSelectedSize] = useState("");
-  const { addItem } = useCart();
+  const { addItem, clearCart } = useCart();
 
   const productId = params?.id || "";
   const { product, loading, error } = useProduct(productId);
@@ -403,8 +403,10 @@ export default function ProductPage() {
                       </Button>
                       <Button 
                         onClick={() => {
+                          // Bypass regular cart by clearing and adding just this item
+                          clearCart();
                           addItem(product, quantity, selectedColor, selectedSize, currentPrice);
-                          window.location.href = "/checkout";
+                          window.location.href = "/checkout?direct=true";
                         }}
                         className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
                         data-testid="button-buy-now"
@@ -428,13 +430,15 @@ export default function ProductPage() {
                       </Button>
                       <Button 
                         onClick={() => {
+                          // Bypass regular cart for pre-order direct buy
+                          clearCart();
                           addItem(product, quantity, selectedColor, selectedSize, preOrderInitialPayment || displayPrice, true, preOrderPrice || undefined, preOrderEta || undefined);
-                          window.location.href = "/checkout";
+                          window.location.href = "/checkout?direct=true";
                         }}
                         className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-amber-600 text-white hover:bg-amber-700 transition-all"
                         data-testid="button-buy-now-preorder"
                       >
-                        Buy Now
+                        Pre-Order
                       </Button>
                     </div>
                   )}
