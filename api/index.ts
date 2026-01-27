@@ -1287,6 +1287,127 @@ app.post("/api/uploads/request-url", async (req, res) => {
   }
 });
 
+// Direct file upload endpoint for product images (handles FormData)
+app.post("/api/uploads/product-images", async (req, res) => {
+  try {
+    const client = await getSupabaseClient();
+    
+    if (!client) {
+      return res.status(500).json({ 
+        error: "Storage not configured", 
+        message: "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set" 
+      });
+    }
+
+    // In Vercel serverless, we need to handle the raw body
+    // The body should be the file buffer when content-type is multipart/form-data
+    const contentType = req.headers['content-type'] || '';
+    
+    if (!contentType.includes('multipart/form-data')) {
+      return res.status(400).json({ error: "Content-Type must be multipart/form-data" });
+    }
+
+    // For Vercel, we need to parse the multipart form manually or use a different approach
+    // Since Express body parsing doesn't work well with multipart in serverless,
+    // we'll use a signed URL approach instead
+    
+    const fileId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const filePath = `uploads/${fileId}`;
+
+    // Create a signed upload URL for client-side upload
+    const { data, error } = await client.storage
+      .from('product-images')
+      .createSignedUploadUrl(filePath);
+
+    if (error) {
+      console.error("Supabase signed URL error:", error);
+      return res.status(500).json({ error: "Failed to generate upload URL", details: error.message });
+    }
+
+    // Return signed URL for client to upload directly
+    const publicUrl = `${supabaseUrl}/storage/v1/object/public/product-images/${filePath}`;
+    
+    res.json({
+      uploadURL: data.signedUrl,
+      token: data.token,
+      path: data.path,
+      objectPath: publicUrl,
+      method: "signed_url",
+      message: "Use the uploadURL to PUT your file directly to Supabase"
+    });
+  } catch (error: any) {
+    console.error("Error in product-images upload:", error);
+    res.status(500).json({ error: "Upload failed", details: error.message });
+  }
+});
+
+// Direct file upload endpoint for payment slips
+app.post("/api/uploads/payment-slips", async (req, res) => {
+  try {
+    const client = await getSupabaseClient();
+    
+    if (!client) {
+      return res.status(500).json({ 
+        error: "Storage not configured", 
+        message: "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set" 
+      });
+    }
+
+    const fileId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const filePath = `uploads/${fileId}`;
+
+    const { data, error } = await client.storage
+      .from('payment-slips')
+      .createSignedUploadUrl(filePath);
+
+    if (error) {
+      console.error("Supabase signed URL error:", error);
+      return res.status(500).json({ error: "Failed to generate upload URL", details: error.message });
+    }
+
+    res.json({
+      uploadURL: data.signedUrl,
+      token: data.token,
+      path: filePath,
+      objectPath: filePath,
+      method: "signed_url"
+    });
+  } catch (error: any) {
+    console.error("Error in payment-slips upload:", error);
+    res.status(500).json({ error: "Upload failed", details: error.message });
+  }
+});
+
+// Get signed URL for viewing payment slips (admin only)
+app.post("/api/payment-slips/get-url", async (req, res) => {
+  try {
+    const client = await getSupabaseClient();
+    
+    if (!client) {
+      return res.status(500).json({ error: "Storage not configured" });
+    }
+
+    const { path } = req.body;
+    
+    if (!path) {
+      return res.status(400).json({ error: "Path is required" });
+    }
+
+    const { data, error } = await client.storage
+      .from('payment-slips')
+      .createSignedUrl(path, 60 * 60); // 1 hour
+
+    if (error) {
+      return res.status(404).json({ error: "Payment slip not found" });
+    }
+
+    res.json({ url: data.signedUrl });
+  } catch (error: any) {
+    console.error("Error getting payment slip URL:", error);
+    res.status(500).json({ error: "Failed to get payment slip" });
+  }
+});
+
 // Serve object paths (redirect to Supabase Storage public URL)
 app.get("/objects/{*path}", (req, res) => {
   // For legacy paths, redirect to placeholder or return 404
