@@ -265,14 +265,14 @@ export default function ProductPage() {
                       href={certInfo.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center p-2 bg-white border border-gray-200 rounded hover:shadow-md transition-shadow"
+                      className="flex items-center justify-center p-1.5 bg-secondary/30 border border-border rounded hover:bg-secondary/50 transition-colors"
                       title={certInfo.name}
                       data-testid={`certification-${cert.replace(/\s+/g, '-').toLowerCase()}`}
                     >
                       <img 
                         src={certInfo.logo} 
                         alt={certInfo.name} 
-                        className="h-10 w-auto object-contain"
+                        className="h-7 w-auto object-contain"
                       />
                     </a>
                   ) : (
