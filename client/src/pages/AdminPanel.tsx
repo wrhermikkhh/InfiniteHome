@@ -110,8 +110,7 @@ export default function AdminPanel() {
     description: "",
     image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80",
     images: [] as string[],
-    colors: "",
-    colorImages: {} as { [color: string]: string },
+    colorVariants: [{ name: "", image: "" }] as { name: string; image: string }[],
     variants: [{ size: "", price: "" }],
     stock: "",
     variantStock: {} as { [key: string]: string },
@@ -297,8 +296,11 @@ export default function AdminPanel() {
       description: productForm.description,
       image: productForm.image,
       images: productForm.images,
-      colors: productForm.colors.split(",").map(c => c.trim()).filter(Boolean),
-      colorImages: productForm.colorImages,
+      colors: productForm.colorVariants.filter(cv => cv.name.trim()).map(cv => cv.name.trim()),
+      colorImages: productForm.colorVariants.filter(cv => cv.name.trim()).reduce((acc, cv) => {
+        if (cv.image.trim()) acc[cv.name.trim()] = cv.image.trim();
+        return acc;
+      }, {} as { [key: string]: string }),
       variants: productForm.variants.filter(v => v.size && v.price).map(v => ({
         size: v.size.trim(),
         price: Number(v.price)
@@ -339,8 +341,7 @@ export default function AdminPanel() {
       description: "", 
       image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80", 
       images: [],
-      colors: "",
-      colorImages: {},
+      colorVariants: [{ name: "", image: "" }],
       variants: [{ size: "", price: "" }],
       stock: "",
       variantStock: {},
@@ -372,8 +373,12 @@ export default function AdminPanel() {
       description: product.description || "",
       image: product.image,
       images: (product as any).images || [],
-      colors: (product.colors || []).join(", "),
-      colorImages: (product as any).colorImages || {},
+      colorVariants: (() => {
+        const colors = product.colors || [];
+        const colorImages = (product as any).colorImages || {};
+        if (colors.length === 0) return [{ name: "", image: "" }];
+        return colors.map((c: string) => ({ name: c, image: colorImages[c] || "" }));
+      })(),
       variants: product.variants && product.variants.length > 0 
         ? product.variants.map(v => ({ size: v.size, price: v.price.toString() }))
         : [{ size: "", price: product.price.toString() }],
@@ -1159,51 +1164,72 @@ export default function AdminPanel() {
                           <p className="text-xs text-muted-foreground">No additional images. Click "Add Image" to add more.</p>
                         )}
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs uppercase tracking-widest font-bold">Colors (comma separated)</Label>
-                        <Input 
-                          placeholder="White, Oat, Charcoal"
-                          value={productForm.colors}
-                          onChange={(e) => setProductForm({...productForm, colors: e.target.value})}
-                          className="rounded-none"
-                        />
-                      </div>
-                      
-                      {/* Color Images */}
-                      {productForm.colors && (
-                        <div className="space-y-4 pt-4 border-t border-border">
+                      {/* Color Variants */}
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
                           <div>
-                            <Label className="text-xs uppercase tracking-widest font-bold">Color Swatch Images</Label>
-                            <p className="text-[10px] text-muted-foreground">Upload image for each color swatch (circular preview)</p>
+                            <Label className="text-xs uppercase tracking-widest font-bold">Color Variants</Label>
+                            <p className="text-[10px] text-muted-foreground">Add colors with optional swatch images</p>
                           </div>
-                          <div className="space-y-2">
-                            {productForm.colors.split(",").map(c => c.trim()).filter(Boolean).map((color) => (
-                              <div key={color} className="flex items-center gap-3 p-2 bg-secondary/5 border border-border">
-                                <div className="w-10 h-10 rounded-full overflow-hidden bg-secondary/30 flex-shrink-0">
-                                  {productForm.colorImages[color] ? (
-                                    <img src={productForm.colorImages[color]} alt={color} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-[8px] text-muted-foreground">No img</div>
-                                  )}
-                                </div>
-                                <span className="text-xs font-medium flex-shrink-0 w-20">{color}</span>
-                                <Input 
-                                  placeholder="Image URL for color swatch"
-                                  value={productForm.colorImages[color] || ""}
-                                  onChange={(e) => {
-                                    setProductForm({
-                                      ...productForm,
-                                      colorImages: { ...productForm.colorImages, [color]: e.target.value }
-                                    });
-                                  }}
-                                  className="rounded-none h-8 text-xs flex-1"
-                                  data-testid={`input-color-image-${color}`}
-                                />
-                              </div>
-                            ))}
-                          </div>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[10px] rounded-none uppercase tracking-widest"
+                            onClick={() => setProductForm({
+                              ...productForm, 
+                              colorVariants: [...productForm.colorVariants, { name: "", image: "" }]
+                            })}
+                          >
+                            <Plus size={12} className="mr-1" /> Add Color
+                          </Button>
                         </div>
-                      )}
+                        {productForm.colorVariants.map((colorVar, index) => (
+                          <div key={index} className="flex gap-2 items-center p-2 bg-secondary/5 border border-border">
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-secondary/30 flex-shrink-0">
+                              {colorVar.image ? (
+                                <img src={colorVar.image} alt={colorVar.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-[8px] text-muted-foreground">Preview</div>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <Input 
+                                placeholder="Color name (e.g. White)" 
+                                value={colorVar.name}
+                                onChange={(e) => {
+                                  const newColorVariants = [...productForm.colorVariants];
+                                  newColorVariants[index].name = e.target.value;
+                                  setProductForm({...productForm, colorVariants: newColorVariants});
+                                }}
+                                className="rounded-none h-8 text-xs"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <Input 
+                                placeholder="Swatch image URL (optional)" 
+                                value={colorVar.image}
+                                onChange={(e) => {
+                                  const newColorVariants = [...productForm.colorVariants];
+                                  newColorVariants[index].image = e.target.value;
+                                  setProductForm({...productForm, colorVariants: newColorVariants});
+                                }}
+                                className="rounded-none h-8 text-xs"
+                              />
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-destructive flex-shrink-0"
+                              onClick={() => {
+                                const newColorVariants = productForm.colorVariants.filter((_, i) => i !== index);
+                                setProductForm({...productForm, colorVariants: newColorVariants.length > 0 ? newColorVariants : [{ name: "", image: "" }]});
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
                       
                       <div className="space-y-4">
                         <div className="flex justify-between items-center">
@@ -1263,7 +1289,7 @@ export default function AdminPanel() {
                       </div>
                       
                       {/* Variant Stock Management */}
-                      {(productForm.variants.some(v => v.size) || productForm.colors) && (
+                      {(productForm.variants.some(v => v.size) || productForm.colorVariants.some(cv => cv.name.trim())) && (
                         <div className="space-y-4 pt-4 border-t border-border">
                           <div>
                             <Label className="text-xs uppercase tracking-widest font-bold">Variant Stock</Label>
@@ -1272,7 +1298,7 @@ export default function AdminPanel() {
                           <div className="space-y-2 max-h-64 overflow-y-auto">
                             {(() => {
                               const sizes = productForm.variants.filter(v => v.size).map(v => v.size);
-                              const colors = productForm.colors.split(",").map(c => c.trim()).filter(Boolean);
+                              const colors = productForm.colorVariants.filter(cv => cv.name.trim()).map(cv => cv.name.trim());
                               const combos: { size: string; color: string; key: string }[] = [];
                               
                               if (sizes.length > 0 && colors.length > 0) {
@@ -1311,7 +1337,7 @@ export default function AdminPanel() {
                               ));
                             })()}
                           </div>
-                          {!productForm.variants.some(v => v.size) && !productForm.colors && (
+                          {!productForm.variants.some(v => v.size) && !productForm.colorVariants.some(cv => cv.name.trim()) && (
                             <p className="text-[10px] text-muted-foreground">Add sizes or colors above to manage variant stock</p>
                           )}
                         </div>
