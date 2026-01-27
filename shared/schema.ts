@@ -106,6 +106,10 @@ export const coupons = pgTable("coupons", {
   discount: real("discount").notNull(),
   type: text("type").notNull(), // "percentage" or "flat"
   status: text("status").notNull().default("active"),
+  scope: text("scope").notNull().default("store"), // "store", "category", "product"
+  allowedCategories: jsonb("allowed_categories").$type<string[]>().default([]),
+  allowedProducts: jsonb("allowed_products").$type<string[]>().default([]),
+  allowPreOrder: boolean("allow_pre_order").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
