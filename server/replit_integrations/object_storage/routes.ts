@@ -23,6 +23,40 @@ const upload = multer({
  */
 export function registerObjectStorageRoutes(app: Express): void {
   
+  // Debug endpoint to test Supabase connection
+  app.get("/api/uploads/debug", async (req, res) => {
+    try {
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+      
+      // Try to list buckets to verify connection
+      const { data: buckets, error: bucketsError } = await supabaseAdmin.storage.listBuckets();
+      
+      if (bucketsError) {
+        return res.json({
+          status: 'error',
+          supabaseUrl: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'NOT SET',
+          hasServiceKey,
+          bucketsError: bucketsError.message,
+          buckets: null
+        });
+      }
+      
+      res.json({
+        status: 'ok',
+        supabaseUrl: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'NOT SET',
+        hasServiceKey,
+        buckets: buckets?.map(b => b.name) || [],
+        expectedBucket: PRODUCT_IMAGES_BUCKET
+      });
+    } catch (error: any) {
+      res.json({
+        status: 'exception',
+        error: error.message
+      });
+    }
+  });
+
   // Product images upload endpoint
   app.post("/api/uploads/product-images", upload.single('file'), async (req, res) => {
     try {
