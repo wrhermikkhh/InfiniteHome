@@ -158,7 +158,7 @@ export async function sendOrderConfirmationEmail(order: any) {
     // Notify admin about the new order
     await resend.emails.send({
       from: `INFINITE HOME <${fromEmailToUse}>`,
-      to: 'sales@infinitehome.mv',
+      to: 'info@infinitehome.mv',
       subject: `NEW ORDER - ${order.orderNumber}`,
       html: `
         <div style="font-family: sans-serif; padding: 20px;">

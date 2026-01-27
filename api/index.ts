@@ -657,7 +657,7 @@ async function sendOrderConfirmationEmail(order: any) {
     // Also notify admin
     await resend.emails.send({
       from: 'INFINITE HOME <noreply@infinitehome.mv>',
-      to: 'sales@infinitehome.mv',
+      to: 'info@infinitehome.mv',
       subject: `NEW ORDER - ${order.orderNumber}`,
       html: `
         <h2>New Order Received</h2>
