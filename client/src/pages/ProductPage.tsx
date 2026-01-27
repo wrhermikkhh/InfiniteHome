@@ -389,28 +389,54 @@ export default function ProductPage() {
                     </button>
                   </div>
                   
-                  {currentStock > 0 && (
-                    <Button 
-                      onClick={() => {
-                        addItem(product, quantity, selectedColor, selectedSize, currentPrice);
-                      }}
-                      className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                      data-testid="add-to-cart-instant"
-                    >
-                      Buy Instantly - {formatCurrency(currentPrice * quantity)}
-                    </Button>
+                  {!isPreOrder && currentStock > 0 && (
+                    <div className="flex flex-col sm:flex-row gap-4 w-full">
+                      <Button 
+                        variant="outline"
+                        onClick={() => {
+                          addItem(product, quantity, selectedColor, selectedSize, currentPrice);
+                        }}
+                        className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm border-primary text-primary hover:bg-primary/5 transition-all"
+                        data-testid="button-add-to-cart"
+                      >
+                        Add to Cart
+                      </Button>
+                      <Button 
+                        onClick={() => {
+                          addItem(product, quantity, selectedColor, selectedSize, currentPrice);
+                          window.location.href = "/checkout";
+                        }}
+                        className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
+                        data-testid="button-buy-now"
+                      >
+                        Buy Now
+                      </Button>
+                    </div>
                   )}
                   
                   {isPreOrder && (
-                    <Button 
-                      onClick={() => {
-                        addItem(product, quantity, selectedColor, selectedSize, preOrderInitialPayment || displayPrice, true, preOrderPrice || undefined, preOrderEta || undefined);
-                      }}
-                      className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] bg-amber-600 text-white hover:bg-amber-700"
-                      data-testid="add-to-cart-preorder"
-                    >
-                      Pre-Order - {formatCurrency((preOrderInitialPayment || displayPrice) * quantity)} deposit
-                    </Button>
+                    <div className="flex flex-col sm:flex-row gap-4 w-full">
+                      <Button 
+                        variant="outline"
+                        onClick={() => {
+                          addItem(product, quantity, selectedColor, selectedSize, preOrderInitialPayment || displayPrice, true, preOrderPrice || undefined, preOrderEta || undefined);
+                        }}
+                        className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm border-amber-600 text-amber-600 hover:bg-amber-50 transition-all"
+                        data-testid="button-add-to-cart-preorder"
+                      >
+                        Add to Cart
+                      </Button>
+                      <Button 
+                        onClick={() => {
+                          addItem(product, quantity, selectedColor, selectedSize, preOrderInitialPayment || displayPrice, true, preOrderPrice || undefined, preOrderEta || undefined);
+                          window.location.href = "/checkout";
+                        }}
+                        className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-amber-600 text-white hover:bg-amber-700 transition-all"
+                        data-testid="button-buy-now-preorder"
+                      >
+                        Buy Now
+                      </Button>
+                    </div>
                   )}
                 </div>
                 
