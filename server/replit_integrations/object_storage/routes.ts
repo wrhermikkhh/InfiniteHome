@@ -37,7 +37,7 @@ export function registerObjectStorageRoutes(app: Express): void {
    */
   app.post("/api/uploads/request-url", async (req, res) => {
     try {
-      const { name, size, contentType } = req.body;
+      const { name, size, contentType, folder } = req.body;
 
       if (!name) {
         return res.status(400).json({
@@ -45,7 +45,8 @@ export function registerObjectStorageRoutes(app: Express): void {
         });
       }
 
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      // Use folder-specific upload if provided
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL(folder);
 
       // Extract object path from the presigned URL for later reference
       const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
@@ -54,6 +55,56 @@ export function registerObjectStorageRoutes(app: Express): void {
         uploadURL,
         objectPath,
         // Echo back the metadata for client convenience
+        metadata: { name, size, contentType },
+      });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  // Product images upload endpoint
+  app.post("/api/uploads/product-images", async (req, res) => {
+    try {
+      const { name, size, contentType } = req.body;
+
+      if (!name) {
+        return res.status(400).json({
+          error: "Missing required field: name",
+        });
+      }
+
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL("product-images");
+      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+
+      res.json({
+        uploadURL,
+        objectPath,
+        metadata: { name, size, contentType },
+      });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  // Payment slips upload endpoint
+  app.post("/api/uploads/payment-slips", async (req, res) => {
+    try {
+      const { name, size, contentType } = req.body;
+
+      if (!name) {
+        return res.status(400).json({
+          error: "Missing required field: name",
+        });
+      }
+
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL("payment-slips");
+      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+
+      res.json({
+        uploadURL,
+        objectPath,
         metadata: { name, size, contentType },
       });
     } catch (error) {

@@ -29,6 +29,7 @@ export default function Checkout() {
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const { uploadFile, isUploading } = useUpload({
+    endpoint: "/api/uploads/payment-slips",
     onSuccess: (response) => {
       setPaymentSlipPath(response.objectPath);
     },

@@ -85,6 +85,7 @@ function ColorVariantRow({
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile, isUploading } = useUpload({
+    endpoint: "/api/uploads/product-images",
     onSuccess: (response) => {
       const newColorVariants = [...productForm.colorVariants];
       // Use the objectPath to construct the public URL
@@ -1890,6 +1891,7 @@ function ProductImageUploader({
   onImageUploaded: (path: string) => void;
 }) {
   const { uploadFile, isUploading } = useUpload({
+    endpoint: "/api/uploads/product-images",
     onSuccess: (response) => {
       onImageUploaded(response.objectPath);
     },
