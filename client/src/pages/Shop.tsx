@@ -93,7 +93,7 @@ export default function Shop() {
         {loading ? (
           <div className="text-center py-24 text-muted-foreground uppercase tracking-widest text-sm animate-pulse">Loading collection...</div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-12">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 md:gap-x-8 gap-y-8 md:gap-y-12">
             {filteredProducts.map((product, index) => (
               <motion.div
                 key={product.id}

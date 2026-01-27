@@ -4,7 +4,7 @@ import { formatCurrency, ProductVariant, getVariantStock, getVariantStockKey, ge
 import { useProduct } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
 import { useRoute } from "wouter";
-import { Star, Truck, ShieldCheck, RefreshCcw, Minus, Plus, Clock, Package, ChevronDown, ChevronUp } from "lucide-react";
+import { Star, Truck, ShieldCheck, RefreshCcw, Minus, Plus, Clock, Package, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import { useCart } from "@/lib/cart";
@@ -75,21 +75,72 @@ export default function ProductPage() {
       <div className="pt-32 pb-16 container mx-auto px-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
           
-          {/* Images - Main image with thumbnails below (Cozy Earth style) */}
+          {/* Images - Slideshow with navigation */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
             className="space-y-4"
           >
-            {/* Main Image */}
+            {/* Main Image with Slide Navigation */}
             <div className="aspect-[4/5] bg-secondary/10 overflow-hidden relative group">
-              <img 
-                src={colorSwatchActive && colorImages[selectedColor] ? colorImages[selectedColor] : allImages[activeImageIndex] || product.image} 
-                alt={product.name} 
-                className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" 
-                data-testid="product-main-image"
-              />
+              <motion.div
+                key={colorSwatchActive ? `color-${selectedColor}` : `img-${activeImageIndex}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.1}
+                onDragEnd={(e, { offset, velocity }) => {
+                  if (!colorSwatchActive && allImages.length > 1) {
+                    const swipe = offset.x * velocity.x;
+                    if (swipe < -5000 || offset.x < -50) {
+                      // Swipe left - next image
+                      setActiveImageIndex((prev) => (prev + 1) % allImages.length);
+                    } else if (swipe > 5000 || offset.x > 50) {
+                      // Swipe right - previous image
+                      setActiveImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+                    }
+                  }
+                }}
+                className="w-full h-full cursor-grab active:cursor-grabbing"
+              >
+                <img 
+                  src={colorSwatchActive && colorImages[selectedColor] ? colorImages[selectedColor] : allImages[activeImageIndex] || product.image} 
+                  alt={product.name} 
+                  className="w-full h-full object-contain pointer-events-none" 
+                  data-testid="product-main-image"
+                />
+              </motion.div>
+              
+              {/* Navigation Arrows */}
+              {allImages.length > 1 && !colorSwatchActive && (
+                <>
+                  <button 
+                    onClick={() => setActiveImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                    data-testid="prev-image-btn"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <button 
+                    onClick={() => setActiveImageIndex((prev) => (prev + 1) % allImages.length)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                    data-testid="next-image-btn"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </>
+              )}
+              
+              {/* Image Counter */}
+              {allImages.length > 1 && !colorSwatchActive && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-3 py-1 rounded-full">
+                  {activeImageIndex + 1} / {allImages.length}
+                </div>
+              )}
+              
               {isOnSale && salePrice && (
                 <span className="absolute top-4 left-4 bg-red-500 text-white text-xs font-bold px-3 py-1.5 uppercase tracking-widest">
                   -{discountPercent}% OFF
