@@ -299,6 +299,7 @@ app.post("/api/email/test", async (req, res) => {
     }
     
     const resend = new Resend(apiKey);
+    console.log('Vercel: Sending email with Resend API Key:', apiKey.substring(0, 10) + '...');
     
     const result = await resend.emails.send({
       from: 'INFINITE HOME <noreply@infinitehome.mv>',
@@ -597,6 +598,7 @@ async function sendOrderConfirmationEmail(order: any) {
     }
     
     const resend = new Resend(apiKey);
+    console.log('Vercel: Sending email with Resend API Key:', apiKey.substring(0, 10) + '...');
     const baseUrl = getEmailBaseUrl();
     const trackingUrl = `${baseUrl}/track?order=${order.orderNumber}`;
 
@@ -654,6 +656,8 @@ async function sendOrderConfirmationEmail(order: any) {
       html: html,
     });
     
+    console.log('Order email result:', JSON.stringify(result, null, 2));
+    
     // Also notify admin
     await resend.emails.send({
       from: 'INFINITE HOME <noreply@infinitehome.mv>',
@@ -678,9 +682,10 @@ async function sendOrderConfirmationEmail(order: any) {
         </table>
         <p><a href="${baseUrl}/admin">View in Admin Panel</a></p>
       `,
-    }).catch(err => console.error("Admin notification failed:", err));
+    }).then(res => console.log('Admin email result:', JSON.stringify(res, null, 2)))
+      .catch(err => console.error("Admin notification failed:", err));
     
-    console.log('Order confirmation email sent:', result);
+    console.log('Order confirmation email result:', JSON.stringify(result, null, 2));
     return { success: true, id: result.data?.id };
   } catch (error: any) {
     console.error('Error sending order confirmation email:', error);
@@ -697,6 +702,7 @@ async function sendOrderStatusEmail(order: any, newStatus: string) {
     }
     
     const resend = new Resend(apiKey);
+    console.log('Vercel: Sending email with Resend API Key:', apiKey.substring(0, 10) + '...');
     const baseUrl = getEmailBaseUrl();
     const trackingUrl = `${baseUrl}/track?order=${order.orderNumber}`;
     

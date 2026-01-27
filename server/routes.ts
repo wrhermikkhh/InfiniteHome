@@ -508,5 +508,33 @@ export async function registerRoutes(
     }
   });
 
+  // Test email endpoint (for debugging)
+  app.post("/api/email/test", async (req, res) => {
+    try {
+      const { to } = req.body;
+      if (!to) {
+        return res.status(400).json({ success: false, error: 'Email address required' });
+      }
+      
+      const order = {
+        orderNumber: 'TEST-' + Math.floor(Math.random() * 10000),
+        customerName: 'Test Customer',
+        customerEmail: to,
+        items: [{ name: 'Test Product', qty: 1, price: 100 }],
+        subtotal: 100,
+        discount: 0,
+        shipping: 0,
+        total: 100,
+        status: 'pending',
+        shippingAddress: '123 Test St'
+      };
+      
+      await sendOrderConfirmationEmail(order);
+      res.json({ success: true, message: 'Test email triggered, check server logs' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   return httpServer;
 }

@@ -17,6 +17,7 @@ export async function sendOrderConfirmationEmail(order: any) {
     console.log('Using Resend fromEmail:', fromEmail);
     console.log('Sending to customer email:', order.customerEmail);
     const resend = new Resend(apiKey);
+    console.log('Sending email with Resend API Key:', apiKey.substring(0, 10) + '...');
 
     const baseUrl = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'https://infinitehome.mv';
     const trackingUrl = `${baseUrl}/track?order=${order.orderNumber}`;
@@ -155,6 +156,8 @@ export async function sendOrderConfirmationEmail(order: any) {
       html: html,
     });
     
+    console.log('Resend send result:', JSON.stringify(emailResult, null, 2));
+
     // Notify admin about the new order
     await resend.emails.send({
       from: `INFINITE HOME <${fromEmailToUse}>`,
@@ -185,11 +188,10 @@ export async function sendOrderConfirmationEmail(order: any) {
           </div>
         </div>
       `,
-    }).catch(adminErr => {
+    }).then(res => console.log('Admin notification result:', JSON.stringify(res, null, 2)))
+      .catch(adminErr => {
       console.error('Failed to send admin notification email:', adminErr);
     });
-    
-    console.log('Resend send result:', JSON.stringify(emailResult, null, 2));
     
     if (emailResult.error) {
       console.error('Resend error:', emailResult.error);
