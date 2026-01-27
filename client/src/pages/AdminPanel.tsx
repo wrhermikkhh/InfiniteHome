@@ -3,6 +3,7 @@ import { useAdminAuth } from "@/lib/auth";
 import { useUpload } from "@/hooks/use-upload";
 import { useLocation } from "wouter";
 import { api, Coupon, Order, Admin, Category } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 import { 
   BarChart, 
   Bar, 
@@ -135,21 +136,28 @@ function ColorVariantRow({
   colorVar, 
   index, 
   productForm, 
-  setProductForm 
+  setProductForm,
+  onUploadSuccess,
+  onUploadError
 }: { 
   colorVar: { name: string; image: string }; 
   index: number; 
   productForm: any; 
   setProductForm: (form: any) => void;
+  onUploadSuccess?: () => void;
+  onUploadError?: (error: Error) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile, isUploading } = useUpload({
     endpoint: "/api/uploads/product-images",
     onSuccess: (response) => {
       const newColorVariants = [...productForm.colorVariants];
-      // Supabase direct public URL is returned in response.objectPath
       newColorVariants[index].image = response.objectPath;
       setProductForm({...productForm, colorVariants: newColorVariants});
+      onUploadSuccess?.();
+    },
+    onError: (error) => {
+      onUploadError?.(error);
     },
   });
   
@@ -229,6 +237,7 @@ function ColorVariantRow({
 
 export default function AdminPanel() {
   const { admin: user, adminLogin: login, adminLogout: logout, isAdminAuthenticated } = useAdminAuth();
+  const { toast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
@@ -420,10 +429,11 @@ export default function AdminPanel() {
       setProductForm({ ...productForm, category: newCategory.name });
       setNewCategoryName("");
       setShowNewCategoryInput(false);
-      // Invalidate categories query to update navbar
       window.dispatchEvent(new CustomEvent('category-updated'));
+      toast({ title: "Category created", description: `${newCategory.name} added` });
     } catch (error) {
       console.error("Failed to create category:", error);
+      toast({ title: "Error", description: "Failed to create category", variant: "destructive" });
     }
   };
 
@@ -479,8 +489,10 @@ export default function AdminPanel() {
     try {
       if (editingProduct) {
         await api.updateProduct(editingProduct.id, formattedProduct);
+        toast({ title: "Product updated", description: "Changes saved successfully" });
       } else {
         await api.createProduct(formattedProduct);
+        toast({ title: "Product created", description: "New product added successfully" });
       }
       await loadData();
       setIsProductDialogOpen(false);
@@ -488,6 +500,7 @@ export default function AdminPanel() {
       resetProductForm();
     } catch (error) {
       console.error("Failed to save product:", error);
+      toast({ title: "Error", description: "Failed to save product", variant: "destructive" });
     }
   };
 
@@ -565,8 +578,10 @@ export default function AdminPanel() {
     try {
       await api.deleteProduct(id);
       await loadData();
+      toast({ title: "Product deleted", description: "Product removed successfully" });
     } catch (error) {
       console.error("Failed to delete product:", error);
+      toast({ title: "Error", description: "Failed to delete product", variant: "destructive" });
     }
   };
 
@@ -574,8 +589,10 @@ export default function AdminPanel() {
     try {
       await api.updateOrderStatus(orderId, newStatus);
       await loadData();
+      toast({ title: "Order updated", description: `Status changed to ${newStatus.replace('_', ' ')}` });
     } catch (error) {
       console.error("Failed to update order status:", error);
+      toast({ title: "Error", description: "Failed to update order status", variant: "destructive" });
     }
   };
 
@@ -591,8 +608,10 @@ export default function AdminPanel() {
       await loadData();
       setNewCouponCode("");
       setNewCouponDiscount("");
+      toast({ title: "Coupon created", description: `Code ${newCouponCode.toUpperCase()} added` });
     } catch (error) {
       console.error("Failed to add coupon:", error);
+      toast({ title: "Error", description: "Failed to create coupon", variant: "destructive" });
     }
   };
 
@@ -600,8 +619,10 @@ export default function AdminPanel() {
     try {
       await api.deleteCoupon(id);
       await loadData();
+      toast({ title: "Coupon deleted", description: "Coupon removed successfully" });
     } catch (error) {
       console.error("Failed to delete coupon:", error);
+      toast({ title: "Error", description: "Failed to delete coupon", variant: "destructive" });
     }
   };
 
@@ -617,8 +638,10 @@ export default function AdminPanel() {
       setNewAdminEmail("");
       setNewAdminPassword("");
       setNewAdminName("");
+      toast({ title: "Admin added", description: `${newAdminName} can now access the panel` });
     } catch (error) {
       console.error("Failed to add admin:", error);
+      toast({ title: "Error", description: "Failed to add admin", variant: "destructive" });
     }
   };
 
@@ -1299,6 +1322,8 @@ export default function AdminPanel() {
                         <ProductImageUploader
                           currentImage={productForm.image}
                           onImageUploaded={(path) => setProductForm({...productForm, image: path})}
+                          onUploadSuccess={() => toast({ title: "Image uploaded", description: "Main product image saved" })}
+                          onUploadError={(error) => toast({ title: "Upload failed", description: error.message || "Failed to upload image", variant: "destructive" })}
                         />
                       </div>
                       <div className="space-y-2">
@@ -1328,6 +1353,8 @@ export default function AdminPanel() {
                                   newImages[index] = path;
                                   setProductForm({...productForm, images: newImages});
                                 }}
+                                onUploadSuccess={() => toast({ title: "Image uploaded", description: "Additional product image saved" })}
+                                onUploadError={(error) => toast({ title: "Upload failed", description: error.message || "Failed to upload image", variant: "destructive" })}
                               />
                             </div>
                             <Button 
@@ -1374,6 +1401,8 @@ export default function AdminPanel() {
                             index={index}
                             productForm={productForm}
                             setProductForm={setProductForm}
+                            onUploadSuccess={() => toast({ title: "Image uploaded", description: "Color variant image saved" })}
+                            onUploadError={(error) => toast({ title: "Upload failed", description: error.message || "Failed to upload image", variant: "destructive" })}
                           />
                         ))}
                       </div>
@@ -1960,15 +1989,23 @@ export default function AdminPanel() {
 
 function ProductImageUploader({ 
   currentImage, 
-  onImageUploaded 
+  onImageUploaded,
+  onUploadSuccess,
+  onUploadError
 }: { 
   currentImage: string; 
   onImageUploaded: (path: string) => void;
+  onUploadSuccess?: () => void;
+  onUploadError?: (error: Error) => void;
 }) {
   const { uploadFile, isUploading } = useUpload({
     endpoint: "/api/uploads/product-images",
     onSuccess: (response) => {
       onImageUploaded(response.objectPath);
+      onUploadSuccess?.();
+    },
+    onError: (error) => {
+      onUploadError?.(error);
     },
   });
 
