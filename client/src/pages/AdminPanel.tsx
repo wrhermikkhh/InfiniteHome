@@ -86,8 +86,14 @@ function PaymentSlipViewer({ paymentSlip }: { paymentSlip: string }) {
       return;
     }
 
+    // Clean up the path - remove legacy prefix if present
+    let cleanPath = paymentSlip;
+    if (cleanPath.startsWith('/objects/payment-slips/')) {
+      cleanPath = cleanPath.replace('/objects/payment-slips/', '');
+    }
+
     // Fetch signed URL for private bucket paths
-    api.getPaymentSlipUrl(paymentSlip)
+    api.getPaymentSlipUrl(cleanPath)
       .then((res) => {
         setImageUrl(res.url);
         setLoading(false);
