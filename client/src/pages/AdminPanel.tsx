@@ -77,22 +77,25 @@ function PaymentSlipViewer({ paymentSlip }: { paymentSlip: string }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [isLegacy, setIsLegacy] = useState(false);
 
   useEffect(() => {
-    // If it's already a full URL, use it directly
+    // If it's already a full Supabase URL, use it directly
     if (paymentSlip.startsWith('http')) {
       setImageUrl(paymentSlip);
       setLoading(false);
       return;
     }
 
-    // For legacy paths, fetch the URL from API
-    let cleanPath = paymentSlip;
-    if (cleanPath.startsWith('/objects/payment-slips/')) {
-      cleanPath = cleanPath.replace('/objects/payment-slips/', '');
+    // Legacy Replit Object Storage paths - these files don't exist in Supabase
+    if (paymentSlip.startsWith('/objects/')) {
+      setIsLegacy(true);
+      setLoading(false);
+      return;
     }
 
-    api.getPaymentSlipUrl(cleanPath)
+    // For Supabase paths (uploads/...), fetch the URL from API
+    api.getPaymentSlipUrl(paymentSlip)
       .then((res) => {
         setImageUrl(res.url);
         setLoading(false);
@@ -107,6 +110,14 @@ function PaymentSlipViewer({ paymentSlip }: { paymentSlip: string }) {
     return (
       <div className="w-full h-32 bg-secondary/30 flex items-center justify-center">
         <span className="text-xs text-muted-foreground">Loading payment slip...</span>
+      </div>
+    );
+  }
+
+  if (isLegacy) {
+    return (
+      <div className="w-full h-20 bg-amber-50 flex items-center justify-center border border-dashed border-amber-500/50 rounded">
+        <span className="text-xs text-amber-700">Legacy upload - file was stored before Supabase migration</span>
       </div>
     );
   }
