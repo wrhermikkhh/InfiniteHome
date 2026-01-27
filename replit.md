@@ -38,13 +38,13 @@ Preferred communication style: Simple, everyday language.
 - **Database Migrations**: Drizzle Kit handles schema synchronization.
 
 ### Core Features
-- **Product Management**: Supports pre-orders, variant-level stock, multiple images, certifications, and sale pricing.
-- **Order Management**: Comprehensive order status flow, order tracking, and payment slip viewing for admins.
-- **Customer Accounts**: Secure registration, login, profile management, order history, and address book.
-- **Admin Panel**: Secure access with separate authentication, managing products, orders, coupons, and categories.
-- **Search**: Debounced product search functionality.
-- **Email Notifications**: Automated email notifications for order status changes.
-- **Image Specifications**: Recommended 1200x1500px (4:5 aspect ratio) JPG/PNG under 2MB, displayed using `object-contain`.
+- Product Management: Supports pre-orders, variant-level stock, multiple images, certifications, and sale pricing.
+- Order Management: Comprehensive order status flow, order tracking, and payment slip viewing for admins.
+- Customer Accounts: Secure registration, login, profile management, order history, and address book.
+- Admin Panel: Secure access with separate authentication, managing products, orders, coupons, and categories.
+- Search: Debounced product search functionality.
+- Email Notifications: Automated email notifications for order status changes.
+- Image Specifications: Recommended 1080x1080px or 1440x1440px (1:1 aspect ratio) for products. Category grids use original layout. Displayed using `object-contain`.
 
 ## External Dependencies
 

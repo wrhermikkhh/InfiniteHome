@@ -75,7 +75,7 @@ export function ProductScrollSection({ title, products, viewAllLink, loading }: 
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="flex-shrink-0 w-[220px] md:w-[280px] snap-start">
-                  <div className="aspect-[4/5] bg-secondary/30 animate-pulse rounded-sm mb-4" />
+                  <div className="aspect-square bg-secondary/30 animate-pulse rounded-sm mb-4" />
                   <div className="h-4 bg-secondary/30 animate-pulse rounded w-3/4 mb-2" />
                   <div className="h-4 bg-secondary/30 animate-pulse rounded w-1/2" />
                 </div>

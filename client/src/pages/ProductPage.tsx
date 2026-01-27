@@ -83,7 +83,7 @@ export default function ProductPage() {
             className="space-y-4"
           >
             {/* Main Image with Slide Navigation */}
-            <div className="aspect-[4/5] bg-secondary/10 overflow-hidden relative group">
+            <div className="aspect-square bg-secondary/10 overflow-hidden relative group">
               <motion.div
                 key={colorSwatchActive ? `color-${selectedColor}` : `img-${activeImageIndex}`}
                 initial={{ opacity: 0 }}
