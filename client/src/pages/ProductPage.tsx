@@ -389,6 +389,7 @@ export default function ProductPage() {
                     </button>
                   </div>
                   
+                  {/* Regular product (not pre-order) with stock */}
                   {!isPreOrder && currentStock > 0 && (
                     <div className="flex flex-col sm:flex-row gap-4 w-full">
                       <Button 
@@ -403,7 +404,6 @@ export default function ProductPage() {
                       </Button>
                       <Button 
                         onClick={() => {
-                          // Bypass regular cart by clearing and adding just this item
                           clearCart();
                           addItem(product, quantity, selectedColor, selectedSize, currentPrice);
                           window.location.href = "/checkout?direct=true";
@@ -416,39 +416,58 @@ export default function ProductPage() {
                     </div>
                   )}
                   
+                  {/* Regular product (not pre-order) out of stock */}
+                  {!isPreOrder && currentStock <= 0 && (
+                    <Button disabled className="w-full h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-secondary text-muted-foreground">
+                      Out of Stock
+                    </Button>
+                  )}
+                  
+                  {/* Pre-order product: Show all 3 buttons */}
                   {isPreOrder && (
-                    <div className="flex flex-col sm:flex-row gap-4 w-full">
+                    <div className="flex flex-col gap-4 w-full">
+                      {/* Buy Now & Add to Cart row - enabled only if stock available */}
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <Button 
+                          variant="outline"
+                          onClick={() => {
+                            addItem(product, quantity, selectedColor, selectedSize, currentPrice);
+                          }}
+                          disabled={currentStock <= 0}
+                          className={`flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm border-primary text-primary hover:bg-primary/5 transition-all ${currentStock <= 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          data-testid="button-add-to-cart"
+                        >
+                          Add to Cart
+                        </Button>
+                        <Button 
+                          onClick={() => {
+                            clearCart();
+                            addItem(product, quantity, selectedColor, selectedSize, currentPrice);
+                            window.location.href = "/checkout?direct=true";
+                          }}
+                          disabled={currentStock <= 0}
+                          className={`flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all ${currentStock <= 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          data-testid="button-buy-now"
+                        >
+                          Buy Now
+                        </Button>
+                      </div>
+                      
+                      {/* Pre-Order button - always enabled */}
                       <Button 
-                        variant="outline"
                         onClick={() => {
-                          addItem(product, quantity, selectedColor, selectedSize, preOrderInitialPayment || displayPrice, true, preOrderPrice || undefined, preOrderEta || undefined);
-                        }}
-                        className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm border-amber-600 text-amber-600 hover:bg-amber-50 transition-all"
-                        data-testid="button-add-to-cart-preorder"
-                      >
-                        Add to Cart
-                      </Button>
-                      <Button 
-                        onClick={() => {
-                          // Bypass regular cart for pre-order direct buy
                           clearCart();
                           addItem(product, quantity, selectedColor, selectedSize, preOrderInitialPayment || displayPrice, true, preOrderPrice || undefined, preOrderEta || undefined);
                           window.location.href = "/checkout?direct=true";
                         }}
-                        className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-amber-600 text-white hover:bg-amber-700 transition-all"
-                        data-testid="button-buy-now-preorder"
+                        className="w-full h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-amber-600 text-white hover:bg-amber-700 transition-all"
+                        data-testid="button-preorder"
                       >
-                        Pre-Order
+                        Pre-Order - {formatCurrency((preOrderInitialPayment || displayPrice) * quantity)} deposit
                       </Button>
                     </div>
                   )}
                 </div>
-                
-                {!isPreOrder && currentStock <= 0 && (
-                  <Button disabled className="w-full h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-secondary text-muted-foreground">
-                    Out of Stock
-                  </Button>
-                )}
               </div>
             </motion.div>
 
