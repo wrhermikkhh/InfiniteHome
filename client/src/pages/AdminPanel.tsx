@@ -217,7 +217,9 @@ export default function AdminPanel() {
     isPreOrder: false,
     preOrderPrice: "",
     preOrderInitialPayment: "",
-    preOrderEta: ""
+    preOrderEta: "",
+    productDetails: "",
+    materialsAndCare: ""
   });
   
   const availableCertifications = [
@@ -410,7 +412,9 @@ export default function AdminPanel() {
       isPreOrder: productForm.isPreOrder,
       preOrderPrice: productForm.isPreOrder && productForm.preOrderPrice ? Number(productForm.preOrderPrice) : null,
       preOrderInitialPayment: productForm.isPreOrder && productForm.preOrderInitialPayment ? Number(productForm.preOrderInitialPayment) : null,
-      preOrderEta: productForm.isPreOrder ? productForm.preOrderEta : null
+      preOrderEta: productForm.isPreOrder ? productForm.preOrderEta : null,
+      productDetails: productForm.productDetails || null,
+      materialsAndCare: productForm.materialsAndCare || null
     };
 
     try {
@@ -448,7 +452,9 @@ export default function AdminPanel() {
       isPreOrder: false,
       preOrderPrice: "",
       preOrderInitialPayment: "",
-      preOrderEta: ""
+      preOrderEta: "",
+      productDetails: "",
+      materialsAndCare: ""
     });
     setShowNewCategoryInput(false);
     setNewCategoryName("");
@@ -487,7 +493,9 @@ export default function AdminPanel() {
       isPreOrder: (product as any).isPreOrder || false,
       preOrderPrice: ((product as any).preOrderPrice || "").toString(),
       preOrderInitialPayment: ((product as any).preOrderInitialPayment || "").toString(),
-      preOrderEta: (product as any).preOrderEta || ""
+      preOrderEta: (product as any).preOrderEta || "",
+      productDetails: (product as any).productDetails || "",
+      materialsAndCare: (product as any).materialsAndCare || ""
     });
     setShowNewCategoryInput(false);
     setNewCategoryName("");
@@ -1205,6 +1213,26 @@ export default function AdminPanel() {
                           value={productForm.description}
                           onChange={(e) => setProductForm({...productForm, description: e.target.value})}
                           className="rounded-none"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-widest font-bold">Product Details</Label>
+                        <textarea 
+                          value={productForm.productDetails}
+                          onChange={(e) => setProductForm({...productForm, productDetails: e.target.value})}
+                          className="w-full min-h-[100px] p-3 border border-border rounded-none bg-background text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+                          placeholder="Enter product details. Press Enter for new lines."
+                          data-testid="textarea-product-details"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-widest font-bold">Materials & Care</Label>
+                        <textarea 
+                          value={productForm.materialsAndCare}
+                          onChange={(e) => setProductForm({...productForm, materialsAndCare: e.target.value})}
+                          className="w-full min-h-[100px] p-3 border border-border rounded-none bg-background text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+                          placeholder="Enter materials and care instructions. Press Enter for new lines."
+                          data-testid="textarea-materials-care"
                         />
                       </div>
                       <div className="space-y-2">

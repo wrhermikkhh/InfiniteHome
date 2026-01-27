@@ -552,12 +552,12 @@ function ProductDetailsAccordion({ product }: { product: any }) {
     {
       id: 'details',
       title: 'Product Details',
-      content: product.description || 'Experience premium quality craftsmanship with attention to every detail. Made with the finest materials for lasting comfort and durability.'
+      content: (product as any).productDetails || product.description || 'Experience premium quality craftsmanship with attention to every detail. Made with the finest materials for lasting comfort and durability.'
     },
     {
       id: 'materials',
       title: 'Materials & Care',
-      content: 'Made from premium materials. Machine wash cold with like colors. Tumble dry low. Do not bleach. Iron on low heat if needed.'
+      content: (product as any).materialsAndCare || 'Made from premium materials. Machine wash cold with like colors. Tumble dry low. Do not bleach. Iron on low heat if needed.'
     },
     {
       id: 'shipping',
@@ -588,7 +588,7 @@ function ProductDetailsAccordion({ product }: { product: any }) {
               animate={{ opacity: 1, height: 'auto' }}
               className="pb-5"
             >
-              <p className="text-muted-foreground leading-relaxed text-sm">
+              <p className="text-muted-foreground leading-relaxed text-sm whitespace-pre-line">
                 {section.content}
               </p>
             </motion.div>

@@ -90,6 +90,8 @@ export const products = pgTable("products", {
   preOrderPrice: real("pre_order_price"),
   preOrderInitialPayment: real("pre_order_initial_payment"),
   preOrderEta: text("pre_order_eta"),
+  productDetails: text("product_details"),
+  materialsAndCare: text("materials_and_care"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
