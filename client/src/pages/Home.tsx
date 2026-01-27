@@ -82,7 +82,7 @@ export default function Home() {
             <p className="text-muted-foreground max-w-lg mx-auto">Discover our curated collection of premium home essentials tailored for your lifestyle.</p>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
             <motion.div
               initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -179,7 +179,7 @@ export default function Home() {
             </Link>
           </motion.div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
             {loading ? (
               <div className="col-span-4 text-center py-12 text-muted-foreground">Loading products...</div>
             ) : (
