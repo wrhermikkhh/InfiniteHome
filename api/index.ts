@@ -188,7 +188,7 @@ try {
 // ============ SUPABASE CLIENT FOR STORAGE ============
 
 const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '';
 
 // Lazy initialization for Supabase client
 let supabase: any = null;
@@ -199,7 +199,7 @@ async function getSupabaseClient() {
   supabaseInitialized = true;
   
   if (!supabaseUrl || !supabaseServiceKey) {
-    console.log("Supabase Storage not configured - SUPABASE_URL or SUPABASE_SERVICE_KEY missing");
+    console.log("Supabase Storage not configured - SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing");
     return null;
   }
   
@@ -1207,7 +1207,7 @@ app.get("/api/storage/health", async (req, res) => {
     if (!client) {
       return res.status(500).json({ 
         status: "error", 
-        message: "Storage not configured - missing SUPABASE_URL or SUPABASE_SERVICE_KEY",
+        message: "Storage not configured - missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
         details: status
       });
     }
@@ -1252,7 +1252,7 @@ app.post("/api/uploads/request-url", async (req, res) => {
     if (!client) {
       return res.status(500).json({ 
         error: "Storage not configured", 
-        message: "SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in environment variables" 
+        message: "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in environment variables" 
       });
     }
 
