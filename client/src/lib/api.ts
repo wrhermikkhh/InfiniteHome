@@ -309,4 +309,14 @@ export const api = {
   async setDefaultAddress(customerId: string, addressId: string): Promise<void> {
     await fetch(`${API_BASE}/customers/${customerId}/addresses/${addressId}/default`, { method: "POST" });
   },
+
+  // Payment Slips
+  async getPaymentSlipUrl(path: string): Promise<{ url: string }> {
+    const res = await fetch(`${API_BASE}/payment-slips/get-url`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+    return res.json();
+  },
 };

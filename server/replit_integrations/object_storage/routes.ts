@@ -1,83 +1,135 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
+import multer from "multer";
 import { supabaseAdmin } from "../../lib/supabase";
 import { randomUUID } from "crypto";
 
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
+}
+
+const PRODUCT_IMAGES_BUCKET = 'product-images';
+const PAYMENT_SLIPS_BUCKET = 'payment-slips';
+
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+});
+
+/**
+ * Register Supabase storage routes for file uploads.
+ */
 export function registerObjectStorageRoutes(app: Express): void {
-  // Product images upload endpoint (Public Bucket)
-  app.post("/api/uploads/product-images", async (req, res) => {
+  
+  // Product images upload endpoint
+  app.post("/api/uploads/product-images", upload.single('file'), async (req, res) => {
     try {
-      const { name, contentType } = req.body;
-      if (!name) return res.status(400).json({ error: "Missing name" });
+      const file = req.file;
+      
+      if (!file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
 
-      const fileExt = name.split('.').pop();
-      const fileName = `${randomUUID()}.${fileExt}`;
-      const filePath = `${fileName}`;
-      const bucket = "product-images";
+      const ext = file.originalname.split('.').pop() || 'jpg';
+      const fileName = `${randomUUID()}.${ext}`;
+      const filePath = `uploads/${fileName}`;
 
       const { data, error } = await supabaseAdmin.storage
-        .from(bucket)
-        .createSignedUploadUrl(filePath);
+        .from(PRODUCT_IMAGES_BUCKET)
+        .upload(filePath, file.buffer, {
+          contentType: file.mimetype,
+          upsert: true
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase upload error:", error);
+        return res.status(500).json({ error: "Failed to upload file" });
+      }
 
-      const publicUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucket}/${filePath}`;
+      // Get public URL
+      const { data: urlData } = supabaseAdmin.storage
+        .from(PRODUCT_IMAGES_BUCKET)
+        .getPublicUrl(filePath);
 
       res.json({
-        uploadURL: data.signedUrl,
-        objectPath: publicUrl, // We return the public URL directly now
-        metadata: { name, contentType },
+        objectPath: urlData.publicUrl,
+        uploadURL: urlData.publicUrl,
+        metadata: { 
+          name: file.originalname, 
+          size: file.size, 
+          contentType: file.mimetype 
+        },
       });
     } catch (error) {
-      console.error("Error generating Supabase upload URL:", error);
-      res.status(500).json({ error: "Failed to generate upload URL" });
+      console.error("Error uploading product image:", error);
+      res.status(500).json({ error: "Failed to upload file" });
     }
   });
 
-  // Payment slips upload endpoint (Private Bucket)
-  app.post("/api/uploads/payment-slips", async (req, res) => {
+  // Payment slips upload endpoint
+  app.post("/api/uploads/payment-slips", upload.single('file'), async (req, res) => {
     try {
-      const { name, contentType } = req.body;
-      if (!name) return res.status(400).json({ error: "Missing name" });
+      const file = req.file;
+      
+      if (!file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
 
-      const fileExt = name.split('.').pop();
-      const fileName = `${randomUUID()}.${fileExt}`;
-      const filePath = `${fileName}`;
-      const bucket = "payment-slips";
+      const ext = file.originalname.split('.').pop() || 'jpg';
+      const fileName = `${randomUUID()}.${ext}`;
+      const filePath = `uploads/${fileName}`;
 
       const { data, error } = await supabaseAdmin.storage
-        .from(bucket)
-        .createSignedUploadUrl(filePath);
+        .from(PAYMENT_SLIPS_BUCKET)
+        .upload(filePath, file.buffer, {
+          contentType: file.mimetype,
+          upsert: true
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase upload error:", error);
+        return res.status(500).json({ error: "Failed to upload file" });
+      }
 
+      // For private bucket, return the path (admin will get signed URL when viewing)
       res.json({
-        uploadURL: data.signedUrl,
-        objectPath: filePath, // For private files, we store just the path/filename
-        metadata: { name, contentType },
+        objectPath: filePath,
+        uploadURL: filePath,
+        metadata: { 
+          name: file.originalname, 
+          size: file.size, 
+          contentType: file.mimetype 
+        },
       });
     } catch (error) {
-      console.error("Error generating Supabase upload URL:", error);
-      res.status(500).json({ error: "Failed to generate upload URL" });
+      console.error("Error uploading payment slip:", error);
+      res.status(500).json({ error: "Failed to upload file" });
     }
   });
 
-  // Proxy for private files (payment slips)
-  app.get("/objects/payment-slips/*filePath", async (req, res) => {
+  // Get signed URL for viewing payment slips (admin use)
+  app.post("/api/payment-slips/get-url", async (req: Request, res: Response) => {
     try {
-      const filePath = req.params.filePath;
+      const { path } = req.body;
+      
+      if (!path) {
+        return res.status(400).json({ error: "Path is required" });
+      }
+      
       const { data, error } = await supabaseAdmin.storage
-        .from("payment-slips")
-        .download(filePath);
+        .from(PAYMENT_SLIPS_BUCKET)
+        .createSignedUrl(path, 60 * 60); // 1 hour
 
-      if (error) throw error;
+      if (error) {
+        return res.status(404).json({ error: "Payment slip not found" });
+      }
 
-      const buffer = Buffer.from(await data.arrayBuffer());
-      res.set("Content-Type", data.type);
-      res.send(buffer);
+      res.json({ url: data.signedUrl });
     } catch (error) {
-      console.error("Error downloading from Supabase:", error);
-      res.status(404).json({ error: "File not found" });
+      console.error("Error getting payment slip URL:", error);
+      res.status(500).json({ error: "Failed to get payment slip" });
     }
   });
 }
-

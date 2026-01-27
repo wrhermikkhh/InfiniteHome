@@ -71,6 +71,65 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+// Payment Slip Viewer - fetches signed URL for private payment slips
+function PaymentSlipViewer({ paymentSlip }: { paymentSlip: string }) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    // Check if it's already a full URL (legacy uploads or public bucket)
+    if (paymentSlip.startsWith('http')) {
+      setImageUrl(paymentSlip);
+      setLoading(false);
+      return;
+    }
+
+    // Fetch signed URL for private bucket paths
+    api.getPaymentSlipUrl(paymentSlip)
+      .then((res) => {
+        setImageUrl(res.url);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
+  }, [paymentSlip]);
+
+  if (loading) {
+    return (
+      <div className="w-full h-32 bg-secondary/30 flex items-center justify-center">
+        <span className="text-xs text-muted-foreground">Loading payment slip...</span>
+      </div>
+    );
+  }
+
+  if (error || !imageUrl) {
+    return (
+      <div className="w-full h-32 bg-secondary/30 flex items-center justify-center border border-dashed border-destructive/50">
+        <span className="text-xs text-destructive">Failed to load payment slip</span>
+      </div>
+    );
+  }
+
+  return (
+    <a 
+      href={imageUrl} 
+      target="_blank" 
+      rel="noopener noreferrer"
+      className="block"
+    >
+      <img 
+        src={imageUrl} 
+        alt="Payment slip" 
+        className="max-w-full max-h-48 object-contain border border-border cursor-pointer hover:opacity-80 transition-opacity"
+      />
+      <p className="text-xs text-primary underline mt-1">Click to view full size</p>
+    </a>
+  );
+}
+
 // Color Variant Row with file upload support
 function ColorVariantRow({ 
   colorVar, 
@@ -1683,19 +1742,7 @@ export default function AdminPanel() {
                                     {selectedOrder.paymentMethod === "bank" && selectedOrder.paymentSlip && (
                                       <div>
                                         <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Payment Slip</p>
-                                        <a 
-                                          href={selectedOrder.paymentSlip} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className="block"
-                                        >
-                                          <img 
-                                            src={selectedOrder.paymentSlip} 
-                                            alt="Payment slip" 
-                                            className="max-w-full max-h-48 object-contain border border-border cursor-pointer hover:opacity-80 transition-opacity"
-                                          />
-                                          <p className="text-xs text-primary underline mt-1">Click to view full size</p>
-                                        </a>
+                                        <PaymentSlipViewer paymentSlip={selectedOrder.paymentSlip} />
                                       </div>
                                     )}
                                     {selectedOrder.paymentMethod === "bank" && !selectedOrder.paymentSlip && (
