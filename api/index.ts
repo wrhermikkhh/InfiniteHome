@@ -654,6 +654,32 @@ async function sendOrderConfirmationEmail(order: any) {
       html: html,
     });
     
+    // Also notify admin
+    await resend.emails.send({
+      from: 'INFINITE HOME <noreply@infinitehome.mv>',
+      to: 'sales@infinitehome.mv',
+      subject: `NEW ORDER - ${order.orderNumber}`,
+      html: `
+        <h2>New Order Received</h2>
+        <p><strong>Order Number:</strong> ${order.orderNumber}</p>
+        <p><strong>Customer:</strong> ${order.customerName} (${order.customerEmail})</p>
+        <p><strong>Total:</strong> MVR ${order.total.toLocaleString()}</p>
+        <hr/>
+        <h3>Items:</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th style="text-align: left; border-bottom: 1px solid #eee;">Item</th>
+              <th style="text-align: center; border-bottom: 1px solid #eee;">Qty</th>
+              <th style="text-align: right; border-bottom: 1px solid #eee;">Price</th>
+            </tr>
+          </thead>
+          <tbody>${getItemsHtml(order.items)}</tbody>
+        </table>
+        <p><a href="${baseUrl}/admin">View in Admin Panel</a></p>
+      `,
+    }).catch(err => console.error("Admin notification failed:", err));
+    
     console.log('Order confirmation email sent:', result);
     return { success: true, id: result.data?.id };
   } catch (error: any) {
