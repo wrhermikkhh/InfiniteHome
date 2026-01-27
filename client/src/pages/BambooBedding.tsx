@@ -10,58 +10,58 @@ import heroImage from "@assets/generated_images/luxury_bright_bedroom_with_white
 const benefits = [
   {
     icon: Leaf,
-    title: "Eco-Friendly & Sustainable",
-    description: "Bamboo is one of the fastest-growing plants on Earth, requiring no pesticides and minimal water. It regenerates naturally, making it one of the most sustainable materials available."
+    title: "Kind to You & the Planet",
+    description: "Here's something amazing - bamboo grows up to 3 feet per day without any pesticides! It needs very little water and regenerates from its own roots. When you choose bamboo, you're making a choice that feels good in every way."
   },
   {
     icon: Droplets,
-    title: "Moisture-Wicking",
-    description: "Bamboo fibers naturally wick moisture away from your body, keeping you dry and comfortable throughout the night. Perfect for hot sleepers and humid climates."
+    title: "Stay Dry All Night",
+    description: "Ever wake up feeling sticky? Bamboo wicks away moisture 3x faster than cotton. That means no more clammy nights - just fresh, comfortable sleep from dusk till dawn. Perfect for our beautiful Maldivian climate!"
   },
   {
     icon: Wind,
-    title: "Temperature Regulating",
-    description: "The micro-gaps in bamboo fabric allow for superior breathability, keeping you cool in summer and warm in winter. It adapts to your body temperature for optimal comfort."
+    title: "Your Perfect Temperature",
+    description: "Tired of throwing off the covers then pulling them back on? Bamboo's clever micro-gaps let air flow naturally - keeping you cool when it's warm and cozy when it's chilly. It's like magic!"
   },
   {
     icon: Shield,
-    title: "Naturally Hypoallergenic",
-    description: "Bamboo contains a natural bio-agent called 'bamboo kun' that resists bacteria, mold, and dust mites. Ideal for sensitive skin and allergy sufferers."
+    title: "A Dream for Sensitive Sleepers",
+    description: "If allergies or sensitive skin keep you up at night, bamboo is your new best friend. It naturally resists dust mites, bacteria, and mold. Many customers with eczema tell us they finally sleep peacefully!"
   }
 ];
 
 const faqs = [
   {
     question: "What makes bamboo bedding different from cotton?",
-    answer: "Bamboo bedding is softer, more breathable, and more sustainable than traditional cotton. Bamboo fibers are naturally silky and become softer with each wash, while cotton can feel rough over time. Bamboo is also 40% more absorbent than cotton, making it better at wicking moisture and regulating temperature."
+    answer: "Great question! Think of it this way - bamboo is like cotton's cooler, softer cousin. It's naturally silky and gets even softer with each wash (yes, really!). While cotton can feel a bit rough over time, bamboo stays luxuriously smooth. Plus, it absorbs moisture 40% better than cotton - so you stay dry and comfy all night long."
   },
   {
     question: "Is bamboo bedding good for sensitive skin?",
-    answer: "Absolutely! Bamboo is naturally hypoallergenic and antibacterial. It's gentle on sensitive skin and doesn't irritate like some synthetic materials. The smooth fibers are also less likely to cause friction, making them ideal for people with eczema or other skin conditions."
+    answer: "Absolutely! If your skin is easily irritated, bamboo will be your new best friend. It's naturally gentle, hypoallergenic, and antibacterial. The super-smooth fibers glide against your skin instead of causing friction. Many of our customers with eczema and sensitive skin have told us bamboo changed their sleep for the better!"
   },
   {
     question: "How do I care for bamboo bedding?",
-    answer: "Bamboo bedding is easy to care for. Wash in cold or warm water (not hot) on a gentle cycle. Use a mild, eco-friendly detergent and avoid bleach or fabric softeners. Tumble dry on low heat or line dry. Bamboo sheets become softer with each wash!"
+    answer: "Good news - it's super easy! Just pop them in the washing machine on cold or warm (not hot), use a gentle detergent, and skip the bleach and fabric softener (they don't need it!). Tumble dry on low or line dry. Here's the best part - your bamboo sheets will actually get softer with every wash. How cool is that?"
   },
   {
     question: "Will bamboo bedding keep me cool at night?",
-    answer: "Yes! Bamboo is excellent at temperature regulation. The natural micro-gaps in bamboo fabric allow for exceptional breathability. It wicks moisture away 3-4 times faster than cotton, keeping hot sleepers cool and comfortable throughout the night."
+    answer: "Oh yes! This is where bamboo really shines, especially for us here in the Maldives. The tiny micro-gaps in bamboo fabric let air flow through beautifully, while wicking moisture away 3-4 times faster than cotton. Say goodbye to sweaty, uncomfortable nights and hello to refreshing sleep!"
   },
   {
-    question: "Is bamboo bedding worth the investment?",
-    answer: "Bamboo bedding is a worthwhile investment for several reasons: it's more durable than cotton (lasting 2-3 times longer with proper care), it's better for the environment, and it provides superior comfort. The initial cost is offset by its longevity and the improved quality of sleep you'll experience."
+    question: "Is bamboo bedding worth it?",
+    answer: "We think so! Here's why: bamboo lasts 2-3 times longer than regular cotton with proper care, it's amazing for the environment, and honestly, the comfort is unmatched. Once you experience that silky-smooth feeling, you'll wonder how you ever slept without it. It's an investment in better sleep - and that's priceless!"
   },
   {
     question: "Does bamboo bedding shrink?",
-    answer: "High-quality bamboo bedding like ours is pre-shrunk during manufacturing. However, to prevent any potential shrinkage, we recommend washing in cold or warm water and avoiding high heat in the dryer. Following care instructions will keep your sheets in perfect condition."
+    answer: "Don't worry! Our bamboo bedding is pre-shrunk during manufacturing, so you won't have any surprises. Just follow the simple care instructions - wash in cold or warm water and avoid high heat in the dryer - and your sheets will stay perfect wash after wash."
   },
   {
-    question: "Is bamboo bedding sustainable?",
-    answer: "Bamboo is one of the most sustainable materials on the planet. It grows incredibly fast (up to 3 feet per day!), requires no pesticides, needs minimal water, and regenerates from its own roots. Choosing bamboo bedding helps reduce your environmental footprint without compromising on luxury."
+    question: "Is bamboo bedding eco-friendly?",
+    answer: "Yes, and this is something we're really proud of! Bamboo grows incredibly fast (up to 3 feet per day - that's not a typo!), needs no pesticides, uses very little water, and regenerates from its own roots. When you choose bamboo, you're choosing luxury that's kind to our beautiful planet."
   },
   {
-    question: "What thread count should I look for in bamboo sheets?",
-    answer: "Unlike cotton, thread count isn't the best measure of quality for bamboo sheets. Bamboo fibers are naturally finer and smoother, so a 300 thread count bamboo sheet will feel softer than a 600 thread count cotton sheet. Look for 100% bamboo viscose or bamboo lyocell for the best quality."
+    question: "What about thread count in bamboo sheets?",
+    answer: "Here's a little secret - thread count matters less with bamboo! Because bamboo fibers are naturally finer and smoother, a 300 thread count bamboo sheet feels softer than a 600 thread count cotton sheet. What matters more is that it's 100% bamboo viscose - which all our bedding is!"
   }
 ];
 
@@ -135,12 +135,13 @@ export default function BambooBedding() {
             viewport={{ once: true }}
             className="max-w-3xl mx-auto text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-serif mb-6">Why Choose Bamboo?</h2>
+            <h2 className="text-3xl md:text-4xl font-serif mb-6">Why We're Obsessed with Bamboo</h2>
             <p className="text-muted-foreground text-lg leading-relaxed">
-              Bamboo bedding has revolutionized the way we sleep. Known for its incredible softness, 
-              natural breathability, and eco-friendly properties, bamboo fabric offers a luxurious 
-              sleeping experience while being kind to our planet. Once you experience the silky 
-              smoothness of bamboo sheets, you'll never want to go back.
+              Let us tell you a little secret - once you sleep on bamboo, there's no going back! 
+              It's incredibly soft (think silky-smooth against your skin), naturally keeps you cool 
+              on warm Maldivian nights, and it's amazing for the environment too. We truly believe 
+              bamboo bedding is one of the best upgrades you can make for your sleep. Ready to 
+              find out why?
             </p>
           </motion.div>
 
@@ -174,28 +175,36 @@ export default function BambooBedding() {
             className="max-w-3xl mx-auto"
           >
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-serif mb-4">The Science Behind Bamboo</h2>
-              <p className="text-muted-foreground">Understanding what makes bamboo special</p>
+              <h2 className="text-3xl md:text-4xl font-serif mb-4">The Magic Behind Bamboo</h2>
+              <p className="text-muted-foreground">Here's what makes it so special</p>
             </div>
 
             <div className="prose prose-lg max-w-none text-foreground">
               <p className="text-muted-foreground leading-relaxed mb-6">
-                Bamboo fabric is created through a process that transforms raw bamboo into soft, 
-                silky fibers. The most common method produces bamboo viscose (also called bamboo rayon), 
-                which retains many of bamboo's natural benefits while being incredibly soft to the touch.
+                Ever wondered how bamboo becomes such incredibly soft bedding? It all starts with 
+                bamboo plants being transformed into silky-smooth fibers called bamboo viscose. 
+                The result? Fabric that feels like a dream against your skin - and it only gets 
+                softer with every wash!
               </p>
 
               <p className="text-muted-foreground leading-relaxed mb-6">
-                The unique structure of bamboo fibers contains micro-gaps that provide superior 
-                ventilation and moisture absorption. This natural architecture means bamboo bedding 
-                can absorb 3-4 times more moisture than cotton, keeping you dry and comfortable all night.
+                Here's where it gets really clever - bamboo fibers have tiny micro-gaps that work 
+                like nature's own air conditioning. These little gaps let air flow through while 
+                absorbing moisture 3-4 times better than cotton. That's why you stay cool, dry, 
+                and comfortable all night long - even on the warmest nights.
               </p>
 
-              <p className="text-muted-foreground leading-relaxed">
-                Additionally, bamboo contains a natural antimicrobial agent called "bamboo kun" that 
-                helps the plant resist fungi and bacteria during growth. This property is partially 
-                retained in bamboo fabric, contributing to its hypoallergenic qualities and helping 
-                bedding stay fresher between washes.
+              <p className="text-muted-foreground leading-relaxed mb-6">
+                But wait, there's more! Bamboo naturally contains something called "bamboo kun" - 
+                a built-in antimicrobial agent that fights bacteria and keeps things fresh. This 
+                means your bedding stays cleaner between washes, and it's perfect for anyone with 
+                allergies or sensitive skin.
+              </p>
+
+              <p className="text-muted-foreground leading-relaxed font-medium">
+                It's also kind to your hair and skin! The smooth surface means less friction, 
+                so you wake up without crazy bed hair or sleep creases on your face. Your morning 
+                routine just got a whole lot easier!
               </p>
             </div>
           </motion.div>
@@ -211,8 +220,8 @@ export default function BambooBedding() {
             className="max-w-3xl mx-auto"
           >
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-serif mb-4">Frequently Asked Questions</h2>
-              <p className="text-muted-foreground">Everything you need to know about bamboo bedding</p>
+              <h2 className="text-3xl md:text-4xl font-serif mb-4">Got Questions? We've Got Answers!</h2>
+              <p className="text-muted-foreground">Everything you're curious about bamboo bedding</p>
             </div>
 
             <div className="divide-y divide-border border-t border-border">
@@ -231,10 +240,11 @@ export default function BambooBedding() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl md:text-4xl font-serif mb-6">Ready to Experience the Difference?</h2>
+            <h2 className="text-3xl md:text-4xl font-serif mb-6">Ready to Sleep Like Never Before?</h2>
             <p className="text-primary-foreground/80 max-w-xl mx-auto mb-8">
-              Transform your sleep with our premium bamboo bedding collection. 
-              Feel the softness, breathe easier, and wake up refreshed.
+              Join the bamboo bedding revolution! Experience the silky softness, 
+              stay cool all night, and wake up feeling refreshed. Trust us - 
+              your best sleep is waiting.
             </p>
             <Link href="/shop?category=Bedding">
               <Button
