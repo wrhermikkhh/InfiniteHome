@@ -1,136 +1,82 @@
 import type { Express } from "express";
-import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { supabaseAdmin } from "../../lib/supabase";
+import { randomUUID } from "crypto";
 
-/**
- * Register object storage routes for file uploads.
- *
- * This provides example routes for the presigned URL upload flow:
- * 1. POST /api/uploads/request-url - Get a presigned URL for uploading
- * 2. The client then uploads directly to the presigned URL
- *
- * IMPORTANT: These are example routes. Customize based on your use case:
- * - Add authentication middleware for protected uploads
- * - Add file metadata storage (save to database after upload)
- * - Add ACL policies for access control
- */
 export function registerObjectStorageRoutes(app: Express): void {
-  const objectStorageService = new ObjectStorageService();
-
-  /**
-   * Request a presigned URL for file upload.
-   *
-   * Request body (JSON):
-   * {
-   *   "name": "filename.jpg",
-   *   "size": 12345,
-   *   "contentType": "image/jpeg"
-   * }
-   *
-   * Response:
-   * {
-   *   "uploadURL": "https://storage.googleapis.com/...",
-   *   "objectPath": "/objects/uploads/uuid"
-   * }
-   *
-   * IMPORTANT: The client should NOT send the file to this endpoint.
-   * Send JSON metadata only, then upload the file directly to uploadURL.
-   */
-  app.post("/api/uploads/request-url", async (req, res) => {
-    try {
-      const { name, size, contentType, folder } = req.body;
-
-      if (!name) {
-        return res.status(400).json({
-          error: "Missing required field: name",
-        });
-      }
-
-      // Use folder-specific upload if provided
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL(folder);
-
-      // Extract object path from the presigned URL for later reference
-      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
-
-      res.json({
-        uploadURL,
-        objectPath,
-        // Echo back the metadata for client convenience
-        metadata: { name, size, contentType },
-      });
-    } catch (error) {
-      console.error("Error generating upload URL:", error);
-      res.status(500).json({ error: "Failed to generate upload URL" });
-    }
-  });
-
-  // Product images upload endpoint
+  // Product images upload endpoint (Public Bucket)
   app.post("/api/uploads/product-images", async (req, res) => {
     try {
-      const { name, size, contentType } = req.body;
+      const { name, contentType } = req.body;
+      if (!name) return res.status(400).json({ error: "Missing name" });
 
-      if (!name) {
-        return res.status(400).json({
-          error: "Missing required field: name",
-        });
-      }
+      const fileExt = name.split('.').pop();
+      const fileName = `${randomUUID()}.${fileExt}`;
+      const filePath = `${fileName}`;
+      const bucket = "product-images";
 
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL("product-images");
-      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+      const { data, error } = await supabaseAdmin.storage
+        .from(bucket)
+        .createSignedUploadUrl(filePath);
+
+      if (error) throw error;
+
+      const publicUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucket}/${filePath}`;
 
       res.json({
-        uploadURL,
-        objectPath,
-        metadata: { name, size, contentType },
+        uploadURL: data.signedUrl,
+        objectPath: publicUrl, // We return the public URL directly now
+        metadata: { name, contentType },
       });
     } catch (error) {
-      console.error("Error generating upload URL:", error);
+      console.error("Error generating Supabase upload URL:", error);
       res.status(500).json({ error: "Failed to generate upload URL" });
     }
   });
 
-  // Payment slips upload endpoint
+  // Payment slips upload endpoint (Private Bucket)
   app.post("/api/uploads/payment-slips", async (req, res) => {
     try {
-      const { name, size, contentType } = req.body;
+      const { name, contentType } = req.body;
+      if (!name) return res.status(400).json({ error: "Missing name" });
 
-      if (!name) {
-        return res.status(400).json({
-          error: "Missing required field: name",
-        });
-      }
+      const fileExt = name.split('.').pop();
+      const fileName = `${randomUUID()}.${fileExt}`;
+      const filePath = `${fileName}`;
+      const bucket = "payment-slips";
 
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL("payment-slips");
-      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+      const { data, error } = await supabaseAdmin.storage
+        .from(bucket)
+        .createSignedUploadUrl(filePath);
+
+      if (error) throw error;
 
       res.json({
-        uploadURL,
-        objectPath,
-        metadata: { name, size, contentType },
+        uploadURL: data.signedUrl,
+        objectPath: filePath, // For private files, we store just the path/filename
+        metadata: { name, contentType },
       });
     } catch (error) {
-      console.error("Error generating upload URL:", error);
+      console.error("Error generating Supabase upload URL:", error);
       res.status(500).json({ error: "Failed to generate upload URL" });
     }
   });
 
-  /**
-   * Serve uploaded objects.
-   *
-   * GET /objects/*
-   *
-   * This serves files from object storage. For public files, no auth needed.
-   * For protected files, add authentication middleware and ACL checks.
-   */
-  app.get("/objects/*objectPath", async (req, res) => {
+  // Proxy for private files (payment slips)
+  app.get("/objects/payment-slips/*filePath", async (req, res) => {
     try {
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
-      await objectStorageService.downloadObject(objectFile, res);
+      const filePath = req.params.filePath;
+      const { data, error } = await supabaseAdmin.storage
+        .from("payment-slips")
+        .download(filePath);
+
+      if (error) throw error;
+
+      const buffer = Buffer.from(await data.arrayBuffer());
+      res.set("Content-Type", data.type);
+      res.send(buffer);
     } catch (error) {
-      console.error("Error serving object:", error);
-      if (error instanceof ObjectNotFoundError) {
-        return res.status(404).json({ error: "Object not found" });
-      }
-      return res.status(500).json({ error: "Failed to serve object" });
+      console.error("Error downloading from Supabase:", error);
+      res.status(404).json({ error: "File not found" });
     }
   });
 }

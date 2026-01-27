@@ -31,7 +31,8 @@ export default function Checkout() {
   const { uploadFile, isUploading } = useUpload({
     endpoint: "/api/uploads/payment-slips",
     onSuccess: (response) => {
-      setPaymentSlipPath(response.objectPath);
+      // Store the internal path for the proxy
+      setPaymentSlipPath(`/objects/payment-slips/${response.objectPath}`);
     },
   });
   

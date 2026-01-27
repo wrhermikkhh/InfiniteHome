@@ -88,8 +88,8 @@ function ColorVariantRow({
     endpoint: "/api/uploads/product-images",
     onSuccess: (response) => {
       const newColorVariants = [...productForm.colorVariants];
-      // Use the objectPath to construct the public URL
-      newColorVariants[index].image = `https://objectstorage.replit.app/${response.objectPath}`;
+      // Supabase direct public URL is returned in response.objectPath
+      newColorVariants[index].image = response.objectPath;
       setProductForm({...productForm, colorVariants: newColorVariants});
     },
   });

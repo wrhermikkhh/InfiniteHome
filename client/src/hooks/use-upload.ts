@@ -64,6 +64,9 @@ export function useUpload(options: UseUploadOptions = {}) {
   const requestUploadUrl = useCallback(
     async (file: File): Promise<UploadResponse> => {
       const uploadEndpoint = options.endpoint || "/api/uploads/request-url";
+      
+      // If we are using Supabase, we might want to handle it differently
+      // but for now, we keep the same API and let the backend return the Supabase signed URL
       const response = await fetch(uploadEndpoint, {
         method: "POST",
         headers: {
