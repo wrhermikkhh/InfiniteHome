@@ -44,8 +44,12 @@ export function registerObjectStorageRoutes(app: Express): void {
         });
 
       if (error) {
-        console.error("Supabase upload error:", error);
-        return res.status(500).json({ error: "Failed to upload file" });
+        console.error("Supabase product image upload error:", JSON.stringify(error, null, 2));
+        return res.status(500).json({ 
+          error: "Failed to upload file", 
+          details: error.message || 'Unknown error',
+          statusCode: error.statusCode
+        });
       }
 
       // Get public URL
