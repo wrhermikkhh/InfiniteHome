@@ -4,7 +4,7 @@ import { formatCurrency, ProductVariant, getVariantStock, getVariantStockKey, ge
 import { useProduct } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
 import { useRoute } from "wouter";
-import { Star, Truck, ShieldCheck, RefreshCcw, Minus, Plus, Clock, Package, ChevronLeft, ChevronRight } from "lucide-react";
+import { Star, Truck, ShieldCheck, RefreshCcw, Minus, Plus, Clock, Package, ChevronDown, ChevronUp } from "lucide-react";
 import { useState, useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import { useCart } from "@/lib/cart";
@@ -21,49 +21,7 @@ export default function ProductPage() {
   const productId = params?.id || "";
   const { product, loading, error } = useProduct(productId);
 
-  const [mainImage, setMainImage] = useState("");
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
-
-  const allImages = product ? [product.image, ...(product.images || [])] : [];
-
-  useEffect(() => {
-    if (product?.image) {
-      setMainImage(product.image);
-      setCurrentImageIndex(0);
-    }
-  }, [product]);
-
-  const goToImage = (index: number) => {
-    if (allImages.length === 0) return;
-    const newIndex = (index + allImages.length) % allImages.length;
-    setCurrentImageIndex(newIndex);
-    setMainImage(allImages[newIndex]);
-  };
-
-  const nextImage = () => goToImage(currentImageIndex + 1);
-  const prevImage = () => goToImage(currentImageIndex - 1);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
-  const handleTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    const minSwipeDistance = 50;
-    if (distance > minSwipeDistance) {
-      nextImage();
-    } else if (distance < -minSwipeDistance) {
-      prevImage();
-    }
-  };
+  const allImages = product ? [product.image, ...(product.images || [])].filter(Boolean) : [];
 
   const colors: string[] = product?.colors && product.colors.length > 0 ? product.colors : ["White"];
   const variants: ProductVariant[] = product?.variants && product.variants.length > 0 
@@ -114,75 +72,40 @@ export default function ProductPage() {
       <div className="pt-32 pb-16 container mx-auto px-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
           
-          {/* Images */}
+          {/* Images - 2 column grid layout */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
-            className="space-y-4"
           >
-            <div 
-              className="aspect-[4/5] bg-secondary/20 overflow-hidden w-full relative"
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-            >
-               <motion.img 
-                 key={mainImage}
-                 initial={{ opacity: 0 }}
-                 animate={{ opacity: 1 }}
-                 transition={{ duration: 0.5 }}
-                 src={mainImage} 
-                 alt={product.name} 
-                 className="w-full h-full object-contain" 
-               />
-               
-               {/* Navigation Arrows */}
-               {allImages.length > 1 && (
-                 <>
-                   <button
-                     onClick={prevImage}
-                     className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background p-2 rounded-full shadow-lg transition-all"
-                     aria-label="Previous image"
-                     data-testid="button-prev-image"
-                   >
-                     <ChevronLeft size={24} />
-                   </button>
-                   <button
-                     onClick={nextImage}
-                     className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background p-2 rounded-full shadow-lg transition-all"
-                     aria-label="Next image"
-                     data-testid="button-next-image"
-                   >
-                     <ChevronRight size={24} />
-                   </button>
-                   
-                   {/* Image Counter */}
-                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-background/80 px-3 py-1 rounded-full text-sm">
-                     {currentImageIndex + 1} / {allImages.length}
-                   </div>
-                 </>
-               )}
+            <div className="grid grid-cols-2 gap-2 md:gap-3">
+              {allImages.map((img, idx) => (
+                <motion.div 
+                  key={idx}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 + idx * 0.05 }}
+                  className={`aspect-[4/5] bg-secondary/20 overflow-hidden relative group ${idx === 0 && allImages.length === 1 ? 'col-span-2' : ''}`}
+                  data-testid={`product-image-${idx}`}
+                >
+                  <img 
+                    src={img} 
+                    alt={`${product.name} ${idx + 1}`} 
+                    className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" 
+                  />
+                  {idx === 0 && isOnSale && salePrice && (
+                    <span className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-3 py-1">
+                      -{discountPercent}% OFF
+                    </span>
+                  )}
+                  {idx === 0 && isPreOrder && (
+                    <span className="absolute top-3 left-3 bg-amber-500 text-white text-xs font-bold px-3 py-1">
+                      PRE-ORDER
+                    </span>
+                  )}
+                </motion.div>
+              ))}
             </div>
-            
-            {/* Gallery Thumbnails */}
-            {allImages.length > 1 && (
-              <div className="grid grid-cols-4 gap-4">
-                {allImages.map((img, idx) => (
-                  <motion.div 
-                    key={idx} 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 + idx * 0.1 }}
-                    className={`aspect-square bg-secondary/20 overflow-hidden border-2 cursor-pointer transition-all ${currentImageIndex === idx ? 'border-primary' : 'border-transparent hover:border-primary/50'}`}
-                    onClick={() => goToImage(idx)}
-                    data-testid={`thumbnail-image-${idx}`}
-                  >
-                    <img src={img} alt={`${product.name} ${idx + 1}`} className="w-full h-full object-contain" />
-                  </motion.div>
-                ))}
-              </div>
-            )}
           </motion.div>
 
           {/* Details */}
@@ -299,17 +222,16 @@ export default function ProductPage() {
               {/* Color */}
               <div className="space-y-3">
                 <span className="text-sm font-bold uppercase tracking-widest">Color: <span className="text-muted-foreground font-normal normal-case">{selectedColor}</span></span>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-3">
                   {colors.map((color: string) => (
                     <button
                       key={color}
                       onClick={() => setSelectedColor(color)}
-                      className={`px-4 py-2 text-sm border flex items-center gap-2 transition-all ${selectedColor === color ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:border-primary/50'}`}
+                      className={`w-10 h-10 rounded-full transition-all ${selectedColor === color ? 'ring-2 ring-primary ring-offset-2' : 'hover:ring-2 hover:ring-primary/50 hover:ring-offset-1'}`}
+                      style={{ backgroundColor: getColorCode(color), border: color === 'White' || color === 'Ivory' ? '1px solid #e5e5e5' : 'none' }}
                       data-testid={`color-${color.toLowerCase()}`}
-                    >
-                      <div className="w-4 h-4 rounded-full border border-black/20" style={{ backgroundColor: getColorCode(color) }}></div>
-                      {color}
-                    </button>
+                      title={color}
+                    />
                   ))}
                 </div>
               </div>
@@ -496,11 +418,83 @@ export default function ProductPage() {
                </div>
             </motion.div>
 
+            {/* Product Details Accordion */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
+              className="pt-8 border-t border-border"
+            >
+              <ProductDetailsAccordion product={product} />
+            </motion.div>
+
           </motion.div>
         </div>
       </div>
 
       <Footer />
+    </div>
+  );
+}
+
+function ProductDetailsAccordion({ product }: { product: any }) {
+  const [openSections, setOpenSections] = useState<string[]>(['details']);
+
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => 
+      prev.includes(section) 
+        ? prev.filter(s => s !== section) 
+        : [...prev, section]
+    );
+  };
+
+  const sections = [
+    {
+      id: 'details',
+      title: 'Product Details',
+      content: product.description || 'Experience premium quality craftsmanship with attention to every detail. Made with the finest materials for lasting comfort and durability.'
+    },
+    {
+      id: 'materials',
+      title: 'Materials & Care',
+      content: 'Made from premium materials. Machine wash cold with like colors. Tumble dry low. Do not bleach. Iron on low heat if needed.'
+    },
+    {
+      id: 'shipping',
+      title: 'Shipping & Returns',
+      content: 'Free standard delivery throughout Maldives. Express delivery available in Male\' and Hulhumale\' for MVR 15-100. 30-day free returns and exchanges on all items.'
+    }
+  ];
+
+  return (
+    <div className="divide-y divide-border">
+      {sections.map((section) => (
+        <div key={section.id}>
+          <button
+            onClick={() => toggleSection(section.id)}
+            className="w-full py-5 flex items-center justify-between text-left hover:text-primary transition-colors"
+            data-testid={`accordion-${section.id}`}
+          >
+            <span className="font-serif text-lg">{section.title}</span>
+            {openSections.includes(section.id) ? (
+              <ChevronUp size={20} />
+            ) : (
+              <ChevronDown size={20} />
+            )}
+          </button>
+          {openSections.includes(section.id) && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="pb-5"
+            >
+              <p className="text-muted-foreground leading-relaxed text-sm">
+                {section.content}
+              </p>
+            </motion.div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
