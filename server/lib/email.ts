@@ -155,6 +155,40 @@ export async function sendOrderConfirmationEmail(order: any) {
       html: html,
     });
     
+    // Notify admin about the new order
+    await resend.emails.send({
+      from: `INFINITE HOME <${fromEmailToUse}>`,
+      to: 'sales@infinitehome.mv',
+      subject: `NEW ORDER - ${order.orderNumber}`,
+      html: `
+        <div style="font-family: sans-serif; padding: 20px;">
+          <h2 style="color: #1a1a1a;">New Order Received</h2>
+          <p><strong>Order Number:</strong> ${order.orderNumber}</p>
+          <p><strong>Customer:</strong> ${order.customerName} (${order.customerEmail})</p>
+          <p><strong>Total:</strong> MVR ${order.total.toLocaleString()}</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+          <h3 style="color: #1a1a1a;">Order Items</h3>
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="border-bottom: 2px solid #1a1a1a;">
+                <th style="padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase;">Item</th>
+                <th style="padding: 10px; text-align: center; font-size: 12px; text-transform: uppercase;">Qty</th>
+                <th style="padding: 10px; text-align: right; font-size: 12px; text-transform: uppercase;">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+          <div style="margin-top: 30px; text-align: center;">
+            <a href="${baseUrl}/admin" style="display: inline-block; padding: 12px 24px; background-color: #1a1a1a; color: #ffffff; text-decoration: none; font-weight: bold;">View in Admin Panel</a>
+          </div>
+        </div>
+      `,
+    }).catch(adminErr => {
+      console.error('Failed to send admin notification email:', adminErr);
+    });
+    
     console.log('Resend send result:', JSON.stringify(emailResult, null, 2));
     
     if (emailResult.error) {
