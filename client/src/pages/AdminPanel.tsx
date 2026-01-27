@@ -111,6 +111,7 @@ export default function AdminPanel() {
     image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80",
     images: [] as string[],
     colors: "",
+    colorImages: {} as { [color: string]: string },
     variants: [{ size: "", price: "" }],
     stock: "",
     variantStock: {} as { [key: string]: string },
@@ -297,6 +298,7 @@ export default function AdminPanel() {
       image: productForm.image,
       images: productForm.images,
       colors: productForm.colors.split(",").map(c => c.trim()).filter(Boolean),
+      colorImages: productForm.colorImages,
       variants: productForm.variants.filter(v => v.size && v.price).map(v => ({
         size: v.size.trim(),
         price: Number(v.price)
@@ -337,7 +339,8 @@ export default function AdminPanel() {
       description: "", 
       image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80", 
       images: [],
-      colors: "", 
+      colors: "",
+      colorImages: {},
       variants: [{ size: "", price: "" }],
       stock: "",
       variantStock: {},
@@ -370,6 +373,7 @@ export default function AdminPanel() {
       image: product.image,
       images: (product as any).images || [],
       colors: (product.colors || []).join(", "),
+      colorImages: (product as any).colorImages || {},
       variants: product.variants && product.variants.length > 0 
         ? product.variants.map(v => ({ size: v.size, price: v.price.toString() }))
         : [{ size: "", price: product.price.toString() }],
@@ -1164,6 +1168,43 @@ export default function AdminPanel() {
                           className="rounded-none"
                         />
                       </div>
+                      
+                      {/* Color Images */}
+                      {productForm.colors && (
+                        <div className="space-y-4 pt-4 border-t border-border">
+                          <div>
+                            <Label className="text-xs uppercase tracking-widest font-bold">Color Swatch Images</Label>
+                            <p className="text-[10px] text-muted-foreground">Upload image for each color swatch (circular preview)</p>
+                          </div>
+                          <div className="space-y-2">
+                            {productForm.colors.split(",").map(c => c.trim()).filter(Boolean).map((color) => (
+                              <div key={color} className="flex items-center gap-3 p-2 bg-secondary/5 border border-border">
+                                <div className="w-10 h-10 rounded-full overflow-hidden bg-secondary/30 flex-shrink-0">
+                                  {productForm.colorImages[color] ? (
+                                    <img src={productForm.colorImages[color]} alt={color} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-[8px] text-muted-foreground">No img</div>
+                                  )}
+                                </div>
+                                <span className="text-xs font-medium flex-shrink-0 w-20">{color}</span>
+                                <Input 
+                                  placeholder="Image URL for color swatch"
+                                  value={productForm.colorImages[color] || ""}
+                                  onChange={(e) => {
+                                    setProductForm({
+                                      ...productForm,
+                                      colorImages: { ...productForm.colorImages, [color]: e.target.value }
+                                    });
+                                  }}
+                                  className="rounded-none h-8 text-xs flex-1"
+                                  data-testid={`input-color-image-${color}`}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="space-y-4">
                         <div className="flex justify-between items-center">
                           <Label className="text-xs uppercase tracking-widest font-bold">Size Variations & Prices</Label>

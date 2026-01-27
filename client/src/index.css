@@ -4,9 +4,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: 'Montserrat', sans-serif;
-  --font-serif: 'Playfair Display', serif;
-  --font-body: 'Lato', sans-serif;
+  --font-sans: 'Cormorant Garamond', serif;
+  --font-serif: 'Cormorant Garamond', serif;
+  --font-body: 'Open Sans', sans-serif;
 
   --radius-sm: 2px;
   --radius-md: 4px;

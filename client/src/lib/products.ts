@@ -23,6 +23,7 @@ export interface Product {
   isNew?: boolean | null;
   isBestSeller?: boolean | null;
   colors?: string[] | null;
+  colorImages?: { [color: string]: string } | null;
   variants?: ProductVariant[] | null;
   stock?: number | null;
   variantStock?: { [key: string]: number } | null;

@@ -85,7 +85,7 @@ export default function ProductPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 + idx * 0.05 }}
-                  className={`aspect-[4/5] bg-secondary/20 overflow-hidden relative group ${idx === 0 && allImages.length === 1 ? 'col-span-2' : ''}`}
+                  className="aspect-[4/5] bg-secondary/20 overflow-hidden relative group"
                   data-testid={`product-image-${idx}`}
                 >
                   <img 
@@ -223,16 +223,30 @@ export default function ProductPage() {
               <div className="space-y-3">
                 <span className="text-sm font-bold uppercase tracking-widest">Color: <span className="text-muted-foreground font-normal normal-case">{selectedColor}</span></span>
                 <div className="flex flex-wrap gap-3">
-                  {colors.map((color: string) => (
-                    <button
-                      key={color}
-                      onClick={() => setSelectedColor(color)}
-                      className={`w-10 h-10 rounded-full transition-all ${selectedColor === color ? 'ring-2 ring-primary ring-offset-2' : 'hover:ring-2 hover:ring-primary/50 hover:ring-offset-1'}`}
-                      style={{ backgroundColor: getColorCode(color), border: color === 'White' || color === 'Ivory' ? '1px solid #e5e5e5' : 'none' }}
-                      data-testid={`color-${color.toLowerCase()}`}
-                      title={color}
-                    />
-                  ))}
+                  {colors.map((color: string) => {
+                    const colorImage = product.colorImages?.[color];
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => setSelectedColor(color)}
+                        className={`w-12 h-12 rounded-full transition-all overflow-hidden ${selectedColor === color ? 'ring-2 ring-primary ring-offset-2' : 'hover:ring-2 hover:ring-primary/50 hover:ring-offset-1'}`}
+                        style={{ 
+                          backgroundColor: colorImage ? 'transparent' : getColorCode(color), 
+                          border: (!colorImage && (color === 'White' || color === 'Ivory')) ? '1px solid #e5e5e5' : 'none' 
+                        }}
+                        data-testid={`color-${color.toLowerCase()}`}
+                        title={color}
+                      >
+                        {colorImage && (
+                          <img 
+                            src={colorImage} 
+                            alt={color} 
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
