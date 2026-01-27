@@ -562,7 +562,7 @@ function ProductDetailsAccordion({ product }: { product: any }) {
     {
       id: 'shipping',
       title: 'Shipping & Returns',
-      content: 'Free standard delivery throughout Maldives. Express delivery available in Male\' and Hulhumale\' for MVR 15-100. 30-day free returns and exchanges on all items.'
+      content: 'Free standard delivery throughout Maldives. Express delivery available in Male\' and Hulhumale\' for MVR 15-100. 7-day free returns and exchanges on all items.'
     }
   ];
 

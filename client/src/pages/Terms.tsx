@@ -54,7 +54,7 @@ export default function Terms() {
             <h2 className="text-2xl font-serif mb-4">5. Returns and Refunds</h2>
             <p className="text-muted-foreground leading-relaxed">
               Please refer to our Returns & Exchanges policy for detailed information about our return process. 
-              Generally, unused items in original packaging may be returned within 30 days of delivery.
+              Generally, unused items in original packaging may be returned within 7 days of delivery.
             </p>
           </section>
 
