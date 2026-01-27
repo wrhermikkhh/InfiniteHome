@@ -22,6 +22,8 @@ export default function Checkout() {
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState("");
+  const [couponMessage, setCouponMessage] = useState("");
+  const [eligibleDiscount, setEligibleDiscount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentSlipPath, setPaymentSlipPath] = useState("");
   const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]);
@@ -115,9 +117,7 @@ export default function Checkout() {
   });
   const hasOutOfStockItems = hasStockIssues;
 
-  const discount = appliedCoupon 
-    ? (appliedCoupon.type === "percentage" ? (subtotal * appliedCoupon.discount) / 100 : appliedCoupon.discount) 
-    : 0;
+  const discount = eligibleDiscount;
   
   const expressEligibleCities = ["male", "male'", "hulhumale", "hulhumale'", "hulhulmale"];
   const isExpressEligible = expressEligibleCities.some(city => 
@@ -133,17 +133,31 @@ export default function Checkout() {
 
   const handleApplyCoupon = async () => {
     try {
-      const result = await api.validateCoupon(couponCode);
+      const cartItems = items.map(item => ({
+        productId: item.id,
+        category: item.category,
+        price: item.price,
+        qty: item.quantity || 1,
+        isPreOrder: (item as any).isPreOrder || false
+      }));
+      
+      const result = await api.validateCouponWithItems(couponCode, cartItems);
       if (result.valid && result.coupon) {
         setAppliedCoupon(result.coupon);
+        setEligibleDiscount(result.discountAmount || 0);
         setCouponError("");
+        setCouponMessage(result.message || "");
       } else {
-        setCouponError("Invalid coupon code");
+        setCouponError(result.message || "Invalid coupon code");
         setAppliedCoupon(null);
+        setEligibleDiscount(0);
+        setCouponMessage("");
       }
     } catch (error) {
       setCouponError("Failed to validate coupon");
       setAppliedCoupon(null);
+      setEligibleDiscount(0);
+      setCouponMessage("");
     }
   };
 
@@ -501,9 +515,14 @@ export default function Checkout() {
                 </div>
                 {couponError && <p className="text-[10px] text-destructive">{couponError}</p>}
                 {appliedCoupon && (
-                  <p className="text-[10px] text-green-700 font-bold uppercase tracking-widest">
-                    Code {appliedCoupon.code} applied! ({appliedCoupon.type === "percentage" ? `${appliedCoupon.discount}%` : `MVR ${appliedCoupon.discount}`} off)
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-green-700 font-bold uppercase tracking-widest">
+                      Code {appliedCoupon.code} applied! (MVR {eligibleDiscount.toFixed(2)} off)
+                    </p>
+                    {couponMessage && (
+                      <p className="text-[10px] text-amber-600">{couponMessage}</p>
+                    )}
+                  </div>
                 )}
               </div>
 

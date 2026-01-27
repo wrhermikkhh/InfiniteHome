@@ -8,6 +8,19 @@ export interface Coupon {
   discount: number;
   type: "percentage" | "flat";
   status: string;
+  scope?: string;
+  allowedCategories?: string[];
+  allowedProducts?: string[];
+  allowPreOrder?: boolean;
+}
+
+export interface CouponValidationResult {
+  valid: boolean;
+  coupon?: Coupon;
+  eligibleItems?: number[];
+  eligibleSubtotal?: number;
+  discountAmount?: number;
+  message?: string;
 }
 
 export interface OrderItem {
@@ -145,7 +158,16 @@ export const api = {
     return res.json();
   },
 
-  async createCoupon(coupon: { code: string; discount: number; type: string; status: string }): Promise<Coupon> {
+  async validateCouponWithItems(code: string, items: { productId?: string; category?: string; price: number; qty: number; isPreOrder?: boolean }[]): Promise<CouponValidationResult> {
+    const res = await fetch(`${API_BASE}/coupons/validate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, items }),
+    });
+    return res.json();
+  },
+
+  async createCoupon(coupon: { code: string; discount: number; type: string; status: string; scope?: string; allowedCategories?: string[]; allowedProducts?: string[]; allowPreOrder?: boolean }): Promise<Coupon> {
     const res = await fetch(`${API_BASE}/coupons`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

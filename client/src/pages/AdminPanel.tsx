@@ -277,6 +277,10 @@ export default function AdminPanel() {
   const [newCouponCode, setNewCouponCode] = useState("");
   const [newCouponDiscount, setNewCouponDiscount] = useState("");
   const [newCouponType, setNewCouponType] = useState("percentage");
+  const [newCouponScope, setNewCouponScope] = useState("store");
+  const [newCouponCategories, setNewCouponCategories] = useState<string[]>([]);
+  const [newCouponProducts, setNewCouponProducts] = useState<string[]>([]);
+  const [newCouponAllowPreOrder, setNewCouponAllowPreOrder] = useState(false);
   
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
@@ -614,16 +618,32 @@ export default function AdminPanel() {
 
   const handleAddCoupon = async () => {
     if (!newCouponCode || !newCouponDiscount) return;
+    if (newCouponScope === "category" && newCouponCategories.length === 0) {
+      toast({ title: "Error", description: "Please select at least one category", variant: "destructive" });
+      return;
+    }
+    if (newCouponScope === "product" && newCouponProducts.length === 0) {
+      toast({ title: "Error", description: "Please select at least one product", variant: "destructive" });
+      return;
+    }
     try {
       await api.createCoupon({
         code: newCouponCode.toUpperCase(),
         discount: Number(newCouponDiscount),
         type: newCouponType,
-        status: "active"
+        status: "active",
+        scope: newCouponScope,
+        allowedCategories: newCouponScope === "category" ? newCouponCategories : [],
+        allowedProducts: newCouponScope === "product" ? newCouponProducts : [],
+        allowPreOrder: newCouponAllowPreOrder
       });
       await loadData();
       setNewCouponCode("");
       setNewCouponDiscount("");
+      setNewCouponScope("store");
+      setNewCouponCategories([]);
+      setNewCouponProducts([]);
+      setNewCouponAllowPreOrder(false);
       toast({ title: "Coupon created", description: `Code ${newCouponCode.toUpperCase()} added` });
     } catch (error) {
       console.error("Failed to add coupon:", error);
@@ -1875,28 +1895,106 @@ export default function AdminPanel() {
               <Card className="rounded-none border-border shadow-none mb-8">
                 <CardContent className="p-6">
                   <h3 className="font-bold mb-4 uppercase tracking-widest text-xs">Add New Coupon</h3>
-                  <div className="flex flex-wrap gap-4">
-                    <Input 
-                      placeholder="Code" 
-                      value={newCouponCode}
-                      onChange={(e) => setNewCouponCode(e.target.value)}
-                      className="rounded-none w-32"
-                    />
-                    <Input 
-                      type="number"
-                      placeholder="Discount" 
-                      value={newCouponDiscount}
-                      onChange={(e) => setNewCouponDiscount(e.target.value)}
-                      className="rounded-none w-24"
-                    />
-                    <select 
-                      value={newCouponType}
-                      onChange={(e) => setNewCouponType(e.target.value)}
-                      className="border px-3 py-2 text-sm rounded-none"
-                    >
-                      <option value="percentage">Percentage (%)</option>
-                      <option value="flat">Flat (MVR)</option>
-                    </select>
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap gap-4">
+                      <Input 
+                        placeholder="Code" 
+                        value={newCouponCode}
+                        onChange={(e) => setNewCouponCode(e.target.value)}
+                        className="rounded-none w-32"
+                      />
+                      <Input 
+                        type="number"
+                        placeholder="Discount" 
+                        value={newCouponDiscount}
+                        onChange={(e) => setNewCouponDiscount(e.target.value)}
+                        className="rounded-none w-24"
+                      />
+                      <select 
+                        value={newCouponType}
+                        onChange={(e) => setNewCouponType(e.target.value)}
+                        className="border px-3 py-2 text-sm rounded-none"
+                      >
+                        <option value="percentage">Percentage (%)</option>
+                        <option value="flat">Flat (MVR)</option>
+                      </select>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-4 items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold uppercase tracking-widest">Scope:</span>
+                        <select 
+                          value={newCouponScope}
+                          onChange={(e) => setNewCouponScope(e.target.value)}
+                          className="border px-3 py-2 text-sm rounded-none"
+                        >
+                          <option value="store">Store-wide</option>
+                          <option value="category">Specific Categories</option>
+                          <option value="product">Specific Products</option>
+                        </select>
+                      </div>
+                      
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newCouponAllowPreOrder}
+                          onChange={(e) => setNewCouponAllowPreOrder(e.target.checked)}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm">Allow for Pre-orders</span>
+                      </label>
+                    </div>
+                    
+                    {newCouponScope === "category" && (
+                      <div className="border p-3 bg-secondary/30">
+                        <p className="text-xs font-bold uppercase tracking-widest mb-2">Select Categories:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {categories.map((cat) => (
+                            <label key={cat.id} className="flex items-center gap-2 cursor-pointer px-3 py-1.5 border bg-white">
+                              <input
+                                type="checkbox"
+                                checked={newCouponCategories.includes(cat.name)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setNewCouponCategories([...newCouponCategories, cat.name]);
+                                  } else {
+                                    setNewCouponCategories(newCouponCategories.filter(c => c !== cat.name));
+                                  }
+                                }}
+                                className="w-4 h-4"
+                              />
+                              <span className="text-sm">{cat.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {newCouponScope === "product" && (
+                      <div className="border p-3 bg-secondary/30">
+                        <p className="text-xs font-bold uppercase tracking-widest mb-2">Select Products:</p>
+                        <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+                          {products.map((prod) => (
+                            <label key={prod.id} className="flex items-center gap-2 cursor-pointer px-3 py-1.5 border bg-white">
+                              <input
+                                type="checkbox"
+                                checked={newCouponProducts.includes(prod.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setNewCouponProducts([...newCouponProducts, prod.id]);
+                                  } else {
+                                    setNewCouponProducts(newCouponProducts.filter(p => p !== prod.id));
+                                  }
+                                }}
+                                className="w-4 h-4"
+                              />
+                              <span className="text-sm">{prod.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
                     <Button onClick={handleAddCoupon} className="rounded-none">
                       <Plus size={14} className="mr-2" /> Add Coupon
                     </Button>
@@ -1908,27 +2006,50 @@ export default function AdminPanel() {
                 <CardContent className="p-0">
                   <div className="divide-y divide-border">
                     {coupons.map((coupon) => (
-                      <div key={coupon.id} className="p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <span className="font-mono font-bold text-lg">{coupon.code}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {coupon.type === "percentage" ? `${coupon.discount}% off` : `MVR ${coupon.discount} off`}
-                          </span>
-                          <span className={cn(
-                            "text-[10px] uppercase font-bold px-2 py-0.5",
-                            coupon.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                          )}>
-                            {coupon.status}
-                          </span>
+                      <div key={coupon.id} className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4 flex-wrap">
+                            <span className="font-mono font-bold text-lg">{coupon.code}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {coupon.type === "percentage" ? `${coupon.discount}% off` : `MVR ${coupon.discount} off`}
+                            </span>
+                            <span className={cn(
+                              "text-[10px] uppercase font-bold px-2 py-0.5",
+                              coupon.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+                            )}>
+                              {coupon.status}
+                            </span>
+                            <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-blue-100 text-blue-700">
+                              {coupon.scope === "store" ? "Store-wide" : 
+                               coupon.scope === "category" ? "Category" : "Product"}
+                            </span>
+                            {coupon.allowPreOrder && (
+                              <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-purple-100 text-purple-700">
+                                Pre-order OK
+                              </span>
+                            )}
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => handleDeleteCoupon(coupon.id)}
+                          >
+                            <Trash2 size={14} />
+                          </Button>
                         </div>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => handleDeleteCoupon(coupon.id)}
-                        >
-                          <Trash2 size={14} />
-                        </Button>
+                        {coupon.scope === "category" && coupon.allowedCategories && coupon.allowedCategories.length > 0 && (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            Categories: {coupon.allowedCategories.join(", ")}
+                          </div>
+                        )}
+                        {coupon.scope === "product" && coupon.allowedProducts && coupon.allowedProducts.length > 0 && (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            Products: {coupon.allowedProducts.map(pId => 
+                              products.find(p => p.id === pId)?.name || pId
+                            ).join(", ")}
+                          </div>
+                        )}
                       </div>
                     ))}
                     {coupons.length === 0 && (

@@ -258,6 +258,71 @@ export async function registerRoutes(
     }
   });
 
+  // Validate coupon with cart items - returns which items are eligible
+  app.post("/api/coupons/validate", async (req, res) => {
+    try {
+      const { code, items } = req.body;
+      const coupon = await storage.getCouponByCode(code);
+      
+      if (!coupon || coupon.status !== "active") {
+        return res.json({ valid: false, message: "Invalid or expired coupon" });
+      }
+
+      const eligibleItems: number[] = [];
+      let eligibleSubtotal = 0;
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const isPreOrder = item.isPreOrder || false;
+        
+        if (isPreOrder && !coupon.allowPreOrder) {
+          continue;
+        }
+
+        if (coupon.scope === "store") {
+          eligibleItems.push(i);
+          eligibleSubtotal += item.price * item.qty;
+        } else if (coupon.scope === "category") {
+          const allowedCategories = coupon.allowedCategories || [];
+          if (item.category && allowedCategories.includes(item.category)) {
+            eligibleItems.push(i);
+            eligibleSubtotal += item.price * item.qty;
+          }
+        } else if (coupon.scope === "product") {
+          const allowedProducts = coupon.allowedProducts || [];
+          if (item.productId && allowedProducts.includes(item.productId)) {
+            eligibleItems.push(i);
+            eligibleSubtotal += item.price * item.qty;
+          }
+        }
+      }
+
+      if (eligibleItems.length === 0) {
+        return res.json({ valid: false, message: "Coupon does not apply to items in your cart" });
+      }
+
+      let discountAmount = 0;
+      if (coupon.type === "percentage") {
+        discountAmount = (eligibleSubtotal * coupon.discount) / 100;
+      } else {
+        discountAmount = Math.min(coupon.discount, eligibleSubtotal);
+      }
+
+      res.json({
+        valid: true,
+        coupon,
+        eligibleItems,
+        eligibleSubtotal,
+        discountAmount,
+        message: eligibleItems.length < items.length 
+          ? `Coupon applied to ${eligibleItems.length} of ${items.length} items`
+          : undefined
+      });
+    } catch (error: any) {
+      res.status(400).json({ valid: false, message: error.message });
+    }
+  });
+
   app.post("/api/coupons", async (req, res) => {
     try {
       const data = insertCouponSchema.parse(req.body);
