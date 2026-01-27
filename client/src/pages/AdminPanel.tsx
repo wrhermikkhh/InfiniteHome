@@ -72,27 +72,26 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-// Payment Slip Viewer - fetches signed URL for private payment slips
+// Payment Slip Viewer - displays payment slip image
 function PaymentSlipViewer({ paymentSlip }: { paymentSlip: string }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    // Check if it's already a full URL (legacy uploads or public bucket)
+    // If it's already a full URL, use it directly
     if (paymentSlip.startsWith('http')) {
       setImageUrl(paymentSlip);
       setLoading(false);
       return;
     }
 
-    // Clean up the path - remove legacy prefix if present
+    // For legacy paths, fetch the URL from API
     let cleanPath = paymentSlip;
     if (cleanPath.startsWith('/objects/payment-slips/')) {
       cleanPath = cleanPath.replace('/objects/payment-slips/', '');
     }
 
-    // Fetch signed URL for private bucket paths
     api.getPaymentSlipUrl(cleanPath)
       .then((res) => {
         setImageUrl(res.url);

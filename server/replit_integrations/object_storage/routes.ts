@@ -106,7 +106,7 @@ export function registerObjectStorageRoutes(app: Express): void {
     }
   });
 
-  // Payment slips upload endpoint
+  // Payment slips upload endpoint (separate bucket from product images)
   app.post("/api/uploads/payment-slips", upload.single('file'), async (req, res) => {
     try {
       const file = req.file;
@@ -131,10 +131,14 @@ export function registerObjectStorageRoutes(app: Express): void {
         return res.status(500).json({ error: "Failed to upload file" });
       }
 
-      // For private bucket, return the path (admin will get signed URL when viewing)
+      // Get public URL (bucket should be set to public in Supabase)
+      const { data: urlData } = supabaseAdmin.storage
+        .from(PAYMENT_SLIPS_BUCKET)
+        .getPublicUrl(filePath);
+
       res.json({
-        objectPath: filePath,
-        uploadURL: filePath,
+        objectPath: urlData.publicUrl,
+        uploadURL: urlData.publicUrl,
         metadata: { 
           name: file.originalname, 
           size: file.size, 
@@ -147,7 +151,7 @@ export function registerObjectStorageRoutes(app: Express): void {
     }
   });
 
-  // Get signed URL for viewing payment slips (admin use)
+  // Get public URL for viewing payment slips
   app.post("/api/payment-slips/get-url", async (req: Request, res: Response) => {
     try {
       const { path } = req.body;
@@ -156,15 +160,12 @@ export function registerObjectStorageRoutes(app: Express): void {
         return res.status(400).json({ error: "Path is required" });
       }
       
-      const { data, error } = await supabaseAdmin.storage
+      // Return public URL directly
+      const { data: urlData } = supabaseAdmin.storage
         .from(PAYMENT_SLIPS_BUCKET)
-        .createSignedUrl(path, 60 * 60); // 1 hour
+        .getPublicUrl(path);
 
-      if (error) {
-        return res.status(404).json({ error: "Payment slip not found" });
-      }
-
-      res.json({ url: data.signedUrl });
+      res.json({ url: urlData.publicUrl });
     } catch (error) {
       console.error("Error getting payment slip URL:", error);
       res.status(500).json({ error: "Failed to get payment slip" });

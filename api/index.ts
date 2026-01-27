@@ -1346,7 +1346,7 @@ app.post("/api/uploads/product-images", async (req, res) => {
   }
 });
 
-// Direct file upload endpoint for payment slips
+// Direct file upload endpoint for payment slips (public bucket, separate from product images)
 app.post("/api/uploads/payment-slips", async (req, res) => {
   try {
     const client = await getSupabaseClient();
@@ -1370,11 +1370,14 @@ app.post("/api/uploads/payment-slips", async (req, res) => {
       return res.status(500).json({ error: "Failed to generate upload URL", details: error.message });
     }
 
+    // Return public URL directly (bucket should be set to public in Supabase)
+    const publicUrl = `${supabaseUrl}/storage/v1/object/public/payment-slips/${filePath}`;
+
     res.json({
       uploadURL: data.signedUrl,
       token: data.token,
       path: filePath,
-      objectPath: filePath,
+      objectPath: publicUrl,
       method: "signed_url"
     });
   } catch (error: any) {
@@ -1383,30 +1386,18 @@ app.post("/api/uploads/payment-slips", async (req, res) => {
   }
 });
 
-// Get signed URL for viewing payment slips (admin only)
+// Get URL for viewing payment slips (returns public URL)
 app.post("/api/payment-slips/get-url", async (req, res) => {
   try {
-    const client = await getSupabaseClient();
-    
-    if (!client) {
-      return res.status(500).json({ error: "Storage not configured" });
-    }
-
     const { path } = req.body;
     
     if (!path) {
       return res.status(400).json({ error: "Path is required" });
     }
 
-    const { data, error } = await client.storage
-      .from('payment-slips')
-      .createSignedUrl(path, 60 * 60); // 1 hour
-
-    if (error) {
-      return res.status(404).json({ error: "Payment slip not found" });
-    }
-
-    res.json({ url: data.signedUrl });
+    // Return public URL directly
+    const publicUrl = `${supabaseUrl}/storage/v1/object/public/payment-slips/${path}`;
+    res.json({ url: publicUrl });
   } catch (error: any) {
     console.error("Error getting payment slip URL:", error);
     res.status(500).json({ error: "Failed to get payment slip" });
