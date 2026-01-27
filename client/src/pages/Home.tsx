@@ -51,11 +51,16 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            className="pt-4"
+            className="pt-4 flex flex-col sm:flex-row gap-4"
           >
             <Link href="/shop">
-              <Button size="lg" className="bg-white text-black hover:bg-white/90 rounded-none h-14 px-10 text-xs uppercase tracking-widest font-bold">
-                Shop Bedding
+              <Button size="lg" className="bg-white text-black hover:bg-white/90 rounded-none h-14 px-10 text-xs uppercase tracking-widest font-bold" data-testid="button-shop-now">
+                Shop Now
+              </Button>
+            </Link>
+            <Link href="/bamboo-bedding">
+              <Button size="lg" variant="outline" className="bg-transparent text-white border-white hover:bg-white/10 rounded-none h-14 px-10 text-xs uppercase tracking-widest font-bold" data-testid="button-explore">
+                Explore
               </Button>
             </Link>
           </motion.div>

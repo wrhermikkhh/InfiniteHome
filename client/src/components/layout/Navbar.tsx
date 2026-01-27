@@ -259,14 +259,16 @@ export function Navbar() {
                   <div className="space-y-4">
                     {items.map((item) => (
                       <div key={item.id + (item.selectedColor || '') + (item.selectedSize || '') + ((item as any).isPreOrder ? '-preorder' : '')} className="flex gap-4 pb-4 border-b border-border">
-                        <div className="w-24 h-24 bg-secondary/30 flex-shrink-0 relative">
+                        <Link href={`/product/${item.id}`} className="w-24 h-24 bg-secondary/30 flex-shrink-0 relative cursor-pointer hover:opacity-80 transition-opacity">
                           <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                           {(item as any).isPreOrder && (
                             <span className="absolute top-1 left-1 text-[8px] px-1.5 py-0.5 bg-amber-500 text-white uppercase tracking-wider font-bold">Pre-Order</span>
                           )}
-                        </div>
+                        </Link>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-sm truncate">{item.name}</h4>
+                          <Link href={`/product/${item.id}`} className="hover:text-primary transition-colors">
+                            <h4 className="font-medium text-sm truncate cursor-pointer">{item.name}</h4>
+                          </Link>
                           <p className="text-xs text-muted-foreground mt-1">
                             {item.selectedColor && <span>{item.selectedColor}</span>}
                             {item.selectedColor && item.selectedSize && <span> / </span>}

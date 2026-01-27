@@ -22,6 +22,7 @@ import Signup from "@/pages/Signup";
 import Account from "@/pages/Account";
 import SizeGuide from "@/pages/SizeGuide";
 import CustomMattress from "@/pages/CustomMattress";
+import BambooBedding from "@/pages/BambooBedding";
 
 function PageTitle() {
   const [location] = useLocation();
@@ -79,6 +80,7 @@ function Router() {
         <Route path="/account" component={Account} />
         <Route path="/size-guide" component={SizeGuide} />
         <Route path="/custom-mattress" component={CustomMattress} />
+        <Route path="/bamboo-bedding" component={BambooBedding} />
         <Route component={NotFound} />
       </Switch>
     </>
