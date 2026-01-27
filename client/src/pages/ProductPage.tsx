@@ -22,6 +22,9 @@ export default function ProductPage() {
   const { product, loading, error } = useProduct(productId);
 
   const allImages = product ? [product.image, ...(product.images || [])].filter(Boolean) : [];
+  const colorImages = (product as any)?.colorImages || {};
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [colorSwatchActive, setColorSwatchActive] = useState(false);
 
   const colors: string[] = product?.colors && product.colors.length > 0 ? product.colors : ["White"];
   const variants: ProductVariant[] = product?.variants && product.variants.length > 0 
@@ -72,40 +75,62 @@ export default function ProductPage() {
       <div className="pt-32 pb-16 container mx-auto px-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
           
-          {/* Images - 2 column grid layout */}
+          {/* Images - Main image with thumbnails below (Cozy Earth style) */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
+            className="space-y-4"
           >
-            <div className="grid grid-cols-2 gap-2 md:gap-3">
-              {allImages.map((img, idx) => (
-                <motion.div 
-                  key={idx}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 + idx * 0.05 }}
-                  className="aspect-[4/5] bg-secondary/20 overflow-hidden relative group"
-                  data-testid={`product-image-${idx}`}
-                >
-                  <img 
-                    src={img} 
-                    alt={`${product.name} ${idx + 1}`} 
-                    className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" 
-                  />
-                  {idx === 0 && isOnSale && salePrice && (
-                    <span className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-3 py-1">
-                      -{discountPercent}% OFF
-                    </span>
-                  )}
-                  {idx === 0 && isPreOrder && (
-                    <span className="absolute top-3 left-3 bg-amber-500 text-white text-xs font-bold px-3 py-1">
-                      PRE-ORDER
-                    </span>
-                  )}
-                </motion.div>
-              ))}
+            {/* Main Image */}
+            <div className="aspect-[4/5] bg-secondary/10 overflow-hidden relative group">
+              <img 
+                src={colorSwatchActive && colorImages[selectedColor] ? colorImages[selectedColor] : allImages[activeImageIndex] || product.image} 
+                alt={product.name} 
+                className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" 
+                data-testid="product-main-image"
+              />
+              {isOnSale && salePrice && (
+                <span className="absolute top-4 left-4 bg-red-500 text-white text-xs font-bold px-3 py-1.5 uppercase tracking-widest">
+                  -{discountPercent}% OFF
+                </span>
+              )}
+              {isPreOrder && (
+                <span className="absolute top-4 left-4 bg-amber-500 text-white text-xs font-bold px-3 py-1.5 uppercase tracking-widest">
+                  PRE-ORDER
+                </span>
+              )}
             </div>
+            
+            {/* Thumbnail Grid - Gallery images only (not color swatches) */}
+            {allImages.length > 1 && (
+              <div className="grid grid-cols-6 gap-2">
+                {allImages.map((img, idx) => (
+                  <motion.button 
+                    key={idx}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 + idx * 0.03 }}
+                    onClick={() => {
+                      setActiveImageIndex(idx);
+                      setColorSwatchActive(false);
+                    }}
+                    className={`aspect-square bg-secondary/10 overflow-hidden border-2 transition-all ${
+                      !colorSwatchActive && activeImageIndex === idx 
+                        ? 'border-foreground' 
+                        : 'border-transparent hover:border-muted-foreground/50'
+                    }`}
+                    data-testid={`product-thumbnail-${idx}`}
+                  >
+                    <img 
+                      src={img} 
+                      alt={`${product.name} ${idx + 1}`} 
+                      className="w-full h-full object-cover" 
+                    />
+                  </motion.button>
+                ))}
+              </div>
+            )}
           </motion.div>
 
           {/* Details */}
@@ -228,7 +253,17 @@ export default function ProductPage() {
                     return (
                       <button
                         key={color}
-                        onClick={() => setSelectedColor(color)}
+                        onClick={() => {
+                          setSelectedColor(color);
+                          // If this color has an image, show it in main view
+                          if (colorImages[color]) {
+                            setColorSwatchActive(true);
+                          } else {
+                            // Reset to gallery view if no color image
+                            setColorSwatchActive(false);
+                            setActiveImageIndex(0);
+                          }
+                        }}
                         className={`w-12 h-12 rounded-full transition-all overflow-hidden ${selectedColor === color ? 'ring-2 ring-primary ring-offset-2' : 'hover:ring-2 hover:ring-primary/50 hover:ring-offset-1'}`}
                         style={{ 
                           backgroundColor: colorImage ? 'transparent' : getColorCode(color), 

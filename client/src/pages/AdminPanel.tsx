@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useAdminAuth } from "@/lib/auth";
+import { useUpload } from "@/hooks/use-upload";
 import { useLocation } from "wouter";
 import { api, Coupon, Order, Admin, Category } from "@/lib/api";
 import { 
@@ -50,7 +51,6 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from "lucide-react";
-import { useUpload } from "@/hooks/use-upload";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -70,6 +70,102 @@ import {
   DialogTrigger 
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+
+// Color Variant Row with file upload support
+function ColorVariantRow({ 
+  colorVar, 
+  index, 
+  productForm, 
+  setProductForm 
+}: { 
+  colorVar: { name: string; image: string }; 
+  index: number; 
+  productForm: any; 
+  setProductForm: (form: any) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (response) => {
+      const newColorVariants = [...productForm.colorVariants];
+      // Use the objectPath to construct the public URL
+      newColorVariants[index].image = `https://objectstorage.replit.app/${response.objectPath}`;
+      setProductForm({...productForm, colorVariants: newColorVariants});
+    },
+  });
+  
+  const handleUrlChange = (url: string) => {
+    const newColorVariants = [...productForm.colorVariants];
+    newColorVariants[index].image = url;
+    setProductForm({...productForm, colorVariants: newColorVariants});
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await uploadFile(file);
+    }
+  };
+
+  return (
+    <div className="p-3 bg-secondary/5 border border-border space-y-2">
+      <div className="flex gap-2 items-center">
+        <div className="w-10 h-10 rounded-full overflow-hidden bg-secondary/30 flex-shrink-0">
+          {colorVar.image ? (
+            <img src={colorVar.image} alt={colorVar.name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-[8px] text-muted-foreground">Preview</div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <Input 
+            placeholder="Color name (e.g. White)" 
+            value={colorVar.name}
+            onChange={(e) => {
+              const newColorVariants = [...productForm.colorVariants];
+              newColorVariants[index].name = e.target.value;
+              setProductForm({...productForm, colorVariants: newColorVariants});
+            }}
+            className="rounded-none h-8 text-xs"
+          />
+        </div>
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          accept="image/*"
+          onChange={handleFileChange}
+        />
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="h-8 text-[10px] rounded-none flex-shrink-0"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+        >
+          {isUploading ? "..." : <><Upload size={12} className="mr-1" /> Upload</>}
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-8 w-8 text-destructive flex-shrink-0"
+          onClick={() => {
+            const newColorVariants = productForm.colorVariants.filter((_: any, i: number) => i !== index);
+            setProductForm({...productForm, colorVariants: newColorVariants.length > 0 ? newColorVariants : [{ name: "", image: "" }]});
+          }}
+        >
+          <Trash2 size={14} />
+        </Button>
+      </div>
+      {/* Optional URL input for manual entry */}
+      <Input 
+        placeholder="Or paste image URL here" 
+        value={colorVar.image}
+        onChange={(e) => handleUrlChange(e.target.value)}
+        className="rounded-none h-7 text-[10px]"
+      />
+    </div>
+  );
+}
 
 export default function AdminPanel() {
   const { admin: user, adminLogin: login, adminLogout: logout, isAdminAuthenticated } = useAdminAuth();
@@ -1169,7 +1265,7 @@ export default function AdminPanel() {
                         <div className="flex justify-between items-center">
                           <div>
                             <Label className="text-xs uppercase tracking-widest font-bold">Color Variants</Label>
-                            <p className="text-[10px] text-muted-foreground">Add colors with optional swatch images</p>
+                            <p className="text-[10px] text-muted-foreground">Add colors with swatch images (upload or URL)</p>
                           </div>
                           <Button 
                             variant="outline" 
@@ -1184,50 +1280,13 @@ export default function AdminPanel() {
                           </Button>
                         </div>
                         {productForm.colorVariants.map((colorVar, index) => (
-                          <div key={index} className="flex gap-2 items-center p-2 bg-secondary/5 border border-border">
-                            <div className="w-10 h-10 rounded-full overflow-hidden bg-secondary/30 flex-shrink-0">
-                              {colorVar.image ? (
-                                <img src={colorVar.image} alt={colorVar.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-[8px] text-muted-foreground">Preview</div>
-                              )}
-                            </div>
-                            <div className="flex-1">
-                              <Input 
-                                placeholder="Color name (e.g. White)" 
-                                value={colorVar.name}
-                                onChange={(e) => {
-                                  const newColorVariants = [...productForm.colorVariants];
-                                  newColorVariants[index].name = e.target.value;
-                                  setProductForm({...productForm, colorVariants: newColorVariants});
-                                }}
-                                className="rounded-none h-8 text-xs"
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <Input 
-                                placeholder="Swatch image URL (optional)" 
-                                value={colorVar.image}
-                                onChange={(e) => {
-                                  const newColorVariants = [...productForm.colorVariants];
-                                  newColorVariants[index].image = e.target.value;
-                                  setProductForm({...productForm, colorVariants: newColorVariants});
-                                }}
-                                className="rounded-none h-8 text-xs"
-                              />
-                            </div>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 text-destructive flex-shrink-0"
-                              onClick={() => {
-                                const newColorVariants = productForm.colorVariants.filter((_, i) => i !== index);
-                                setProductForm({...productForm, colorVariants: newColorVariants.length > 0 ? newColorVariants : [{ name: "", image: "" }]});
-                              }}
-                            >
-                              <Trash2 size={14} />
-                            </Button>
-                          </div>
+                          <ColorVariantRow 
+                            key={index} 
+                            colorVar={colorVar} 
+                            index={index}
+                            productForm={productForm}
+                            setProductForm={setProductForm}
+                          />
                         ))}
                       </div>
                       
