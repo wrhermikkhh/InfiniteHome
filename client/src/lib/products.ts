@@ -34,6 +34,13 @@ export interface Product {
   preOrderPrice?: number | null;
   preOrderInitialPayment?: number | null;
   preOrderEta?: string | null;
+  showOnStorefront?: boolean | null;
+  lowStockThreshold?: number | null;
+  sku?: string | null;
+  barcode?: string | null;
+  costPrice?: number | null;
+  productDetails?: string | null;
+  materialsAndCare?: string | null;
 }
 
 export function getDiscountPercentage(product: Product): number | null {

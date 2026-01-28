@@ -38,6 +38,7 @@ import {
   Edit, 
   Trash2,
   Eye,
+  EyeOff,
   ChevronDown,
   Upload,
   CheckCircle,
@@ -50,7 +51,10 @@ import {
   DollarSign,
   ShoppingCart,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Warehouse,
+  AlertTriangle,
+  Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -684,6 +688,7 @@ export default function AdminPanel() {
   const menuItems = [
     { icon: LayoutDashboard, label: "Overview" },
     { icon: ShoppingBag, label: "Products" },
+    { icon: Warehouse, label: "Inventory" },
     { icon: Package, label: "Orders" },
     { icon: Tag, label: "Coupons" },
     { icon: Settings, label: "Admin Management" },
@@ -1688,6 +1693,195 @@ export default function AdminPanel() {
                     {products.length === 0 && (
                       <div className="p-8 text-center text-muted-foreground">No products found. Add your first product!</div>
                     )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {activeTab === "Inventory" && (
+            <div className="animate-in fade-in duration-500">
+              <div className="mb-8">
+                <h1 className="text-3xl font-serif">Inventory Management</h1>
+                <p className="text-muted-foreground">Manage product visibility and stock levels</p>
+              </div>
+
+              {/* Inventory Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <Card className="rounded-none border-border shadow-none">
+                  <CardContent className="p-4">
+                    <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Total Products</div>
+                    <div className="text-2xl font-bold">{products.length}</div>
+                  </CardContent>
+                </Card>
+                <Card className="rounded-none border-border shadow-none">
+                  <CardContent className="p-4">
+                    <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Visible on Store</div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {products.filter(p => p.showOnStorefront !== false).length}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="rounded-none border-border shadow-none">
+                  <CardContent className="p-4">
+                    <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Hidden</div>
+                    <div className="text-2xl font-bold text-gray-400">
+                      {products.filter(p => p.showOnStorefront === false).length}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="rounded-none border-border shadow-none">
+                  <CardContent className="p-4">
+                    <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Low Stock</div>
+                    <div className="text-2xl font-bold text-amber-600">
+                      {products.filter(p => (p.stock || 0) <= (p.lowStockThreshold || 5) && (p.stock || 0) > 0).length}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Inventory Search */}
+              <Card className="rounded-none border-border shadow-none mb-6">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2">
+                    <Search size={18} className="text-muted-foreground" />
+                    <Input
+                      placeholder="Search products by name, SKU, or barcode..."
+                      className="rounded-none flex-1"
+                      id="inventory-search"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Inventory Table */}
+              <Card className="rounded-none border-border shadow-none">
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-border bg-secondary/30">
+                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-widest">Product</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-widest">SKU</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-widest">Stock</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-widest">Status</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-widest">Visible</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-widest">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {products.map((product) => {
+                          const totalStock = product.stock || 0;
+                          const lowThreshold = product.lowStockThreshold || 5;
+                          const isLowStock = totalStock <= lowThreshold && totalStock > 0;
+                          const isOutOfStock = totalStock <= 0;
+                          const isVisible = product.showOnStorefront !== false;
+
+                          return (
+                            <tr key={product.id} className="hover:bg-secondary/10">
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-3">
+                                  <img 
+                                    src={product.image} 
+                                    alt={product.name} 
+                                    className="w-12 h-12 object-cover border border-border"
+                                  />
+                                  <div>
+                                    <p className="font-medium text-sm">{product.name}</p>
+                                    <p className="text-xs text-muted-foreground">{product.category}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-muted-foreground">
+                                {product.sku || '-'}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-sm font-medium ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-amber-600' : 'text-green-600'}`}>
+                                    {totalStock}
+                                  </span>
+                                  {isLowStock && <AlertTriangle size={14} className="text-amber-500" />}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                {isOutOfStock ? (
+                                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-100 text-red-700">Out of Stock</span>
+                                ) : isLowStock ? (
+                                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700">Low Stock</span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-700">In Stock</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await api.updateProduct(product.id, { showOnStorefront: !isVisible });
+                                      await loadData();
+                                      toast({ 
+                                        title: isVisible ? "Product hidden" : "Product visible",
+                                        description: isVisible ? "Product is now hidden from storefront" : "Product is now visible on storefront"
+                                      });
+                                    } catch (error) {
+                                      toast({ title: "Error", description: "Failed to update visibility", variant: "destructive" });
+                                    }
+                                  }}
+                                  className={`p-2 rounded transition-colors ${isVisible ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                                  title={isVisible ? "Click to hide from storefront" : "Click to show on storefront"}
+                                >
+                                  {isVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+                                </button>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    defaultValue={totalStock}
+                                    className="w-20 h-8 rounded-none text-sm"
+                                    onBlur={async (e) => {
+                                      const newStock = parseInt(e.target.value);
+                                      if (!isNaN(newStock) && newStock !== totalStock) {
+                                        try {
+                                          await api.updateProductStock(product.id, newStock);
+                                          await loadData();
+                                          toast({ title: "Stock updated", description: `Stock updated to ${newStock}` });
+                                        } catch (error) {
+                                          toast({ title: "Error", description: "Failed to update stock", variant: "destructive" });
+                                        }
+                                      }
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        (e.target as HTMLInputElement).blur();
+                                      }
+                                    }}
+                                  />
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="rounded-none h-8"
+                                    onClick={() => {
+                                      setEditingProduct(product);
+                                      setIsProductDialogOpen(true);
+                                    }}
+                                  >
+                                    <Edit size={14} />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {products.length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                              No products found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
