@@ -1985,7 +1985,7 @@ export default function AdminPanel() {
                                     productId: product.id,
                                     name: product.name,
                                     qty: 1,
-                                    price: product.isOnSale && product.salePrice ? parseFloat(product.salePrice) : parseFloat(product.price),
+                                    price: product.isOnSale && product.salePrice ? Number(product.salePrice) : Number(product.price),
                                     image: product.image
                                   }]);
                                 }
@@ -1999,7 +1999,7 @@ export default function AdminPanel() {
                               />
                               <p className="text-xs font-medium line-clamp-2">{product.name}</p>
                               <p className="text-xs text-muted-foreground">
-                                {formatCurrency(String(product.isOnSale && product.salePrice ? product.salePrice : product.price))}
+                                {formatCurrency(Number(product.isOnSale && product.salePrice ? product.salePrice : product.price))}
                               </p>
                             </button>
                           ))}
@@ -2024,7 +2024,7 @@ export default function AdminPanel() {
                             <div key={index} className="flex items-center justify-between gap-2 p-2 bg-secondary/10">
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium truncate">{item.name}</p>
-                                <p className="text-xs text-muted-foreground">{formatCurrency(String(item.price))} each</p>
+                                <p className="text-xs text-muted-foreground">{formatCurrency(item.price)} each</p>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Button
@@ -2069,7 +2069,7 @@ export default function AdminPanel() {
                       <div className="border-t border-border pt-4 space-y-3">
                         <div className="flex justify-between text-sm">
                           <span>Subtotal</span>
-                          <span>{formatCurrency(String(posCart.reduce((sum, item) => sum + item.price * item.qty, 0)))}</span>
+                          <span>{formatCurrency(posCart.reduce((sum, item) => sum + item.price * item.qty, 0))}</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
                           <span>Discount</span>
@@ -2083,7 +2083,7 @@ export default function AdminPanel() {
                         </div>
                         <div className="flex justify-between font-bold text-lg border-t border-border pt-2">
                           <span>Total</span>
-                          <span>{formatCurrency(String(Math.max(0, posCart.reduce((sum, item) => sum + item.price * item.qty, 0) - posDiscount)))}</span>
+                          <span>{formatCurrency(Math.max(0, posCart.reduce((sum, item) => sum + item.price * item.qty, 0) - posDiscount))}</span>
                         </div>
                       </div>
 
@@ -2127,7 +2127,7 @@ export default function AdminPanel() {
                             />
                             {posAmountReceived && (
                               <p className="text-sm mt-1">
-                                Change: {formatCurrency(String(Math.max(0, parseFloat(posAmountReceived) - Math.max(0, posCart.reduce((sum, item) => sum + item.price * item.qty, 0) - posDiscount))))}
+                                Change: {formatCurrency(Math.max(0, parseFloat(posAmountReceived) - Math.max(0, posCart.reduce((sum, item) => sum + item.price * item.qty, 0) - posDiscount)))}
                               </p>
                             )}
                           </div>
