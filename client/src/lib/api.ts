@@ -353,6 +353,11 @@ export const api = {
     return res.json();
   },
 
+  async getAllPosTransactions(): Promise<PosTransaction[]> {
+    const res = await fetch(`${API_BASE}/pos/transactions`);
+    return res.json();
+  },
+
   async getTodayPosTransactions(): Promise<PosTransaction[]> {
     const res = await fetch(`${API_BASE}/pos/transactions/today`);
     return res.json();
@@ -384,6 +389,8 @@ export interface PosTransaction {
   items: { productId: string; name: string; qty: number; price: number; color?: string; size?: string }[];
   subtotal: number;
   discount: number;
+  gstPercentage?: number;
+  gstAmount?: number;
   tax: number;
   total: number;
   paymentMethod: string;

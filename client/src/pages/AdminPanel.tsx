@@ -58,7 +58,8 @@ import {
   CreditCard,
   Receipt,
   Minus,
-  Calculator
+  Calculator,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -301,6 +302,7 @@ export default function AdminPanel() {
   const [posCart, setPosCart] = useState<{ productId: string; name: string; qty: number; price: number; color?: string; size?: string; image?: string }[]>([]);
   const [posSearch, setPosSearch] = useState("");
   const [posDiscount, setPosDiscount] = useState(0);
+  const [posGstPercentage, setPosGstPercentage] = useState(0);
   const [posPaymentMethod, setPosPaymentMethod] = useState("cash");
   const [posAmountReceived, setPosAmountReceived] = useState("");
   const [posCustomerName, setPosCustomerName] = useState("");
@@ -309,6 +311,9 @@ export default function AdminPanel() {
   const [posTransactions, setPosTransactions] = useState<any[]>([]);
   const [showPosReceipt, setShowPosReceipt] = useState(false);
   const [lastTransaction, setLastTransaction] = useState<any>(null);
+  const [posViewMode, setPosViewMode] = useState<"checkout" | "history">("checkout");
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
   const [productForm, setProductForm] = useState({
     name: "",
@@ -1939,11 +1944,33 @@ export default function AdminPanel() {
 
           {activeTab === "POS" && (
             <div className="animate-in fade-in duration-500">
-              <div className="mb-6">
-                <h1 className="text-3xl font-serif">Point of Sale</h1>
-                <p className="text-muted-foreground">Process in-store sales quickly</p>
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-serif">Point of Sale</h1>
+                  <p className="text-muted-foreground">Process in-store sales quickly</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant={posViewMode === "checkout" ? "default" : "outline"}
+                    className="rounded-none"
+                    onClick={() => setPosViewMode("checkout")}
+                  >
+                    <ShoppingCart size={16} className="mr-2" /> Checkout
+                  </Button>
+                  <Button
+                    variant={posViewMode === "history" ? "default" : "outline"}
+                    className="rounded-none"
+                    onClick={() => {
+                      setPosViewMode("history");
+                      api.getAllPosTransactions().then(setPosTransactions);
+                    }}
+                  >
+                    <FileText size={16} className="mr-2" /> Transaction History
+                  </Button>
+                </div>
               </div>
 
+              {posViewMode === "checkout" && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Product Search & Selection */}
                 <div className="lg:col-span-2 space-y-4">
@@ -2081,9 +2108,27 @@ export default function AdminPanel() {
                             onChange={(e) => setPosDiscount(parseFloat(e.target.value) || 0)}
                           />
                         </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span>GST %</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            placeholder="0"
+                            className="w-24 h-7 rounded-none text-right text-sm"
+                            value={posGstPercentage || ""}
+                            onChange={(e) => setPosGstPercentage(parseFloat(e.target.value) || 0)}
+                          />
+                        </div>
+                        {posGstPercentage > 0 && (
+                          <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>GST ({posGstPercentage}%)</span>
+                            <span>{formatCurrency((posCart.reduce((sum, item) => sum + item.price * item.qty, 0) - posDiscount) * (posGstPercentage / 100))}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between font-bold text-lg border-t border-border pt-2">
                           <span>Total</span>
-                          <span>{formatCurrency(Math.max(0, posCart.reduce((sum, item) => sum + item.price * item.qty, 0) - posDiscount))}</span>
+                          <span>{formatCurrency(Math.max(0, (posCart.reduce((sum, item) => sum + item.price * item.qty, 0) - posDiscount) * (1 + posGstPercentage / 100)))}</span>
                         </div>
                       </div>
 
@@ -2125,11 +2170,17 @@ export default function AdminPanel() {
                               value={posAmountReceived}
                               onChange={(e) => setPosAmountReceived(e.target.value)}
                             />
-                            {posAmountReceived && (
-                              <p className="text-sm mt-1">
-                                Change: {formatCurrency(Math.max(0, parseFloat(posAmountReceived) - Math.max(0, posCart.reduce((sum, item) => sum + item.price * item.qty, 0) - posDiscount)))}
-                              </p>
-                            )}
+                            {posAmountReceived && (() => {
+                              const subtotal = posCart.reduce((sum, item) => sum + item.price * item.qty, 0);
+                              const afterDiscount = subtotal - posDiscount;
+                              const gstAmount = afterDiscount * (posGstPercentage / 100);
+                              const grandTotal = Math.max(0, afterDiscount + gstAmount);
+                              return (
+                                <p className="text-sm mt-1">
+                                  Change: {formatCurrency(Math.max(0, parseFloat(posAmountReceived) - grandTotal))}
+                                </p>
+                              );
+                            })()}
                           </div>
                         )}
 
@@ -2149,7 +2200,9 @@ export default function AdminPanel() {
                           onClick={async () => {
                             try {
                               const subtotal = posCart.reduce((sum, item) => sum + item.price * item.qty, 0);
-                              const total = Math.max(0, subtotal - posDiscount);
+                              const afterDiscount = subtotal - posDiscount;
+                              const gstAmount = afterDiscount * (posGstPercentage / 100);
+                              const total = Math.max(0, afterDiscount + gstAmount);
                               const amountReceived = posPaymentMethod === "cash" ? parseFloat(posAmountReceived) || total : total;
                               
                               const transaction = await api.createPosTransaction({
@@ -2163,6 +2216,8 @@ export default function AdminPanel() {
                                 })),
                                 subtotal,
                                 discount: posDiscount,
+                                gstPercentage: posGstPercentage,
+                                gstAmount: gstAmount,
                                 tax: 0,
                                 total,
                                 paymentMethod: posPaymentMethod,
@@ -2182,6 +2237,7 @@ export default function AdminPanel() {
                               // Reset cart
                               setPosCart([]);
                               setPosDiscount(0);
+                              setPosGstPercentage(0);
                               setPosAmountReceived("");
                               setPosCustomerName("");
                               setPosCustomerPhone("");
@@ -2204,6 +2260,89 @@ export default function AdminPanel() {
                   </Card>
                 </div>
               </div>
+              )}
+
+              {posViewMode === "history" && (
+                <Card className="rounded-none border-border shadow-none">
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-secondary/30">
+                          <tr>
+                            <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Transaction #</th>
+                            <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Date</th>
+                            <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Items</th>
+                            <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Customer</th>
+                            <th className="text-right p-4 text-xs uppercase tracking-wider font-semibold">Subtotal</th>
+                            <th className="text-right p-4 text-xs uppercase tracking-wider font-semibold">GST</th>
+                            <th className="text-right p-4 text-xs uppercase tracking-wider font-semibold">Total</th>
+                            <th className="text-center p-4 text-xs uppercase tracking-wider font-semibold">Payment</th>
+                            <th className="text-center p-4 text-xs uppercase tracking-wider font-semibold">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {posTransactions.length === 0 ? (
+                            <tr>
+                              <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                                No transactions found
+                              </td>
+                            </tr>
+                          ) : (
+                            posTransactions.map((tx: any) => (
+                              <tr key={tx.id} className="hover:bg-secondary/10">
+                                <td className="p-4 font-mono text-sm">{tx.transactionNumber}</td>
+                                <td className="p-4 text-sm">
+                                  {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : "-"}
+                                  <br />
+                                  <span className="text-xs text-muted-foreground">
+                                    {tx.createdAt ? new Date(tx.createdAt).toLocaleTimeString() : ""}
+                                  </span>
+                                </td>
+                                <td className="p-4 text-sm">
+                                  {tx.items?.length || 0} items
+                                </td>
+                                <td className="p-4 text-sm">
+                                  {tx.customerName || "-"}
+                                  {tx.customerPhone && <span className="block text-xs text-muted-foreground">{tx.customerPhone}</span>}
+                                </td>
+                                <td className="p-4 text-sm text-right">{formatCurrency(tx.subtotal || 0)}</td>
+                                <td className="p-4 text-sm text-right">
+                                  {tx.gstPercentage ? `${tx.gstPercentage}%` : "-"}
+                                  {tx.gstAmount ? <span className="block text-xs text-muted-foreground">{formatCurrency(tx.gstAmount)}</span> : null}
+                                </td>
+                                <td className="p-4 text-sm text-right font-bold">{formatCurrency(tx.total || 0)}</td>
+                                <td className="p-4 text-center">
+                                  <span className={cn(
+                                    "text-[10px] uppercase font-bold px-2 py-1 border",
+                                    tx.paymentMethod === "cash" ? "bg-green-100 text-green-700 border-green-200" :
+                                    tx.paymentMethod === "card" ? "bg-blue-100 text-blue-700 border-blue-200" :
+                                    "bg-purple-100 text-purple-700 border-purple-200"
+                                  )}>
+                                    {tx.paymentMethod}
+                                  </span>
+                                </td>
+                                <td className="p-4 text-center">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="rounded-none"
+                                    onClick={() => {
+                                      setSelectedTransaction(tx);
+                                      setShowInvoiceModal(true);
+                                    }}
+                                  >
+                                    <FileText size={14} className="mr-1" /> Invoice
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
 
@@ -2633,6 +2772,207 @@ export default function AdminPanel() {
           )}
         </main>
       </div>
+
+      {/* Invoice Modal */}
+      <Dialog open={showInvoiceModal} onOpenChange={setShowInvoiceModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-none">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-2xl">Invoice</DialogTitle>
+          </DialogHeader>
+          {selectedTransaction && (
+            <div id="invoice-content" className="p-8 bg-white">
+              {/* Professional Invoice Header */}
+              <div className="border-b-2 border-primary pb-6 mb-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h1 className="text-3xl font-serif font-bold text-primary">INFINITE HOME</h1>
+                    <p className="text-sm text-muted-foreground mt-1">Premium Home Essentials</p>
+                    <p className="text-sm text-muted-foreground">Male', Maldives</p>
+                  </div>
+                  <div className="text-right">
+                    <h2 className="text-2xl font-bold text-primary">INVOICE</h2>
+                    <p className="text-sm font-mono mt-2">#{selectedTransaction.transactionNumber}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedTransaction.createdAt ? new Date(selectedTransaction.createdAt).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      }) : "-"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedTransaction.createdAt ? new Date(selectedTransaction.createdAt).toLocaleTimeString() : ""}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bill To Section */}
+              <div className="grid grid-cols-2 gap-8 mb-8">
+                <div>
+                  <h3 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-2">Bill To</h3>
+                  <p className="font-semibold">{selectedTransaction.customerName || "Walk-in Customer"}</p>
+                  {selectedTransaction.customerPhone && (
+                    <p className="text-sm text-muted-foreground">{selectedTransaction.customerPhone}</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <h3 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-2">Payment Method</h3>
+                  <p className="font-semibold capitalize">{selectedTransaction.paymentMethod}</p>
+                  <p className="text-sm text-muted-foreground">Cashier: {selectedTransaction.cashierName}</p>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <table className="w-full mb-8">
+                <thead>
+                  <tr className="border-b-2 border-primary">
+                    <th className="text-left py-3 text-xs uppercase tracking-wider font-semibold">#</th>
+                    <th className="text-left py-3 text-xs uppercase tracking-wider font-semibold">Item</th>
+                    <th className="text-center py-3 text-xs uppercase tracking-wider font-semibold">Qty</th>
+                    <th className="text-right py-3 text-xs uppercase tracking-wider font-semibold">Unit Price</th>
+                    <th className="text-right py-3 text-xs uppercase tracking-wider font-semibold">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {selectedTransaction.items?.map((item: any, idx: number) => (
+                    <tr key={idx}>
+                      <td className="py-3 text-sm">{idx + 1}</td>
+                      <td className="py-3">
+                        <p className="font-medium">{item.name}</p>
+                        {(item.color || item.size) && (
+                          <p className="text-xs text-muted-foreground">
+                            {[item.color, item.size].filter(Boolean).join(" / ")}
+                          </p>
+                        )}
+                      </td>
+                      <td className="py-3 text-center text-sm">{item.qty}</td>
+                      <td className="py-3 text-right text-sm">{formatCurrency(item.price)}</td>
+                      <td className="py-3 text-right text-sm font-medium">{formatCurrency(item.price * item.qty)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Totals Section */}
+              <div className="flex justify-end">
+                <div className="w-72 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(selectedTransaction.subtotal || 0)}</span>
+                  </div>
+                  {selectedTransaction.discount > 0 && (
+                    <div className="flex justify-between text-sm text-red-600">
+                      <span>Discount</span>
+                      <span>-{formatCurrency(selectedTransaction.discount)}</span>
+                    </div>
+                  )}
+                  {(selectedTransaction.gstPercentage || 0) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span>GST ({selectedTransaction.gstPercentage}%)</span>
+                      <span>{formatCurrency(selectedTransaction.gstAmount || 0)}</span>
+                    </div>
+                  )}
+                  {(selectedTransaction.gstPercentage || 0) === 0 && (
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>GST</span>
+                      <span>N/A</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-lg border-t-2 border-primary pt-2">
+                    <span>Total</span>
+                    <span>{formatCurrency(selectedTransaction.total || 0)}</span>
+                  </div>
+                  {selectedTransaction.paymentMethod === "cash" && selectedTransaction.amountReceived && (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span>Amount Received</span>
+                        <span>{formatCurrency(selectedTransaction.amountReceived)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Change</span>
+                        <span>{formatCurrency(selectedTransaction.change || 0)}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="mt-12 pt-6 border-t border-border text-center text-sm text-muted-foreground">
+                <p className="font-medium text-foreground mb-1">Thank you for your purchase!</p>
+                <p>For any queries, please contact us at support@infinitehome.mv</p>
+              </div>
+
+              {selectedTransaction.notes && (
+                <div className="mt-6 p-4 bg-secondary/30 text-sm">
+                  <span className="font-semibold">Notes:</span> {selectedTransaction.notes}
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" className="rounded-none" onClick={() => setShowInvoiceModal(false)}>
+              Close
+            </Button>
+            <Button
+              className="rounded-none"
+              onClick={() => {
+                const printContent = document.getElementById("invoice-content");
+                if (printContent) {
+                  const printWindow = window.open("", "_blank");
+                  if (printWindow) {
+                    printWindow.document.write(`
+                      <!DOCTYPE html>
+                      <html>
+                      <head>
+                        <title>Invoice ${selectedTransaction?.transactionNumber || ""}</title>
+                        <style>
+                          @page { size: A4; margin: 20mm; }
+                          body { 
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            line-height: 1.6;
+                            color: #333;
+                            padding: 0;
+                            margin: 0;
+                          }
+                          table { width: 100%; border-collapse: collapse; }
+                          th, td { padding: 10px; text-align: left; }
+                          th { border-bottom: 2px solid #333; }
+                          td { border-bottom: 1px solid #eee; }
+                          .text-right { text-align: right; }
+                          .text-center { text-align: center; }
+                          .font-bold { font-weight: bold; }
+                          .text-sm { font-size: 0.875rem; }
+                          .text-xs { font-size: 0.75rem; }
+                          .text-muted { color: #666; }
+                          .border-primary { border-color: #333; }
+                          .uppercase { text-transform: uppercase; }
+                          .tracking-wider { letter-spacing: 0.05em; }
+                          @media print {
+                            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                          }
+                        </style>
+                      </head>
+                      <body>
+                        ${printContent.innerHTML}
+                      </body>
+                      </html>
+                    `);
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(() => {
+                      printWindow.print();
+                      printWindow.close();
+                    }, 250);
+                  }
+                }
+              }}
+            >
+              <Printer size={16} className="mr-2" /> Print Invoice
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

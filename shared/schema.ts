@@ -107,6 +107,8 @@ export const posTransactions = pgTable("pos_transactions", {
   items: jsonb("items").$type<{ productId: string; name: string; qty: number; price: number; color?: string; size?: string }[]>().notNull(),
   subtotal: real("subtotal").notNull(),
   discount: real("discount").default(0),
+  gstPercentage: real("gst_percentage").default(0),
+  gstAmount: real("gst_amount").default(0),
   tax: real("tax").default(0),
   total: real("total").notNull(),
   paymentMethod: text("payment_method").notNull(),
