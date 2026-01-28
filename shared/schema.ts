@@ -92,8 +92,39 @@ export const products = pgTable("products", {
   preOrderEta: text("pre_order_eta"),
   productDetails: text("product_details"),
   materialsAndCare: text("materials_and_care"),
+  showOnStorefront: boolean("show_on_storefront").default(true),
+  lowStockThreshold: integer("low_stock_threshold").default(5),
+  sku: text("sku"),
+  barcode: text("barcode"),
+  costPrice: real("cost_price"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// POS Transactions
+export const posTransactions = pgTable("pos_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  transactionNumber: text("transaction_number").notNull().unique(),
+  items: jsonb("items").$type<{ productId: string; name: string; qty: number; price: number; color?: string; size?: string }[]>().notNull(),
+  subtotal: real("subtotal").notNull(),
+  discount: real("discount").default(0),
+  tax: real("tax").default(0),
+  total: real("total").notNull(),
+  paymentMethod: text("payment_method").notNull(),
+  amountReceived: real("amount_received"),
+  change: real("change").default(0),
+  customerId: varchar("customer_id"),
+  customerName: text("customer_name"),
+  customerPhone: text("customer_phone"),
+  cashierId: varchar("cashier_id").notNull(),
+  cashierName: text("cashier_name").notNull(),
+  notes: text("notes"),
+  status: text("status").notNull().default("completed"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPosTransactionSchema = createInsertSchema(posTransactions).omit({ id: true, createdAt: true });
+export type InsertPosTransaction = z.infer<typeof insertPosTransactionSchema>;
+export type PosTransaction = typeof posTransactions.$inferSelect;
 
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
 export type InsertProduct = z.infer<typeof insertProductSchema>;

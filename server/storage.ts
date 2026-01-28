@@ -5,10 +5,11 @@ import {
   categories, type Category, type InsertCategory,
   products, type Product, type InsertProduct,
   coupons, type Coupon, type InsertCoupon,
-  orders, type Order, type InsertOrder
+  orders, type Order, type InsertOrder,
+  posTransactions, type PosTransaction, type InsertPosTransaction
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, ilike, or, sql } from "drizzle-orm";
+import { eq, ilike, or, sql, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Customers
@@ -65,6 +66,17 @@ export interface IStorage {
   
   // Product Search
   searchProducts(query: string): Promise<Product[]>;
+  
+  // Storefront Products (only visible products)
+  getStorefrontProducts(): Promise<Product[]>;
+  
+  // POS Transactions
+  getAllPosTransactions(): Promise<PosTransaction[]>;
+  getPosTransaction(id: string): Promise<PosTransaction | undefined>;
+  getPosTransactionByNumber(transactionNumber: string): Promise<PosTransaction | undefined>;
+  createPosTransaction(transaction: InsertPosTransaction): Promise<PosTransaction>;
+  updatePosTransaction(id: string, data: Partial<InsertPosTransaction>): Promise<PosTransaction | undefined>;
+  getTodayPosTransactions(): Promise<PosTransaction[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -290,6 +302,44 @@ export class DatabaseStorage implements IStorage {
       const newStock = (product.stock || 0) + quantity;
       await db.update(products).set({ stock: newStock }).where(eq(products.id, productId));
     }
+  }
+
+  // Storefront Products (only products with showOnStorefront = true)
+  async getStorefrontProducts(): Promise<Product[]> {
+    return await db.select().from(products).where(eq(products.showOnStorefront, true));
+  }
+
+  // POS Transactions
+  async getAllPosTransactions(): Promise<PosTransaction[]> {
+    return await db.select().from(posTransactions).orderBy(desc(posTransactions.createdAt));
+  }
+
+  async getPosTransaction(id: string): Promise<PosTransaction | undefined> {
+    const [transaction] = await db.select().from(posTransactions).where(eq(posTransactions.id, id));
+    return transaction || undefined;
+  }
+
+  async getPosTransactionByNumber(transactionNumber: string): Promise<PosTransaction | undefined> {
+    const [transaction] = await db.select().from(posTransactions).where(eq(posTransactions.transactionNumber, transactionNumber));
+    return transaction || undefined;
+  }
+
+  async createPosTransaction(transaction: InsertPosTransaction): Promise<PosTransaction> {
+    const [newTransaction] = await db.insert(posTransactions).values(transaction).returning();
+    return newTransaction;
+  }
+
+  async updatePosTransaction(id: string, data: Partial<InsertPosTransaction>): Promise<PosTransaction | undefined> {
+    const [updated] = await db.update(posTransactions).set(data).where(eq(posTransactions.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async getTodayPosTransactions(): Promise<PosTransaction[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return await db.select().from(posTransactions).where(
+      sql`${posTransactions.createdAt} >= ${today}`
+    ).orderBy(desc(posTransactions.createdAt));
   }
 }
 
