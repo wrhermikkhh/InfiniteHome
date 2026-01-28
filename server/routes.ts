@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema } from "@shared/schema";
+import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema, insertPosTransactionSchema } from "@shared/schema";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { sendOrderConfirmationEmail } from "./lib/email";
 import { hashPassword, comparePasswords } from "./auth";
@@ -177,6 +177,12 @@ export async function registerRoutes(
   // ============ PRODUCTS ============
   app.get("/api/products", async (req, res) => {
     const products = await storage.getAllProducts();
+    res.json(products);
+  });
+
+  // Storefront products (only products visible to customers)
+  app.get("/api/storefront/products", async (req, res) => {
+    const products = await storage.getStorefrontProducts();
     res.json(products);
   });
 
@@ -534,6 +540,124 @@ export async function registerRoutes(
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }
+  });
+
+  // ============ POS SYSTEM ============
+  app.get("/api/pos/transactions", async (req, res) => {
+    const transactions = await storage.getAllPosTransactions();
+    res.json(transactions);
+  });
+
+  app.get("/api/pos/transactions/today", async (req, res) => {
+    const transactions = await storage.getTodayPosTransactions();
+    res.json(transactions);
+  });
+
+  app.get("/api/pos/transactions/:id", async (req, res) => {
+    const transaction = await storage.getPosTransaction(req.params.id);
+    if (transaction) {
+      res.json(transaction);
+    } else {
+      res.status(404).json({ message: "Transaction not found" });
+    }
+  });
+
+  app.post("/api/pos/transactions", async (req, res) => {
+    try {
+      const items = req.body.items as { productId: string; name: string; qty: number; price: number; color?: string; size?: string }[];
+      
+      if (!items || items.length === 0) {
+        return res.status(400).json({ message: "No items in transaction" });
+      }
+
+      // Validate stock for each item
+      const allProducts = await storage.getAllProducts();
+      const productMap = new Map(allProducts.map(p => [p.id, p]));
+      
+      const stockErrors: string[] = [];
+      for (const item of items) {
+        const product = productMap.get(item.productId);
+        if (!product) {
+          stockErrors.push(`Product "${item.name}" not found`);
+          continue;
+        }
+        
+        const variantStock = product.variantStock as { [key: string]: number } | null;
+        const variantKey = `${item.size || 'Standard'}-${item.color || 'Default'}`;
+        let availableStock = product.stock || 0;
+        
+        if (variantStock && Object.keys(variantStock).length > 0) {
+          if (variantStock[variantKey] !== undefined) {
+            availableStock = variantStock[variantKey];
+          } else {
+            availableStock = 0;
+          }
+        }
+        
+        if (availableStock < item.qty) {
+          stockErrors.push(`${item.name} only has ${availableStock} available`);
+        }
+      }
+      
+      if (stockErrors.length > 0) {
+        return res.status(400).json({ message: "Stock validation failed: " + stockErrors.join("; ") });
+      }
+
+      // Generate transaction number
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+      const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const transactionNumber = `POS-${dateStr}-${timeStr}-${randomSuffix}`;
+
+      const data = insertPosTransactionSchema.parse({ ...req.body, transactionNumber });
+      const transaction = await storage.createPosTransaction(data);
+
+      // Deduct stock for each item
+      for (const item of items) {
+        const size = item.size || 'Standard';
+        const color = item.color || 'Default';
+        await storage.deductStock(item.productId, size, color, item.qty);
+        console.log(`POS Stock deducted: ${item.name} (${size}/${color}) x${item.qty}`);
+      }
+
+      res.json(transaction);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/pos/transactions/:id", async (req, res) => {
+    try {
+      const transaction = await storage.updatePosTransaction(req.params.id, req.body);
+      if (transaction) {
+        res.json(transaction);
+      } else {
+        res.status(404).json({ message: "Transaction not found" });
+      }
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // POS Statistics
+  app.get("/api/pos/stats/today", async (req, res) => {
+    const transactions = await storage.getTodayPosTransactions();
+    const completedTransactions = transactions.filter(t => t.status === 'completed');
+    
+    const totalSales = completedTransactions.reduce((sum, t) => sum + (t.total || 0), 0);
+    const totalTransactions = completedTransactions.length;
+    const totalItems = completedTransactions.reduce((sum, t) => {
+      const items = t.items as { qty: number }[];
+      return sum + items.reduce((itemSum, item) => itemSum + item.qty, 0);
+    }, 0);
+    
+    res.json({
+      totalSales,
+      totalTransactions,
+      totalItems,
+      averageTransaction: totalTransactions > 0 ? totalSales / totalTransactions : 0
+    });
   });
 
   return httpServer;
