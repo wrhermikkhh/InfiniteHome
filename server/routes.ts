@@ -615,8 +615,12 @@ export async function registerRoutes(
 
       // Deduct stock for each item
       for (const item of items) {
-        const size = item.size || 'Standard';
-        const color = item.color || 'Default';
+        const product = await storage.getProduct(item.productId);
+        if (!product) continue;
+
+        const size = item.size || (product.variants && product.variants.length > 0 ? product.variants[0].size : 'Standard');
+        const color = item.color || (product.colors && product.colors.length > 0 ? product.colors[0] : 'Default');
+        
         await storage.deductStock(item.productId, size, color, item.qty);
         console.log(`POS Stock deducted: ${item.name} (${size}/${color}) x${item.qty}`);
       }

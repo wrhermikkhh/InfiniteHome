@@ -1792,13 +1792,13 @@ export default function AdminPanel() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
-                        {products
                           .filter(p => {
                             const query = inventorySearch.toLowerCase();
                             return !query || 
-                              p.name.toLowerCase().includes(query) ||
+                              (p.name && p.name.toLowerCase().includes(query)) ||
                               (p.sku && p.sku.toLowerCase().includes(query)) ||
-                              (p.barcode && p.barcode.toLowerCase().includes(query));
+                              (p.barcode && p.barcode.toLowerCase().includes(query)) ||
+                              (p.category && p.category.toLowerCase().includes(query));
                           })
                           .map((product) => {
                           const totalStock = product.stock || 0;
@@ -1962,9 +1962,10 @@ export default function AdminPanel() {
                           .filter(p => {
                             const query = posSearch.toLowerCase();
                             return !query || 
-                              p.name.toLowerCase().includes(query) ||
+                              (p.name && p.name.toLowerCase().includes(query)) ||
                               (p.sku && p.sku.toLowerCase().includes(query)) ||
-                              (p.barcode && p.barcode.toLowerCase().includes(query));
+                              (p.barcode && p.barcode.toLowerCase().includes(query)) ||
+                              (p.category && p.category.toLowerCase().includes(query));
                           })
                           .slice(0, 20)
                           .map(product => (
