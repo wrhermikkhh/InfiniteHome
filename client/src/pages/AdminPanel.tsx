@@ -54,7 +54,11 @@ import {
   ArrowDownRight,
   Warehouse,
   AlertTriangle,
-  Search
+  Search,
+  CreditCard,
+  Receipt,
+  Minus,
+  Calculator
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -289,6 +293,19 @@ export default function AdminPanel() {
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [newAdminName, setNewAdminName] = useState("");
+
+  // POS State
+  const [posCart, setPosCart] = useState<{ productId: string; name: string; qty: number; price: number; color?: string; size?: string; image?: string }[]>([]);
+  const [posSearch, setPosSearch] = useState("");
+  const [posDiscount, setPosDiscount] = useState(0);
+  const [posPaymentMethod, setPosPaymentMethod] = useState("cash");
+  const [posAmountReceived, setPosAmountReceived] = useState("");
+  const [posCustomerName, setPosCustomerName] = useState("");
+  const [posCustomerPhone, setPosCustomerPhone] = useState("");
+  const [posNotes, setPosNotes] = useState("");
+  const [posTransactions, setPosTransactions] = useState<any[]>([]);
+  const [showPosReceipt, setShowPosReceipt] = useState(false);
+  const [lastTransaction, setLastTransaction] = useState<any>(null);
 
   const [productForm, setProductForm] = useState({
     name: "",
@@ -689,6 +706,7 @@ export default function AdminPanel() {
     { icon: LayoutDashboard, label: "Overview" },
     { icon: ShoppingBag, label: "Products" },
     { icon: Warehouse, label: "Inventory" },
+    { icon: CreditCard, label: "POS" },
     { icon: Package, label: "Orders" },
     { icon: Tag, label: "Coupons" },
     { icon: Settings, label: "Admin Management" },
@@ -1885,6 +1903,275 @@ export default function AdminPanel() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          )}
+
+          {activeTab === "POS" && (
+            <div className="animate-in fade-in duration-500">
+              <div className="mb-6">
+                <h1 className="text-3xl font-serif">Point of Sale</h1>
+                <p className="text-muted-foreground">Process in-store sales quickly</p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Product Search & Selection */}
+                <div className="lg:col-span-2 space-y-4">
+                  <Card className="rounded-none border-border shadow-none">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Search size={18} className="text-muted-foreground" />
+                        <Input
+                          placeholder="Search products by name, SKU, or barcode..."
+                          className="rounded-none flex-1"
+                          value={posSearch}
+                          onChange={(e) => setPosSearch(e.target.value)}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[400px] overflow-y-auto">
+                        {products
+                          .filter(p => {
+                            const query = posSearch.toLowerCase();
+                            return !query || 
+                              p.name.toLowerCase().includes(query) ||
+                              (p.sku && p.sku.toLowerCase().includes(query)) ||
+                              (p.barcode && p.barcode.toLowerCase().includes(query));
+                          })
+                          .slice(0, 20)
+                          .map(product => (
+                            <button
+                              key={product.id}
+                              onClick={() => {
+                                const existing = posCart.find(item => item.productId === product.id);
+                                if (existing) {
+                                  setPosCart(posCart.map(item => 
+                                    item.productId === product.id 
+                                      ? { ...item, qty: item.qty + 1 } 
+                                      : item
+                                  ));
+                                } else {
+                                  setPosCart([...posCart, {
+                                    productId: product.id,
+                                    name: product.name,
+                                    qty: 1,
+                                    price: product.isOnSale && product.salePrice ? parseFloat(product.salePrice) : parseFloat(product.price),
+                                    image: product.image
+                                  }]);
+                                }
+                              }}
+                              className="flex flex-col items-center p-3 border border-border hover:bg-secondary/20 transition-colors text-center"
+                            >
+                              <img 
+                                src={product.image} 
+                                alt={product.name} 
+                                className="w-16 h-16 object-cover mb-2"
+                              />
+                              <p className="text-xs font-medium line-clamp-2">{product.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatCurrency(product.isOnSale && product.salePrice ? parseFloat(product.salePrice) : parseFloat(product.price))}
+                              </p>
+                            </button>
+                          ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Cart & Checkout */}
+                <div className="space-y-4">
+                  <Card className="rounded-none border-border shadow-none">
+                    <CardContent className="p-4">
+                      <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                        <ShoppingCart size={18} /> Cart ({posCart.reduce((sum, item) => sum + item.qty, 0)})
+                      </h3>
+                      
+                      <div className="space-y-3 max-h-[250px] overflow-y-auto mb-4">
+                        {posCart.length === 0 ? (
+                          <p className="text-muted-foreground text-sm text-center py-8">Cart is empty</p>
+                        ) : (
+                          posCart.map((item, index) => (
+                            <div key={index} className="flex items-center justify-between gap-2 p-2 bg-secondary/10">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{item.name}</p>
+                                <p className="text-xs text-muted-foreground">{formatCurrency(item.price)} each</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 rounded-none"
+                                  onClick={() => {
+                                    if (item.qty <= 1) {
+                                      setPosCart(posCart.filter((_, i) => i !== index));
+                                    } else {
+                                      setPosCart(posCart.map((c, i) => i === index ? { ...c, qty: c.qty - 1 } : c));
+                                    }
+                                  }}
+                                >
+                                  <Minus size={14} />
+                                </Button>
+                                <span className="w-6 text-center text-sm">{item.qty}</span>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 rounded-none"
+                                  onClick={() => {
+                                    setPosCart(posCart.map((c, i) => i === index ? { ...c, qty: c.qty + 1 } : c));
+                                  }}
+                                >
+                                  <Plus size={14} />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-red-500 hover:bg-red-100"
+                                  onClick={() => setPosCart(posCart.filter((_, i) => i !== index))}
+                                >
+                                  <Trash2 size={14} />
+                                </Button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      <div className="border-t border-border pt-4 space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span>Subtotal</span>
+                          <span>{formatCurrency(posCart.reduce((sum, item) => sum + item.price * item.qty, 0))}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span>Discount</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            className="w-24 h-7 rounded-none text-right text-sm"
+                            value={posDiscount}
+                            onChange={(e) => setPosDiscount(parseFloat(e.target.value) || 0)}
+                          />
+                        </div>
+                        <div className="flex justify-between font-bold text-lg border-t border-border pt-2">
+                          <span>Total</span>
+                          <span>{formatCurrency(Math.max(0, posCart.reduce((sum, item) => sum + item.price * item.qty, 0) - posDiscount))}</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 space-y-3">
+                        <div className="flex gap-2">
+                          <Button
+                            variant={posPaymentMethod === "cash" ? "default" : "outline"}
+                            size="sm"
+                            className="flex-1 rounded-none"
+                            onClick={() => setPosPaymentMethod("cash")}
+                          >
+                            Cash
+                          </Button>
+                          <Button
+                            variant={posPaymentMethod === "card" ? "default" : "outline"}
+                            size="sm"
+                            className="flex-1 rounded-none"
+                            onClick={() => setPosPaymentMethod("card")}
+                          >
+                            Card
+                          </Button>
+                          <Button
+                            variant={posPaymentMethod === "transfer" ? "default" : "outline"}
+                            size="sm"
+                            className="flex-1 rounded-none"
+                            onClick={() => setPosPaymentMethod("transfer")}
+                          >
+                            Transfer
+                          </Button>
+                        </div>
+
+                        {posPaymentMethod === "cash" && (
+                          <div>
+                            <Label className="text-xs">Amount Received</Label>
+                            <Input
+                              type="number"
+                              placeholder="Enter amount"
+                              className="rounded-none"
+                              value={posAmountReceived}
+                              onChange={(e) => setPosAmountReceived(e.target.value)}
+                            />
+                            {posAmountReceived && (
+                              <p className="text-sm mt-1">
+                                Change: {formatCurrency(Math.max(0, parseFloat(posAmountReceived) - Math.max(0, posCart.reduce((sum, item) => sum + item.price * item.qty, 0) - posDiscount)))}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        <div>
+                          <Label className="text-xs">Customer Name (optional)</Label>
+                          <Input
+                            placeholder="Customer name"
+                            className="rounded-none"
+                            value={posCustomerName}
+                            onChange={(e) => setPosCustomerName(e.target.value)}
+                          />
+                        </div>
+
+                        <Button
+                          className="w-full rounded-none h-12 text-lg"
+                          disabled={posCart.length === 0}
+                          onClick={async () => {
+                            try {
+                              const subtotal = posCart.reduce((sum, item) => sum + item.price * item.qty, 0);
+                              const total = Math.max(0, subtotal - posDiscount);
+                              const amountReceived = posPaymentMethod === "cash" ? parseFloat(posAmountReceived) || total : total;
+                              
+                              const transaction = await api.createPosTransaction({
+                                items: posCart.map(item => ({
+                                  productId: item.productId,
+                                  name: item.name,
+                                  qty: item.qty,
+                                  price: item.price,
+                                  color: item.color,
+                                  size: item.size
+                                })),
+                                subtotal,
+                                discount: posDiscount,
+                                tax: 0,
+                                total,
+                                paymentMethod: posPaymentMethod,
+                                amountReceived,
+                                change: posPaymentMethod === "cash" ? Math.max(0, amountReceived - total) : 0,
+                                customerName: posCustomerName || undefined,
+                                customerPhone: posCustomerPhone || undefined,
+                                cashierId: admin?.id || "",
+                                cashierName: admin?.name || "Admin",
+                                notes: posNotes || undefined,
+                                status: "completed"
+                              });
+
+                              setLastTransaction(transaction);
+                              setShowPosReceipt(true);
+                              
+                              // Reset cart
+                              setPosCart([]);
+                              setPosDiscount(0);
+                              setPosAmountReceived("");
+                              setPosCustomerName("");
+                              setPosCustomerPhone("");
+                              setPosNotes("");
+                              
+                              // Reload products to update stock
+                              await loadData();
+                              
+                              toast({ title: "Sale completed!", description: `Transaction ${transaction.transactionNumber} completed` });
+                            } catch (error) {
+                              toast({ title: "Error", description: "Failed to process sale", variant: "destructive" });
+                            }
+                          }}
+                        >
+                          <Calculator size={20} className="mr-2" />
+                          Complete Sale
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
             </div>
           )}
 
