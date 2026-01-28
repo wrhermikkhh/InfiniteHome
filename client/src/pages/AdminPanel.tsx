@@ -294,6 +294,9 @@ export default function AdminPanel() {
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [newAdminName, setNewAdminName] = useState("");
 
+  // Search states for filtering
+  const [inventorySearch, setInventorySearch] = useState("");
+
   // POS State
   const [posCart, setPosCart] = useState<{ productId: string; name: string; qty: number; price: number; color?: string; size?: string; image?: string }[]>([]);
   const [posSearch, setPosSearch] = useState("");
@@ -1766,7 +1769,8 @@ export default function AdminPanel() {
                     <Input
                       placeholder="Search products by name, SKU, or barcode..."
                       className="rounded-none flex-1"
-                      id="inventory-search"
+                      value={inventorySearch}
+                      onChange={(e) => setInventorySearch(e.target.value)}
                     />
                   </div>
                 </CardContent>
@@ -1788,7 +1792,15 @@ export default function AdminPanel() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
-                        {products.map((product) => {
+                        {products
+                          .filter(p => {
+                            const query = inventorySearch.toLowerCase();
+                            return !query || 
+                              p.name.toLowerCase().includes(query) ||
+                              (p.sku && p.sku.toLowerCase().includes(query)) ||
+                              (p.barcode && p.barcode.toLowerCase().includes(query));
+                          })
+                          .map((product) => {
                           const totalStock = product.stock || 0;
                           const lowThreshold = product.lowStockThreshold || 5;
                           const isLowStock = totalStock <= lowThreshold && totalStock > 0;
@@ -1885,6 +1897,24 @@ export default function AdminPanel() {
                                     }}
                                   >
                                     <Edit size={14} />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="rounded-none h-8 text-red-500 hover:bg-red-50 hover:text-red-600"
+                                    onClick={async () => {
+                                      if (confirm(`Are you sure you want to delete ${product.name}?`)) {
+                                        try {
+                                          await api.deleteProduct(product.id);
+                                          await loadData();
+                                          toast({ title: "Product deleted", description: "Product has been removed successfully" });
+                                        } catch (error) {
+                                          toast({ title: "Error", description: "Failed to delete product", variant: "destructive" });
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 size={14} />
                                   </Button>
                                 </div>
                               </td>
