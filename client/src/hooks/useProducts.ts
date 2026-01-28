@@ -10,6 +10,31 @@ export function useProducts() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      const data = await api.getStorefrontProducts();
+      setProducts(data);
+      setError(null);
+    } catch (e) {
+      setError("Failed to load products");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  return { products, loading, error, refetch: fetchProducts };
+}
+
+export function useAllProducts() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
       const data = await api.getProducts();
       setProducts(data);
       setError(null);

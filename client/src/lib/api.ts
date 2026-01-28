@@ -111,6 +111,11 @@ export const api = {
     return res.json();
   },
 
+  async getStorefrontProducts(): Promise<Product[]> {
+    const res = await fetch(`${API_BASE}/storefront/products`);
+    return res.json();
+  },
+
   async getProduct(id: string): Promise<Product> {
     const res = await fetch(`${API_BASE}/products/${id}`);
     return res.json();
@@ -341,4 +346,55 @@ export const api = {
     });
     return res.json();
   },
+
+  // POS System
+  async getPosTransactions(): Promise<PosTransaction[]> {
+    const res = await fetch(`${API_BASE}/pos/transactions`);
+    return res.json();
+  },
+
+  async getTodayPosTransactions(): Promise<PosTransaction[]> {
+    const res = await fetch(`${API_BASE}/pos/transactions/today`);
+    return res.json();
+  },
+
+  async getPosTransaction(id: string): Promise<PosTransaction> {
+    const res = await fetch(`${API_BASE}/pos/transactions/${id}`);
+    return res.json();
+  },
+
+  async createPosTransaction(transaction: Omit<PosTransaction, "id" | "transactionNumber" | "createdAt">): Promise<PosTransaction> {
+    const res = await fetch(`${API_BASE}/pos/transactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(transaction),
+    });
+    return res.json();
+  },
+
+  async getPosStats(): Promise<{ totalSales: number; totalTransactions: number; totalItems: number; averageTransaction: number }> {
+    const res = await fetch(`${API_BASE}/pos/stats/today`);
+    return res.json();
+  },
 };
+
+export interface PosTransaction {
+  id: string;
+  transactionNumber: string;
+  items: { productId: string; name: string; qty: number; price: number; color?: string; size?: string }[];
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total: number;
+  paymentMethod: string;
+  amountReceived?: number;
+  change?: number;
+  customerId?: string;
+  customerName?: string;
+  customerPhone?: string;
+  cashierId: string;
+  cashierName: string;
+  notes?: string;
+  status: string;
+  createdAt?: string;
+}
