@@ -3,7 +3,7 @@ import { Footer } from "@/components/layout/Footer";
 import { ProductCard } from "@/components/ui/product-card";
 import { useProducts } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
-import { useLocation, useSearch } from "wouter";
+import { useLocation, useSearch, Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { api, type Category } from "@/lib/api";
@@ -122,13 +122,4 @@ export default function Shop() {
       <Footer />
     </div>
   );
-}
-
-function Link({ href, children }: { href: string; children: React.ReactNode }) {
-  const [_, setLocation] = useLocation();
-  return (
-    <div onClick={() => setLocation(href)} className="inline-block cursor-pointer">
-      {children}
-    </div>
-  )
 }
