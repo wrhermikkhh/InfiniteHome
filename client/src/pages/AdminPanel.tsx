@@ -2231,6 +2231,15 @@ export default function AdminPanel() {
                                 status: "completed"
                               });
 
+                              if (!transaction || typeof transaction !== 'object') {
+                                throw new Error("Server returned an invalid transaction response");
+                              }
+
+                              if (!transaction.transactionNumber) {
+                                console.error("Missing transaction number in response:", transaction);
+                                throw new Error("Transaction completed but transaction number is missing");
+                              }
+
                               setLastTransaction(transaction);
                               setShowPosReceipt(true);
                               
@@ -2247,8 +2256,13 @@ export default function AdminPanel() {
                               await loadData();
                               
                               toast({ title: "Sale completed!", description: `Transaction ${transaction.transactionNumber} completed` });
-                            } catch (error) {
-                              toast({ title: "Error", description: "Failed to process sale", variant: "destructive" });
+                            } catch (error: any) {
+                              console.error("POS Checkout Error:", error);
+                              toast({ 
+                                title: "Error", 
+                                description: error.message || "Failed to process sale", 
+                                variant: "destructive" 
+                              });
                             }
                           }}
                         >
