@@ -1612,7 +1612,7 @@ app.post("/api/pos/transactions", async (req, res) => {
       return res.status(400).json({ message: "No items in transaction" });
     }
 
-    // Validate stock for each item
+    // Validate stock for each item (using variant stock only)
     const allProducts = await storage.getAllProducts();
     const productMap = new Map(allProducts.map((p: any) => [p.id, p]));
     
@@ -1625,34 +1625,42 @@ app.post("/api/pos/transactions", async (req, res) => {
       }
       
       const variantStock = product.variantStock as { [key: string]: number } | null;
-      const variantKey = `${item.size || 'Standard'}-${item.color || 'Default'}`;
-      let availableStock = product.stock || 0;
+      const itemSize = item.size || 'Standard';
+      const itemColor = item.color || 'Default';
+      const variantKey = `${itemSize}-${itemColor}`;
+      let availableStock = 0;
       
-      // Check variant stock if available
+      // Check variant stock with fallback matching
       if (variantStock && Object.keys(variantStock).length > 0) {
         // Try exact match first
         if (variantStock[variantKey] !== undefined) {
           availableStock = variantStock[variantKey];
         } else {
-          // Try to find a matching variant key (case-insensitive or partial match)
-          const matchingKey = Object.keys(variantStock).find(key => {
-            const keyLower = key.toLowerCase();
-            const searchKey = variantKey.toLowerCase();
-            return keyLower === searchKey || 
-                   keyLower.includes(item.size?.toLowerCase() || '') ||
-                   keyLower.includes(item.color?.toLowerCase() || '');
-          });
+          // Try case-insensitive match
+          const matchingKey = Object.keys(variantStock).find(key => 
+            key.toLowerCase() === variantKey.toLowerCase()
+          );
           if (matchingKey) {
             availableStock = variantStock[matchingKey];
           } else {
-            // Fall back to main stock if no variant match
-            availableStock = product.stock || 0;
+            // Try partial match (just size or just color)
+            const sizeMatch = Object.keys(variantStock).find(key => 
+              key.toLowerCase().startsWith(itemSize.toLowerCase() + '-')
+            );
+            const colorMatch = Object.keys(variantStock).find(key => 
+              key.toLowerCase().endsWith('-' + itemColor.toLowerCase())
+            );
+            if (sizeMatch) {
+              availableStock = variantStock[sizeMatch];
+            } else if (colorMatch) {
+              availableStock = variantStock[colorMatch];
+            }
           }
         }
       }
       
       if (availableStock < item.qty) {
-        stockErrors.push(`${item.name} only has ${availableStock} available`);
+        stockErrors.push(`${item.name} (${itemSize}/${itemColor}) only has ${availableStock} available`);
       }
     }
     

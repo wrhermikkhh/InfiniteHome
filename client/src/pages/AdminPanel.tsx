@@ -81,6 +81,38 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+// Helper function to resolve variant stock with fallback matching
+function resolveVariantStock(variantStock: { [key: string]: number } | null, size: string, color: string): number {
+  if (!variantStock || Object.keys(variantStock).length === 0) return 0;
+  
+  const variantKey = `${size}-${color}`;
+  
+  // Try exact match first
+  if (variantStock[variantKey] !== undefined) {
+    return variantStock[variantKey];
+  }
+  
+  // Try case-insensitive match
+  const matchingKey = Object.keys(variantStock).find(key => 
+    key.toLowerCase() === variantKey.toLowerCase()
+  );
+  if (matchingKey) {
+    return variantStock[matchingKey];
+  }
+  
+  // Try partial match (just size or just color)
+  const sizeMatch = Object.keys(variantStock).find(key => 
+    key.toLowerCase().startsWith(size.toLowerCase() + '-')
+  );
+  const colorMatch = Object.keys(variantStock).find(key => 
+    key.toLowerCase().endsWith('-' + color.toLowerCase())
+  );
+  if (sizeMatch) return variantStock[sizeMatch];
+  if (colorMatch) return variantStock[colorMatch];
+  
+  return 0;
+}
+
 // Payment Slip Viewer - displays payment slip image
 function PaymentSlipViewer({ paymentSlip }: { paymentSlip: string }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -314,6 +346,10 @@ export default function AdminPanel() {
   const [posViewMode, setPosViewMode] = useState<"checkout" | "history">("checkout");
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showPosVariantModal, setShowPosVariantModal] = useState(false);
+  const [selectedPosProduct, setSelectedPosProduct] = useState<any>(null);
+  const [selectedPosSize, setSelectedPosSize] = useState("");
+  const [selectedPosColor, setSelectedPosColor] = useState("");
 
   const [productForm, setProductForm] = useState({
     name: "",
@@ -2000,22 +2036,11 @@ export default function AdminPanel() {
                             <button
                               key={product.id}
                               onClick={() => {
-                                const existing = posCart.find(item => item.productId === product.id);
-                                if (existing) {
-                                  setPosCart(posCart.map(item => 
-                                    item.productId === product.id 
-                                      ? { ...item, qty: item.qty + 1 } 
-                                      : item
-                                  ));
-                                } else {
-                                  setPosCart([...posCart, {
-                                    productId: product.id,
-                                    name: product.name,
-                                    qty: 1,
-                                    price: product.isOnSale && product.salePrice ? Number(product.salePrice) : Number(product.price),
-                                    image: product.image
-                                  }]);
-                                }
+                                // Open variant selection modal
+                                setSelectedPosProduct(product);
+                                setSelectedPosSize(product.variants?.[0]?.size || "Standard");
+                                setSelectedPosColor(product.colors?.[0] || "Default");
+                                setShowPosVariantModal(true);
                               }}
                               className="flex flex-col items-center p-3 border border-border hover:bg-secondary/20 transition-colors text-center"
                             >
@@ -2051,6 +2076,9 @@ export default function AdminPanel() {
                             <div key={index} className="flex items-center justify-between gap-2 p-2 bg-secondary/10">
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium truncate">{item.name}</p>
+                                {(item.size || item.color) && (
+                                  <p className="text-xs text-primary">{item.size}{item.size && item.color ? " / " : ""}{item.color}</p>
+                                )}
                                 <p className="text-xs text-muted-foreground">{formatCurrency(item.price)} each</p>
                               </div>
                               <div className="flex items-center gap-2">
@@ -2074,6 +2102,16 @@ export default function AdminPanel() {
                                   size="sm"
                                   className="h-7 w-7 p-0 rounded-none"
                                   onClick={() => {
+                                    // Check stock before incrementing using fallback matching
+                                    const product = products.find(p => p.id === item.productId);
+                                    if (product) {
+                                      const variantStock = product.variantStock as { [key: string]: number } | null;
+                                      const stock = resolveVariantStock(variantStock, item.size || 'Standard', item.color || 'Default');
+                                      if (item.qty + 1 > stock) {
+                                        toast({ title: "Insufficient Stock", description: `Only ${stock} available`, variant: "destructive" });
+                                        return;
+                                      }
+                                    }
                                     setPosCart(posCart.map((c, i) => i === index ? { ...c, qty: c.qty + 1 } : c));
                                   }}
                                 >
@@ -2793,6 +2831,156 @@ export default function AdminPanel() {
           )}
         </main>
       </div>
+
+      {/* POS Variant Selection Modal */}
+      <Dialog open={showPosVariantModal} onOpenChange={setShowPosVariantModal}>
+        <DialogContent className="max-w-md rounded-none">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-xl">Select Variant</DialogTitle>
+          </DialogHeader>
+          {selectedPosProduct && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <img 
+                  src={selectedPosProduct.image} 
+                  alt={selectedPosProduct.name}
+                  className="w-20 h-20 object-cover"
+                />
+                <div>
+                  <h3 className="font-medium">{selectedPosProduct.name}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {formatCurrency(
+                      selectedPosProduct.variants?.find((v: any) => v.size === selectedPosSize)?.price || 
+                      selectedPosProduct.price
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Size Selection */}
+              {selectedPosProduct.variants && selectedPosProduct.variants.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-widest font-bold">Size</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPosProduct.variants.map((variant: any) => {
+                      const variantStock = selectedPosProduct.variantStock as { [key: string]: number } | null;
+                      const stock = resolveVariantStock(variantStock, variant.size, selectedPosColor);
+                      return (
+                        <Button
+                          key={variant.size}
+                          variant={selectedPosSize === variant.size ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSelectedPosSize(variant.size)}
+                          className="rounded-none"
+                          disabled={stock === 0}
+                        >
+                          {variant.size} ({stock})
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Color Selection */}
+              {selectedPosProduct.colors && selectedPosProduct.colors.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-widest font-bold">Color</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPosProduct.colors.map((color: string) => {
+                      const variantStock = selectedPosProduct.variantStock as { [key: string]: number } | null;
+                      const stock = resolveVariantStock(variantStock, selectedPosSize, color);
+                      return (
+                        <Button
+                          key={color}
+                          variant={selectedPosColor === color ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSelectedPosColor(color)}
+                          className="rounded-none"
+                          disabled={stock === 0}
+                        >
+                          {color} ({stock})
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Stock Info */}
+              {(() => {
+                const variantStock = selectedPosProduct.variantStock as { [key: string]: number } | null;
+                const stock = resolveVariantStock(variantStock, selectedPosSize, selectedPosColor);
+                return (
+                  <div className="p-3 bg-secondary/20 rounded">
+                    <p className="text-sm">
+                      <span className="font-medium">Available Stock:</span>{" "}
+                      <span className={stock > 0 ? "text-green-600" : "text-red-600"}>
+                        {stock} units
+                      </span>
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* Add to Cart Button */}
+              <Button
+                className="w-full rounded-none"
+                onClick={() => {
+                  const variantStock = selectedPosProduct.variantStock as { [key: string]: number } | null;
+                  const stock = resolveVariantStock(variantStock, selectedPosSize, selectedPosColor);
+                  
+                  if (stock === 0) {
+                    toast({ title: "Out of Stock", description: "This variant is out of stock", variant: "destructive" });
+                    return;
+                  }
+
+                  const variantPrice = selectedPosProduct.variants?.find((v: any) => v.size === selectedPosSize)?.price || selectedPosProduct.price;
+                  const cartKey = `${selectedPosProduct.id}-${selectedPosSize}-${selectedPosColor}`;
+                  
+                  const existing = posCart.find(item => 
+                    item.productId === selectedPosProduct.id && 
+                    item.size === selectedPosSize && 
+                    item.color === selectedPosColor
+                  );
+                  
+                  if (existing) {
+                    if (existing.qty + 1 > stock) {
+                      toast({ title: "Insufficient Stock", description: `Only ${stock} available`, variant: "destructive" });
+                      return;
+                    }
+                    setPosCart(posCart.map(item => 
+                      item.productId === selectedPosProduct.id && item.size === selectedPosSize && item.color === selectedPosColor
+                        ? { ...item, qty: item.qty + 1 }
+                        : item
+                    ));
+                  } else {
+                    setPosCart([...posCart, {
+                      productId: selectedPosProduct.id,
+                      name: selectedPosProduct.name,
+                      qty: 1,
+                      price: Number(variantPrice),
+                      size: selectedPosSize,
+                      color: selectedPosColor,
+                      image: selectedPosProduct.image
+                    }]);
+                  }
+                  
+                  setShowPosVariantModal(false);
+                  toast({ title: "Added to Cart", description: `${selectedPosProduct.name} (${selectedPosSize}/${selectedPosColor})` });
+                }}
+                disabled={(() => {
+                  const variantStock = selectedPosProduct.variantStock as { [key: string]: number } | null;
+                  return resolveVariantStock(variantStock, selectedPosSize, selectedPosColor) === 0;
+                })()}
+              >
+                <Plus size={18} className="mr-2" />
+                Add to Cart
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Invoice Modal */}
       <Dialog open={showInvoiceModal} onOpenChange={setShowInvoiceModal}>
