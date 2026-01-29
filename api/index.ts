@@ -1040,6 +1040,12 @@ app.get("/api/products", async (req, res) => {
   res.json(allProducts);
 });
 
+app.get("/api/storefront/products", async (req, res) => {
+  const allProducts = await storage.getAllProducts();
+  const storefrontProducts = allProducts.filter((p: any) => p.showOnStorefront !== false);
+  res.json(storefrontProducts);
+});
+
 app.get("/api/products/search", async (req, res) => {
   const query = req.query.q as string;
   if (!query || query.trim().length === 0) {
