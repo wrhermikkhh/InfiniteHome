@@ -75,9 +75,8 @@ export function getVariantStock(product: Product, size?: string, color?: string)
 }
 
 export const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-MV', {
-    style: 'currency',
-    currency: 'MVR',
+  return `MVR ${new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,
-  }).format(amount);
+    maximumFractionDigits: 2,
+  }).format(amount)}`;
 };
