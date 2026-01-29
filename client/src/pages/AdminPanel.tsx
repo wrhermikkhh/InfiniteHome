@@ -2984,147 +2984,169 @@ export default function AdminPanel() {
 
       {/* Invoice Modal */}
       <Dialog open={showInvoiceModal} onOpenChange={setShowInvoiceModal}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-none">
-          <DialogHeader>
-            <DialogTitle className="font-serif text-2xl">Invoice</DialogTitle>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-none p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Invoice</DialogTitle>
           </DialogHeader>
           {selectedTransaction && (
-            <div id="invoice-content" className="p-8 bg-white">
-              {/* Professional Invoice Header */}
-              <div className="border-b-2 border-primary pb-6 mb-6">
-                <div className="flex justify-between items-start">
+            <div id="invoice-content" className="bg-white">
+              {/* Elegant Header with Brand */}
+              <div className="bg-gradient-to-r from-stone-900 to-stone-800 text-white px-10 py-8">
+                <div className="flex justify-between items-center">
                   <div>
-                    <h1 className="text-3xl font-serif font-bold text-primary">INFINITE HOME</h1>
-                    <p className="text-sm text-muted-foreground mt-1">Premium Home Essentials</p>
-                    <p className="text-sm text-muted-foreground">Male', Maldives</p>
+                    <h1 className="text-2xl font-light tracking-[0.3em] uppercase">Infinite Home</h1>
+                    <p className="text-stone-400 text-xs tracking-wider mt-1">Premium Home Essentials</p>
                   </div>
                   <div className="text-right">
-                    <h2 className="text-2xl font-bold text-primary">INVOICE</h2>
-                    <p className="text-sm font-mono mt-2">#{selectedTransaction.transactionNumber}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedTransaction.createdAt ? new Date(selectedTransaction.createdAt).toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      }) : "-"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {selectedTransaction.createdAt ? new Date(selectedTransaction.createdAt).toLocaleTimeString() : ""}
-                    </p>
+                    <p className="text-3xl font-light tracking-wider">INVOICE</p>
                   </div>
                 </div>
               </div>
 
-              {/* Bill To Section */}
-              <div className="grid grid-cols-2 gap-8 mb-8">
+              {/* Invoice Details Bar */}
+              <div className="bg-stone-100 px-10 py-4 flex justify-between items-center border-b border-stone-200">
+                <div className="flex gap-8">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-stone-500 mb-1">Invoice No.</p>
+                    <p className="font-mono text-sm font-semibold">{selectedTransaction.transactionNumber}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-stone-500 mb-1">Date</p>
+                    <p className="text-sm">
+                      {selectedTransaction.createdAt ? new Date(selectedTransaction.createdAt).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                      }) : "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-stone-500 mb-1">Time</p>
+                    <p className="text-sm">
+                      {selectedTransaction.createdAt ? new Date(selectedTransaction.createdAt).toLocaleTimeString('en-US', { 
+                        hour: '2-digit', 
+                        minute: '2-digit'
+                      }) : "-"}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium uppercase tracking-wider rounded-full">
+                    {selectedTransaction.status || "Completed"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Customer & Payment Info */}
+              <div className="px-10 py-6 grid grid-cols-2 gap-8">
                 <div>
-                  <h3 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-2">Bill To</h3>
-                  <p className="font-semibold">{selectedTransaction.customerName || "Walk-in Customer"}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-stone-500 mb-2">Billed To</p>
+                  <p className="font-semibold text-stone-900">{selectedTransaction.customerName || "Walk-in Customer"}</p>
                   {selectedTransaction.customerPhone && (
-                    <p className="text-sm text-muted-foreground">{selectedTransaction.customerPhone}</p>
+                    <p className="text-sm text-stone-600 mt-1">{selectedTransaction.customerPhone}</p>
                   )}
                 </div>
                 <div className="text-right">
-                  <h3 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-2">Payment Method</h3>
-                  <p className="font-semibold capitalize">{selectedTransaction.paymentMethod}</p>
-                  <p className="text-sm text-muted-foreground">Cashier: {selectedTransaction.cashierName}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-stone-500 mb-2">Payment Details</p>
+                  <p className="font-semibold text-stone-900 capitalize">{selectedTransaction.paymentMethod}</p>
+                  <p className="text-sm text-stone-600 mt-1">Served by {selectedTransaction.cashierName}</p>
                 </div>
               </div>
 
               {/* Items Table */}
-              <table className="w-full mb-8">
-                <thead>
-                  <tr className="border-b-2 border-primary">
-                    <th className="text-left py-3 text-xs uppercase tracking-wider font-semibold">#</th>
-                    <th className="text-left py-3 text-xs uppercase tracking-wider font-semibold">Item</th>
-                    <th className="text-center py-3 text-xs uppercase tracking-wider font-semibold">Qty</th>
-                    <th className="text-right py-3 text-xs uppercase tracking-wider font-semibold">Unit Price</th>
-                    <th className="text-right py-3 text-xs uppercase tracking-wider font-semibold">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {selectedTransaction.items?.map((item: any, idx: number) => (
-                    <tr key={idx}>
-                      <td className="py-3 text-sm">{idx + 1}</td>
-                      <td className="py-3">
-                        <p className="font-medium">{item.name}</p>
-                        {(item.color || item.size) && (
-                          <p className="text-xs text-muted-foreground">
-                            {[item.color, item.size].filter(Boolean).join(" / ")}
-                          </p>
-                        )}
-                      </td>
-                      <td className="py-3 text-center text-sm">{item.qty}</td>
-                      <td className="py-3 text-right text-sm">{formatCurrency(item.price)}</td>
-                      <td className="py-3 text-right text-sm font-medium">{formatCurrency(item.price * item.qty)}</td>
+              <div className="px-10">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-y border-stone-200 bg-stone-50">
+                      <th className="text-left py-3 px-2 text-[10px] uppercase tracking-widest font-semibold text-stone-600">Item Description</th>
+                      <th className="text-center py-3 px-2 text-[10px] uppercase tracking-widest font-semibold text-stone-600 w-20">Qty</th>
+                      <th className="text-right py-3 px-2 text-[10px] uppercase tracking-widest font-semibold text-stone-600 w-28">Price</th>
+                      <th className="text-right py-3 px-2 text-[10px] uppercase tracking-widest font-semibold text-stone-600 w-28">Amount</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {selectedTransaction.items?.map((item: any, idx: number) => (
+                      <tr key={idx} className="border-b border-stone-100">
+                        <td className="py-4 px-2">
+                          <p className="font-medium text-stone-900">{item.name}</p>
+                          {(item.color || item.size) && (
+                            <p className="text-xs text-stone-500 mt-0.5">
+                              {[item.size, item.color].filter(Boolean).join(" • ")}
+                            </p>
+                          )}
+                        </td>
+                        <td className="py-4 px-2 text-center text-stone-700">{item.qty}</td>
+                        <td className="py-4 px-2 text-right text-stone-700">{formatCurrency(item.price)}</td>
+                        <td className="py-4 px-2 text-right font-semibold text-stone-900">{formatCurrency(item.price * item.qty)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
               {/* Totals Section */}
-              <div className="flex justify-end">
-                <div className="w-72 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Subtotal</span>
-                    <span>{formatCurrency(selectedTransaction.subtotal || 0)}</span>
-                  </div>
-                  {selectedTransaction.discount > 0 && (
-                    <div className="flex justify-between text-sm text-red-600">
-                      <span>Discount</span>
-                      <span>-{formatCurrency(selectedTransaction.discount)}</span>
-                    </div>
-                  )}
-                  {(selectedTransaction.gstPercentage || 0) > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span>GST ({selectedTransaction.gstPercentage}%)</span>
-                      <span>{formatCurrency(selectedTransaction.gstAmount || 0)}</span>
-                    </div>
-                  )}
-                  {(selectedTransaction.gstPercentage || 0) === 0 && (
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>GST</span>
-                      <span>N/A</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-bold text-lg border-t-2 border-primary pt-2">
-                    <span>Total</span>
-                    <span>{formatCurrency(selectedTransaction.total || 0)}</span>
-                  </div>
-                  {selectedTransaction.paymentMethod === "cash" && selectedTransaction.amountReceived && (
-                    <>
-                      <div className="flex justify-between text-sm">
-                        <span>Amount Received</span>
-                        <span>{formatCurrency(selectedTransaction.amountReceived)}</span>
+              <div className="px-10 py-6">
+                <div className="flex justify-end">
+                  <div className="w-72">
+                    <div className="space-y-2 pb-3">
+                      <div className="flex justify-between text-sm text-stone-600">
+                        <span>Subtotal</span>
+                        <span>{formatCurrency(selectedTransaction.subtotal || 0)}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Change</span>
-                        <span>{formatCurrency(selectedTransaction.change || 0)}</span>
+                      {selectedTransaction.discount > 0 && (
+                        <div className="flex justify-between text-sm text-emerald-600">
+                          <span>Discount</span>
+                          <span>-{formatCurrency(selectedTransaction.discount)}</span>
+                        </div>
+                      )}
+                      {(selectedTransaction.gstPercentage || 0) > 0 && (
+                        <div className="flex justify-between text-sm text-stone-600">
+                          <span>GST ({selectedTransaction.gstPercentage}%)</span>
+                          <span>{formatCurrency(selectedTransaction.gstAmount || 0)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex justify-between items-center pt-3 border-t-2 border-stone-900">
+                      <span className="text-lg font-semibold text-stone-900">Total</span>
+                      <span className="text-xl font-bold text-stone-900">{formatCurrency(selectedTransaction.total || 0)}</span>
+                    </div>
+                    {selectedTransaction.paymentMethod === "cash" && selectedTransaction.amountReceived && (
+                      <div className="mt-4 pt-3 border-t border-stone-200 space-y-1">
+                        <div className="flex justify-between text-sm text-stone-600">
+                          <span>Cash Received</span>
+                          <span>{formatCurrency(selectedTransaction.amountReceived)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm font-medium text-stone-800">
+                          <span>Change Due</span>
+                          <span>{formatCurrency(selectedTransaction.change || 0)}</span>
+                        </div>
                       </div>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="mt-12 pt-6 border-t border-border text-center text-sm text-muted-foreground">
-                <p className="font-medium text-foreground mb-1">Thank you for your purchase!</p>
-                <p>For any queries, please contact us at support@infinitehome.mv</p>
-              </div>
-
+              {/* Notes Section */}
               {selectedTransaction.notes && (
-                <div className="mt-6 p-4 bg-secondary/30 text-sm">
-                  <span className="font-semibold">Notes:</span> {selectedTransaction.notes}
+                <div className="mx-10 mb-6 p-4 bg-amber-50 border border-amber-200 rounded">
+                  <p className="text-xs uppercase tracking-widest text-amber-700 font-semibold mb-1">Notes</p>
+                  <p className="text-sm text-amber-900">{selectedTransaction.notes}</p>
                 </div>
               )}
+
+              {/* Footer */}
+              <div className="bg-stone-50 px-10 py-6 text-center border-t border-stone-200">
+                <p className="text-stone-900 font-medium mb-1">Thank you for shopping with us!</p>
+                <p className="text-xs text-stone-500">Male', Maldives • support@infinitehome.mv</p>
+              </div>
             </div>
           )}
-          <div className="flex justify-end gap-3 mt-4">
+          <div className="flex justify-end gap-3 p-4 bg-white border-t">
             <Button variant="outline" className="rounded-none" onClick={() => setShowInvoiceModal(false)}>
               Close
             </Button>
             <Button
-              className="rounded-none"
+              className="rounded-none bg-stone-900 hover:bg-stone-800"
               onClick={() => {
                 const printContent = document.getElementById("invoice-content");
                 if (printContent) {
@@ -3136,34 +3158,171 @@ export default function AdminPanel() {
                       <head>
                         <title>Invoice ${selectedTransaction?.transactionNumber || ""}</title>
                         <style>
-                          @page { size: A4; margin: 20mm; }
+                          @page { size: A4; margin: 0; }
+                          * { margin: 0; padding: 0; box-sizing: border-box; }
                           body { 
-                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                            line-height: 1.6;
-                            color: #333;
-                            padding: 0;
-                            margin: 0;
+                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                            line-height: 1.5;
+                            color: #1c1917;
+                            background: white;
                           }
-                          table { width: 100%; border-collapse: collapse; }
-                          th, td { padding: 10px; text-align: left; }
-                          th { border-bottom: 2px solid #333; }
-                          td { border-bottom: 1px solid #eee; }
+                          .header { background: linear-gradient(to right, #1c1917, #292524); color: white; padding: 2rem 2.5rem; }
+                          .header h1 { font-size: 1.5rem; font-weight: 300; letter-spacing: 0.3em; text-transform: uppercase; }
+                          .header-subtitle { color: #a8a29e; font-size: 0.75rem; letter-spacing: 0.1em; margin-top: 0.25rem; }
+                          .header-invoice { font-size: 1.875rem; font-weight: 300; letter-spacing: 0.1em; }
+                          .details-bar { background: #f5f5f4; padding: 1rem 2.5rem; border-bottom: 1px solid #e7e5e4; display: flex; justify-content: space-between; }
+                          .detail-item { }
+                          .detail-label { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: #78716c; margin-bottom: 0.25rem; }
+                          .detail-value { font-size: 0.875rem; }
+                          .detail-value.mono { font-family: monospace; font-weight: 600; }
+                          .status-badge { display: inline-block; padding: 0.25rem 0.75rem; background: #d1fae5; color: #047857; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 9999px; }
+                          .customer-section { padding: 1.5rem 2.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+                          .section-label { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: #78716c; margin-bottom: 0.5rem; }
+                          .customer-name { font-weight: 600; color: #1c1917; }
+                          .customer-phone { font-size: 0.875rem; color: #57534e; margin-top: 0.25rem; }
                           .text-right { text-align: right; }
-                          .text-center { text-align: center; }
-                          .font-bold { font-weight: bold; }
-                          .text-sm { font-size: 0.875rem; }
-                          .text-xs { font-size: 0.75rem; }
-                          .text-muted { color: #666; }
-                          .border-primary { border-color: #333; }
-                          .uppercase { text-transform: uppercase; }
-                          .tracking-wider { letter-spacing: 0.05em; }
+                          table { width: 100%; border-collapse: collapse; margin: 0 2.5rem; width: calc(100% - 5rem); }
+                          thead tr { border-top: 1px solid #e7e5e4; border-bottom: 1px solid #e7e5e4; background: #fafaf9; }
+                          th { padding: 0.75rem 0.5rem; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; color: #57534e; }
+                          th:first-child { text-align: left; }
+                          th:nth-child(2) { text-align: center; width: 5rem; }
+                          th:nth-child(3), th:nth-child(4) { text-align: right; width: 7rem; }
+                          td { padding: 1rem 0.5rem; border-bottom: 1px solid #f5f5f4; }
+                          td:first-child { }
+                          td:nth-child(2) { text-align: center; color: #44403c; }
+                          td:nth-child(3) { text-align: right; color: #44403c; }
+                          td:nth-child(4) { text-align: right; font-weight: 600; color: #1c1917; }
+                          .item-name { font-weight: 500; color: #1c1917; }
+                          .item-variant { font-size: 0.75rem; color: #78716c; margin-top: 0.125rem; }
+                          .totals-section { padding: 1.5rem 2.5rem; display: flex; justify-content: flex-end; }
+                          .totals-box { width: 18rem; }
+                          .total-row { display: flex; justify-content: space-between; font-size: 0.875rem; color: #57534e; padding: 0.25rem 0; }
+                          .total-row.discount { color: #059669; }
+                          .grand-total { display: flex; justify-content: space-between; align-items: center; padding-top: 0.75rem; margin-top: 0.75rem; border-top: 2px solid #1c1917; }
+                          .grand-total-label { font-size: 1.125rem; font-weight: 600; color: #1c1917; }
+                          .grand-total-value { font-size: 1.25rem; font-weight: 700; color: #1c1917; }
+                          .cash-details { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #e7e5e4; }
+                          .notes-section { margin: 0 2.5rem 1.5rem; padding: 1rem; background: #fffbeb; border: 1px solid #fde68a; border-radius: 0.25rem; }
+                          .notes-label { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: #b45309; font-weight: 600; margin-bottom: 0.25rem; }
+                          .notes-text { font-size: 0.875rem; color: #92400e; }
+                          .footer { background: #fafaf9; padding: 1.5rem 2.5rem; text-align: center; border-top: 1px solid #e7e5e4; }
+                          .footer-thanks { font-weight: 500; color: #1c1917; margin-bottom: 0.25rem; }
+                          .footer-contact { font-size: 0.75rem; color: #78716c; }
                           @media print {
                             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                           }
                         </style>
                       </head>
                       <body>
-                        ${printContent.innerHTML}
+                        <div class="header" style="display: flex; justify-content: space-between; align-items: center;">
+                          <div>
+                            <h1>Infinite Home</h1>
+                            <p class="header-subtitle">Premium Home Essentials</p>
+                          </div>
+                          <div style="text-align: right;">
+                            <p class="header-invoice">INVOICE</p>
+                          </div>
+                        </div>
+                        <div class="details-bar">
+                          <div style="display: flex; gap: 2rem;">
+                            <div class="detail-item">
+                              <p class="detail-label">Invoice No.</p>
+                              <p class="detail-value mono">${selectedTransaction?.transactionNumber || ""}</p>
+                            </div>
+                            <div class="detail-item">
+                              <p class="detail-label">Date</p>
+                              <p class="detail-value">${selectedTransaction?.createdAt ? new Date(selectedTransaction.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : "-"}</p>
+                            </div>
+                            <div class="detail-item">
+                              <p class="detail-label">Time</p>
+                              <p class="detail-value">${selectedTransaction?.createdAt ? new Date(selectedTransaction.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : "-"}</p>
+                            </div>
+                          </div>
+                          <div>
+                            <span class="status-badge">${selectedTransaction?.status || "Completed"}</span>
+                          </div>
+                        </div>
+                        <div class="customer-section">
+                          <div>
+                            <p class="section-label">Billed To</p>
+                            <p class="customer-name">${selectedTransaction?.customerName || "Walk-in Customer"}</p>
+                            ${selectedTransaction?.customerPhone ? `<p class="customer-phone">${selectedTransaction.customerPhone}</p>` : ""}
+                          </div>
+                          <div class="text-right">
+                            <p class="section-label">Payment Details</p>
+                            <p class="customer-name" style="text-transform: capitalize;">${selectedTransaction?.paymentMethod || ""}</p>
+                            <p class="customer-phone">Served by ${selectedTransaction?.cashierName || ""}</p>
+                          </div>
+                        </div>
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Item Description</th>
+                              <th>Qty</th>
+                              <th>Price</th>
+                              <th>Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${selectedTransaction?.items?.map((item: any) => `
+                              <tr>
+                                <td>
+                                  <p class="item-name">${item.name}</p>
+                                  ${item.size || item.color ? `<p class="item-variant">${[item.size, item.color].filter(Boolean).join(" • ")}</p>` : ""}
+                                </td>
+                                <td>${item.qty}</td>
+                                <td>${formatCurrency(item.price)}</td>
+                                <td>${formatCurrency(item.price * item.qty)}</td>
+                              </tr>
+                            `).join("") || ""}
+                          </tbody>
+                        </table>
+                        <div class="totals-section">
+                          <div class="totals-box">
+                            <div class="total-row">
+                              <span>Subtotal</span>
+                              <span>${formatCurrency(selectedTransaction?.subtotal || 0)}</span>
+                            </div>
+                            ${(selectedTransaction?.discount || 0) > 0 ? `
+                              <div class="total-row discount">
+                                <span>Discount</span>
+                                <span>-${formatCurrency(selectedTransaction?.discount || 0)}</span>
+                              </div>
+                            ` : ""}
+                            ${(selectedTransaction?.gstPercentage || 0) > 0 ? `
+                              <div class="total-row">
+                                <span>GST (${selectedTransaction?.gstPercentage}%)</span>
+                                <span>${formatCurrency(selectedTransaction?.gstAmount || 0)}</span>
+                              </div>
+                            ` : ""}
+                            <div class="grand-total">
+                              <span class="grand-total-label">Total</span>
+                              <span class="grand-total-value">${formatCurrency(selectedTransaction?.total || 0)}</span>
+                            </div>
+                            ${selectedTransaction?.paymentMethod === "cash" && selectedTransaction?.amountReceived ? `
+                              <div class="cash-details">
+                                <div class="total-row">
+                                  <span>Cash Received</span>
+                                  <span>${formatCurrency(selectedTransaction.amountReceived)}</span>
+                                </div>
+                                <div class="total-row" style="font-weight: 500; color: #1c1917;">
+                                  <span>Change Due</span>
+                                  <span>${formatCurrency(selectedTransaction?.change || 0)}</span>
+                                </div>
+                              </div>
+                            ` : ""}
+                          </div>
+                        </div>
+                        ${selectedTransaction?.notes ? `
+                          <div class="notes-section">
+                            <p class="notes-label">Notes</p>
+                            <p class="notes-text">${selectedTransaction.notes}</p>
+                          </div>
+                        ` : ""}
+                        <div class="footer">
+                          <p class="footer-thanks">Thank you for shopping with us!</p>
+                          <p class="footer-contact">Male', Maldives • support@infinitehome.mv</p>
+                        </div>
                       </body>
                       </html>
                     `);
