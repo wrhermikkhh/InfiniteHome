@@ -586,11 +586,26 @@ export async function registerRoutes(
         const variantKey = `${item.size || 'Standard'}-${item.color || 'Default'}`;
         let availableStock = product.stock || 0;
         
+        // Check variant stock if available
         if (variantStock && Object.keys(variantStock).length > 0) {
+          // Try exact match first
           if (variantStock[variantKey] !== undefined) {
             availableStock = variantStock[variantKey];
           } else {
-            availableStock = 0;
+            // Try to find a matching variant key (case-insensitive or partial match)
+            const matchingKey = Object.keys(variantStock).find(key => {
+              const keyLower = key.toLowerCase();
+              const searchKey = variantKey.toLowerCase();
+              return keyLower === searchKey || 
+                     keyLower.includes(item.size?.toLowerCase() || '') ||
+                     keyLower.includes(item.color?.toLowerCase() || '');
+            });
+            if (matchingKey) {
+              availableStock = variantStock[matchingKey];
+            } else {
+              // Fall back to main stock if no variant match
+              availableStock = product.stock || 0;
+            }
           }
         }
         
