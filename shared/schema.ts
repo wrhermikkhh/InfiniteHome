@@ -124,7 +124,23 @@ export const posTransactions = pgTable("pos_transactions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertPosTransactionSchema = createInsertSchema(posTransactions).omit({ id: true, createdAt: true });
+export const insertPosTransactionSchema = createInsertSchema(posTransactions).omit({ id: true, createdAt: true }).extend({
+  cashierId: z.string().min(1),
+  cashierName: z.string().min(1),
+  transactionNumber: z.string().min(1),
+  items: z.array(z.object({
+    productId: z.string(),
+    name: z.string(),
+    qty: z.number(),
+    price: z.number(),
+    color: z.string().optional(),
+    size: z.string().optional()
+  })),
+  customerId: z.string().optional().nullable(),
+  customerName: z.string().optional().nullable(),
+  customerPhone: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
 export type InsertPosTransaction = z.infer<typeof insertPosTransactionSchema>;
 export type PosTransaction = typeof posTransactions.$inferSelect;
 

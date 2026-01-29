@@ -2226,9 +2226,9 @@ export default function AdminPanel() {
                                   paymentMethod: posPaymentMethod,
                                   amountReceived,
                                   change: posPaymentMethod === "cash" ? Math.max(0, amountReceived - total) : 0,
-                                  customerName: posCustomerName || undefined,
-                                  customerPhone: posCustomerPhone || undefined,
-                                  cashierId: admins[0]?.id || "",
+                                  customerName: posCustomerName || null,
+                                  customerPhone: posCustomerPhone || null,
+                                  cashierId: admins[0]?.id || "default-cashier",
                                   cashierName: admins[0]?.name || "Admin",
                                   notes: posNotes || undefined,
                                   status: "completed"
