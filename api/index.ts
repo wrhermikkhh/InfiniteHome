@@ -117,6 +117,11 @@ const products = pgTable("products", {
   preOrderEta: text("pre_order_eta"),
   productDetails: text("product_details"),
   materialsAndCare: text("materials_and_care"),
+  showOnStorefront: boolean("show_on_storefront").default(true),
+  lowStockThreshold: integer("low_stock_threshold").default(5),
+  sku: text("sku"),
+  barcode: text("barcode"),
+  costPrice: real("cost_price"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -166,7 +171,33 @@ const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt:
 type InsertOrder = z.infer<typeof insertOrderSchema>;
 type Order = typeof orders.$inferSelect;
 
-const schema = { customers, customerAddresses, admins, categories, products, coupons, orders };
+// POS Transactions
+const posTransactions = pgTable("pos_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  transactionNumber: text("transaction_number").notNull().unique(),
+  items: jsonb("items").$type<{ productId: string; name: string; qty: number; price: number; color?: string; size?: string }[]>().notNull(),
+  subtotal: real("subtotal").notNull(),
+  discount: real("discount").default(0),
+  gstPercentage: real("gst_percentage").default(0),
+  gstAmount: real("gst_amount").default(0),
+  tax: real("tax").default(0),
+  total: real("total").notNull(),
+  paymentMethod: text("payment_method").notNull(),
+  amountReceived: real("amount_received"),
+  change: real("change").default(0),
+  customerId: varchar("customer_id"),
+  customerName: text("customer_name"),
+  customerPhone: text("customer_phone"),
+  cashierId: varchar("cashier_id").notNull(),
+  cashierName: text("cashier_name").notNull(),
+  notes: text("notes"),
+  status: text("status").notNull().default("completed"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+type PosTransaction = typeof posTransactions.$inferSelect;
+
+const schema = { customers, customerAddresses, admins, categories, products, coupons, orders, posTransactions };
 
 // ============ DATABASE CONNECTION ============
 
@@ -539,6 +570,34 @@ class DatabaseStorage {
       const newStock = (product.stock || 0) + quantity;
       await this.getDb().update(products).set({ stock: newStock }).where(eq(products.id, productId));
     }
+  }
+
+  // POS Transaction methods
+  async getAllPosTransactions(): Promise<PosTransaction[]> {
+    return await this.getDb().select().from(posTransactions);
+  }
+
+  async getPosTransaction(id: string): Promise<PosTransaction | undefined> {
+    const [transaction] = await this.getDb().select().from(posTransactions).where(eq(posTransactions.id, id));
+    return transaction || undefined;
+  }
+
+  async getTodayPosTransactions(): Promise<PosTransaction[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return await this.getDb().select().from(posTransactions).where(
+      sql`${posTransactions.createdAt} >= ${today.toISOString()}`
+    );
+  }
+
+  async createPosTransaction(data: any): Promise<PosTransaction> {
+    const [transaction] = await this.getDb().insert(posTransactions).values(data).returning();
+    return transaction;
+  }
+
+  async updatePosTransaction(id: string, data: Partial<any>): Promise<PosTransaction | undefined> {
+    const [updated] = await this.getDb().update(posTransactions).set(data).where(eq(posTransactions.id, id)).returning();
+    return updated || undefined;
   }
 }
 
@@ -1510,6 +1569,164 @@ app.get("/objects/{*path}", (req, res) => {
   // For legacy paths, redirect to placeholder or return 404
   // New uploads use full Supabase URLs
   res.status(404).json({ error: "Object not found" });
+});
+
+// ============ POS ROUTES ============
+
+app.get("/api/pos/transactions", async (req, res) => {
+  try {
+    const transactions = await storage.getAllPosTransactions();
+    res.json(transactions);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/api/pos/transactions/today", async (req, res) => {
+  try {
+    const transactions = await storage.getTodayPosTransactions();
+    res.json(transactions);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/api/pos/transactions/:id", async (req, res) => {
+  try {
+    const transaction = await storage.getPosTransaction(req.params.id);
+    if (transaction) {
+      res.json(transaction);
+    } else {
+      res.status(404).json({ message: "Transaction not found" });
+    }
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/api/pos/transactions", async (req, res) => {
+  try {
+    const items = req.body.items as { productId: string; name: string; qty: number; price: number; color?: string; size?: string }[];
+    
+    if (!items || items.length === 0) {
+      return res.status(400).json({ message: "No items in transaction" });
+    }
+
+    // Validate stock for each item
+    const allProducts = await storage.getAllProducts();
+    const productMap = new Map(allProducts.map((p: any) => [p.id, p]));
+    
+    const stockErrors: string[] = [];
+    for (const item of items) {
+      const product = productMap.get(item.productId);
+      if (!product) {
+        stockErrors.push(`Product "${item.name}" not found`);
+        continue;
+      }
+      
+      const variantStock = product.variantStock as { [key: string]: number } | null;
+      const variantKey = `${item.size || 'Standard'}-${item.color || 'Default'}`;
+      let availableStock = product.stock || 0;
+      
+      if (variantStock && Object.keys(variantStock).length > 0) {
+        if (variantStock[variantKey] !== undefined) {
+          availableStock = variantStock[variantKey];
+        } else {
+          availableStock = 0;
+        }
+      }
+      
+      if (availableStock < item.qty) {
+        stockErrors.push(`${item.name} only has ${availableStock} available`);
+      }
+    }
+    
+    if (stockErrors.length > 0) {
+      return res.status(400).json({ message: "Stock validation failed: " + stockErrors.join("; ") });
+    }
+
+    // Generate transaction number
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+    const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const transactionNumber = `POS-${dateStr}-${timeStr}-${randomSuffix}`;
+
+    // Manually construct the transaction data
+    const data = {
+      transactionNumber,
+      items: req.body.items,
+      subtotal: Number(req.body.subtotal) || 0,
+      discount: Number(req.body.discount) || 0,
+      gstPercentage: Number(req.body.gstPercentage) || 0,
+      gstAmount: Number(req.body.gstAmount) || 0,
+      tax: Number(req.body.tax) || 0,
+      total: Number(req.body.total) || 0,
+      paymentMethod: String(req.body.paymentMethod || "cash"),
+      amountReceived: Number(req.body.amountReceived) || 0,
+      change: Number(req.body.change) || 0,
+      customerId: req.body.customerId || null,
+      customerName: req.body.customerName || null,
+      customerPhone: req.body.customerPhone || null,
+      cashierId: String(req.body.cashierId || "default"),
+      cashierName: String(req.body.cashierName || "Admin"),
+      notes: req.body.notes || null,
+      status: String(req.body.status || "completed"),
+    };
+    const transaction = await storage.createPosTransaction(data);
+
+    // Deduct stock for each item
+    for (const item of items) {
+      const product = await storage.getProduct(item.productId);
+      if (!product) continue;
+
+      const size = item.size || (product.variants && product.variants.length > 0 ? product.variants[0].size : 'Standard');
+      const color = item.color || (product.colors && product.colors.length > 0 ? product.colors[0] : 'Default');
+      
+      await storage.deductStock(item.productId, size, color, item.qty);
+    }
+
+    res.json(transaction);
+  } catch (error: any) {
+    console.error("POS Transaction Error:", error);
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.patch("/api/pos/transactions/:id", async (req, res) => {
+  try {
+    const transaction = await storage.updatePosTransaction(req.params.id, req.body);
+    if (transaction) {
+      res.json(transaction);
+    } else {
+      res.status(404).json({ message: "Transaction not found" });
+    }
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.get("/api/pos/stats/today", async (req, res) => {
+  try {
+    const transactions = await storage.getTodayPosTransactions();
+    const completedTransactions = transactions.filter((t: any) => t.status === 'completed');
+    
+    const totalSales = completedTransactions.reduce((sum: number, t: any) => sum + (t.total || 0), 0);
+    const totalTransactions = completedTransactions.length;
+    const totalItems = completedTransactions.reduce((sum: number, t: any) => {
+      const items = t.items as { qty: number }[];
+      return sum + items.reduce((itemSum, item) => itemSum + item.qty, 0);
+    }, 0);
+    
+    res.json({
+      totalSales,
+      totalTransactions,
+      totalItems,
+      averageTransaction: totalTransactions > 0 ? totalSales / totalTransactions : 0
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
 // ============ VERCEL HANDLER ============
