@@ -269,6 +269,16 @@ function ColorVariantRow({
         >
           {isUploading ? "..." : <><Upload size={12} className="mr-1" /> Upload</>}
         </Button>
+        {colorVar.image && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-8 text-[10px] rounded-none text-amber-600 flex-shrink-0"
+            onClick={() => handleUrlChange("")}
+          >
+            <X size={12} className="mr-1" /> Clear
+          </Button>
+        )}
         <Button 
           variant="ghost" 
           size="icon" 
@@ -362,7 +372,6 @@ export default function AdminPanel() {
     images: [] as string[],
     colorVariants: [{ name: "", image: "" }] as { name: string; image: string }[],
     variants: [{ size: "", price: "" }],
-    stock: "",
     variantStock: {} as { [key: string]: string },
     expressCharge: "",
     sizeGuide: [] as { measurement: string; sizes: { [key: string]: string } }[],
@@ -558,7 +567,7 @@ export default function AdminPanel() {
         size: v.size.trim(),
         price: Number(v.price)
       })),
-      stock: productForm.stock ? Number(productForm.stock) : 0,
+      stock: 0,
       variantStock: variantStockNumbers,
       expressCharge: productForm.expressCharge ? Number(productForm.expressCharge) : 0,
       sizeGuide: productForm.sizeGuide.filter(sg => sg.measurement && Object.keys(sg.sizes).length > 0),
@@ -601,7 +610,6 @@ export default function AdminPanel() {
       images: [],
       colorVariants: [{ name: "", image: "" }],
       variants: [{ size: "", price: "" }],
-      stock: "",
       variantStock: {},
       expressCharge: "",
       sizeGuide: [],
@@ -642,7 +650,6 @@ export default function AdminPanel() {
       variants: product.variants && product.variants.length > 0 
         ? product.variants.map(v => ({ size: v.size, price: v.price.toString() }))
         : [{ size: "", price: product.price.toString() }],
-      stock: ((product as any).stock || 0).toString(),
       variantStock: variantStockStrings,
       expressCharge: (product.expressCharge || 0).toString(),
       sizeGuide: (product as any).sizeGuide || [],
@@ -1287,17 +1294,6 @@ export default function AdminPanel() {
                           )}
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-xs uppercase tracking-widest font-bold">Stock</Label>
-                          <Input 
-                            type="number"
-                            value={productForm.stock}
-                            onChange={(e) => setProductForm({...productForm, stock: e.target.value})}
-                            className="rounded-none"
-                            placeholder="0"
-                            data-testid="input-stock"
-                          />
-                        </div>
-                        <div className="space-y-2">
                           <Label className="text-xs uppercase tracking-widest font-bold">Express Charge (MVR)</Label>
                           <Input 
                             type="number"
@@ -1421,7 +1417,23 @@ export default function AdminPanel() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs uppercase tracking-widest font-bold">Main Product Image</Label>
+                        <div className="flex justify-between items-center">
+                          <Label className="text-xs uppercase tracking-widest font-bold">Main Product Image</Label>
+                          {productForm.image && !productForm.image.includes('unsplash.com') && (
+                            <Button 
+                              type="button"
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 text-[10px] rounded-none uppercase tracking-widest text-destructive"
+                              onClick={() => setProductForm({
+                                ...productForm, 
+                                image: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80"
+                              })}
+                            >
+                              <Trash2 size={12} className="mr-1" /> Remove
+                            </Button>
+                          )}
+                        </div>
                         <ProductImageUploader
                           currentImage={productForm.image}
                           onImageUploaded={(path) => setProductForm({...productForm, image: path})}
@@ -1723,14 +1735,20 @@ export default function AdminPanel() {
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
-                          <span className={cn(
-                            "text-xs font-medium px-2 py-1",
-                            ((product as any).stock || 0) > 0 
-                              ? "bg-green-100 text-green-700" 
-                              : "bg-red-100 text-red-700"
-                          )} data-testid={`stock-${product.id}`}>
-                            Stock: {(product as any).stock || 0}
-                          </span>
+                          {(() => {
+                            const variantStock = (product as any).variantStock as { [key: string]: number } | null;
+                            const totalStock = variantStock ? Object.values(variantStock).reduce((sum, v) => sum + (v || 0), 0) : 0;
+                            return (
+                              <span className={cn(
+                                "text-xs font-medium px-2 py-1",
+                                totalStock > 0 
+                                  ? "bg-green-100 text-green-700" 
+                                  : "bg-red-100 text-red-700"
+                              )} data-testid={`stock-${product.id}`}>
+                                Stock: {totalStock}
+                              </span>
+                            );
+                          })()}
                           <div className="flex items-center gap-2">
                             <Button 
                               variant="ghost" 
@@ -1796,7 +1814,11 @@ export default function AdminPanel() {
                   <CardContent className="p-4">
                     <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Low Stock</div>
                     <div className="text-2xl font-bold text-amber-600">
-                      {products.filter(p => (p.stock || 0) <= (p.lowStockThreshold || 5) && (p.stock || 0) > 0).length}
+                      {products.filter(p => {
+                        const vs = (p as any).variantStock as { [key: string]: number } | null;
+                        const total = vs ? Object.values(vs).reduce((sum, v) => sum + (v || 0), 0) : 0;
+                        return total <= (p.lowStockThreshold || 5) && total > 0;
+                      }).length}
                     </div>
                   </CardContent>
                 </Card>
@@ -1843,7 +1865,8 @@ export default function AdminPanel() {
                               (p.category && p.category.toLowerCase().includes(query));
                           })
                           .map((product) => {
-                          const totalStock = product.stock || 0;
+                          const variantStock = (product as any).variantStock as { [key: string]: number } | null;
+                          const totalStock = variantStock ? Object.values(variantStock).reduce((sum, v) => sum + (v || 0), 0) : 0;
                           const lowThreshold = product.lowStockThreshold || 5;
                           const isLowStock = totalStock <= lowThreshold && totalStock > 0;
                           const isOutOfStock = totalStock <= 0;
