@@ -2205,39 +2205,46 @@ export default function AdminPanel() {
                               const total = Math.max(0, afterDiscount + gstAmount);
                               const amountReceived = posPaymentMethod === "cash" ? parseFloat(posAmountReceived) || total : total;
                               
-                              const transaction = await api.createPosTransaction({
-                                items: posCart.map(item => ({
-                                  productId: item.productId,
-                                  name: item.name,
-                                  qty: item.qty,
-                                  price: item.price,
-                                  color: item.color,
-                                  size: item.size
-                                })),
-                                subtotal,
-                                discount: posDiscount,
-                                gstPercentage: posGstPercentage,
-                                gstAmount: gstAmount,
-                                tax: 0,
-                                total,
-                                paymentMethod: posPaymentMethod,
-                                amountReceived,
-                                change: posPaymentMethod === "cash" ? Math.max(0, amountReceived - total) : 0,
-                                customerName: posCustomerName || undefined,
-                                customerPhone: posCustomerPhone || undefined,
-                                cashierId: admins[0]?.id || "",
-                                cashierName: admins[0]?.name || "Admin",
-                                notes: posNotes || undefined,
-                                status: "completed"
+                              const res = await fetch("/api/pos/transactions", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  items: posCart.map(item => ({
+                                    productId: item.productId,
+                                    name: item.name,
+                                    qty: item.qty,
+                                    price: item.price,
+                                    color: item.color,
+                                    size: item.size
+                                  })),
+                                  subtotal,
+                                  discount: posDiscount,
+                                  gstPercentage: posGstPercentage,
+                                  gstAmount: gstAmount,
+                                  tax: 0,
+                                  total,
+                                  paymentMethod: posPaymentMethod,
+                                  amountReceived,
+                                  change: posPaymentMethod === "cash" ? Math.max(0, amountReceived - total) : 0,
+                                  customerName: posCustomerName || undefined,
+                                  customerPhone: posCustomerPhone || undefined,
+                                  cashierId: admins[0]?.id || "",
+                                  cashierName: admins[0]?.name || "Admin",
+                                  notes: posNotes || undefined,
+                                  status: "completed"
+                                })
                               });
 
-                              if (!transaction || typeof transaction !== 'object') {
-                                throw new Error("Server returned an invalid transaction response");
+                              if (!res.ok) {
+                                const errorData = await res.json();
+                                throw new Error(errorData.message || "Failed to process sale");
                               }
 
-                              if (!transaction.transactionNumber) {
-                                console.error("Missing transaction number in response:", transaction);
-                                throw new Error("Transaction completed but transaction number is missing");
+                              const transaction = await res.json();
+
+                              if (!transaction || typeof transaction !== 'object' || !transaction.transactionNumber) {
+                                console.error("Invalid transaction response:", transaction);
+                                throw new Error("Transaction completed but response was invalid");
                               }
 
                               setLastTransaction(transaction);
