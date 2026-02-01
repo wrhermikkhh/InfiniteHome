@@ -8,10 +8,16 @@ interface ProductCardProps {
   product: Product;
 }
 
+function getTotalVariantStock(product: Product): number {
+  if (!product.variantStock || typeof product.variantStock !== 'object') return 0;
+  return Object.values(product.variantStock as Record<string, number>).reduce((sum, qty) => sum + (qty || 0), 0);
+}
+
 export function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
   const discountPercent = getDiscountPercentage(product);
   const displayPrice = getDisplayPrice(product);
+  const totalStock = getTotalVariantStock(product);
 
   return (
     <div className="group block" data-testid={`card-product-${product.id}`}>
@@ -56,15 +62,15 @@ export function ProductCard({ product }: ProductCardProps) {
                  onClick={(e) => {
                    e.preventDefault();
                    e.stopPropagation();
-                   if ((product.stock || 0) > 0 || product.isPreOrder) {
+                   if (totalStock > 0 || product.isPreOrder) {
                      addItem(product);
                    }
                  }}
-                 disabled={(product.stock || 0) <= 0 && !product.isPreOrder}
+                 disabled={totalStock <= 0 && !product.isPreOrder}
                  className="w-full rounded-sm h-10 text-xs tracking-wide font-semibold shadow-lg"
                  data-testid={`button-quick-add-${product.id}`}
                >
-                 {(product.stock || 0) > 0 || product.isPreOrder ? "Quick Add" : "Out of Stock"}
+                 {totalStock > 0 || product.isPreOrder ? "Quick Add" : "Out of Stock"}
                </Button>
             </div>
           </div>
