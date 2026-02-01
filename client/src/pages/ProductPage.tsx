@@ -26,10 +26,10 @@ export default function ProductPage() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [colorSwatchActive, setColorSwatchActive] = useState(false);
 
-  const colors: string[] = product?.colors && product.colors.length > 0 ? product.colors : [];
+  const colors: string[] = product?.colors && product.colors.length > 0 ? product.colors : ['Default'];
   const variants: ProductVariant[] = product?.variants && product.variants.length > 0 
     ? product.variants 
-    : [];
+    : [{ size: 'Standard', price: product?.price || 0 }];
   
   const [hasAutoSelected, setHasAutoSelected] = useState(false);
 
