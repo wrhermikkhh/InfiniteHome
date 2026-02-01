@@ -607,7 +607,7 @@ const storage = new DatabaseStorage();
 
 function getEmailBaseUrl() {
   // Use custom domain for production
-  return 'https://infinite-home.vercel.app';
+  return 'https://infinitehome.mv';
 }
 
 function getEmailHeader() {

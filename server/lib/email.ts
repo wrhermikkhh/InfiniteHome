@@ -19,7 +19,7 @@ export async function sendOrderConfirmationEmail(order: any) {
     const resend = new Resend(apiKey);
     console.log('Sending email with Resend API Key:', apiKey.substring(0, 10) + '...');
 
-    const baseUrl = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'https://infinitehome.mv';
+    const baseUrl = 'https://infinitehome.mv';
     const trackingUrl = `${baseUrl}/track?order=${order.orderNumber}`;
 
     const itemsHtml = order.items.map((item: any) => `
