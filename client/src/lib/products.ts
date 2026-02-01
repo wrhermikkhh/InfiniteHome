@@ -62,16 +62,43 @@ export function getVariantStockKey(size?: string, color?: string): string {
 }
 
 export function getVariantStock(product: Product, size?: string, color?: string): number {
-  const key = getVariantStockKey(size, color);
+  const variantStock = product.variantStock as { [key: string]: number } | null;
   
-  // If product has variant stock tracking enabled, use variant stock only
-  if (product.variantStock && Object.keys(product.variantStock).length > 0) {
-    // Return specific variant stock if exists, otherwise 0 (not available)
-    return product.variantStock[key] !== undefined ? product.variantStock[key] : 0;
+  // If no variant stock tracking, fall back to general stock
+  if (!variantStock || Object.keys(variantStock).length === 0) {
+    return product.stock || 0;
   }
   
-  // Fall back to general stock only if no variant tracking
-  return product.stock || 0;
+  // Build the key to look up
+  const sizeKey = size || 'Standard';
+  const colorKey = color || 'Default';
+  const exactKey = `${sizeKey}-${colorKey}`;
+  
+  // Try exact match first
+  if (variantStock[exactKey] !== undefined) {
+    return variantStock[exactKey];
+  }
+  
+  // Try case-insensitive match
+  const lowerKey = exactKey.toLowerCase();
+  const matchingKey = Object.keys(variantStock).find(k => k.toLowerCase() === lowerKey);
+  if (matchingKey) {
+    return variantStock[matchingKey];
+  }
+  
+  // Try partial matches (size only or color only)
+  const sizeMatch = Object.keys(variantStock).find(k => 
+    k.toLowerCase().startsWith(sizeKey.toLowerCase() + '-')
+  );
+  const colorMatch = Object.keys(variantStock).find(k => 
+    k.toLowerCase().endsWith('-' + colorKey.toLowerCase())
+  );
+  
+  if (sizeMatch) return variantStock[sizeMatch];
+  if (colorMatch) return variantStock[colorMatch];
+  
+  // No match found
+  return 0;
 }
 
 export const formatCurrency = (amount: number) => {

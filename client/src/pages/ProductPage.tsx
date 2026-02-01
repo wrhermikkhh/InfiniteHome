@@ -26,15 +26,47 @@ export default function ProductPage() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [colorSwatchActive, setColorSwatchActive] = useState(false);
 
-  const colors: string[] = product?.colors && product.colors.length > 0 ? product.colors : ["White"];
+  const colors: string[] = product?.colors && product.colors.length > 0 ? product.colors : [];
   const variants: ProductVariant[] = product?.variants && product.variants.length > 0 
     ? product.variants 
-    : [{ size: "Standard", price: product?.price || 0 }];
+    : [];
 
+  // Auto-select first size/color combination that has stock
   useEffect(() => {
-    if (colors.length > 0 && !selectedColor) setSelectedColor(colors[0]);
-    if (variants.length > 0 && !selectedSize) setSelectedSize(variants[0].size);
-  }, [colors, variants, selectedColor, selectedSize]);
+    if (!product) return;
+    
+    const variantStock = product.variantStock as { [key: string]: number } | null;
+    const hasVariantStock = variantStock && Object.keys(variantStock).length > 0;
+    
+    // Get available sizes and colors
+    const availableSizes = variants.length > 0 ? variants.map(v => v.size) : ['Standard'];
+    const availableColors = colors.length > 0 ? colors : ['Default'];
+    
+    // Find first combination with stock
+    let foundWithStock = false;
+    
+    if (hasVariantStock) {
+      for (const size of availableSizes) {
+        for (const color of availableColors) {
+          const key = `${size}-${color}`;
+          if (variantStock[key] && variantStock[key] > 0) {
+            if (!selectedSize) setSelectedSize(size);
+            if (!selectedColor) setSelectedColor(color);
+            foundWithStock = true;
+            break;
+          }
+        }
+        if (foundWithStock) break;
+      }
+    }
+    
+    // If no stock found, don't auto-select (leave empty)
+    // But if there's no variant stock tracking, use old stock field as fallback
+    if (!foundWithStock && !hasVariantStock && (product.stock || 0) > 0) {
+      if (!selectedSize && availableSizes.length > 0) setSelectedSize(availableSizes[0]);
+      if (!selectedColor && availableColors.length > 0) setSelectedColor(availableColors[0]);
+    }
+  }, [product, colors, variants, selectedColor, selectedSize]);
   
   useEffect(() => {
     setQuantity(1);
