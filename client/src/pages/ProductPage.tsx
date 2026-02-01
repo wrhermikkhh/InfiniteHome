@@ -619,7 +619,7 @@ export default function ProductPage() {
           )}
           
           <div 
-            className="max-w-[90vw] max-h-[90vh] overflow-hidden"
+            className="relative w-[80vw] h-[80vh] overflow-hidden bg-transparent"
             onClick={(e) => e.stopPropagation()}
             onMouseMove={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
@@ -627,14 +627,22 @@ export default function ProductPage() {
               const y = ((e.clientY - rect.top) / rect.height) * 100;
               setZoomPosition({ x, y });
             }}
+            onTouchMove={(e) => {
+              const touch = e.touches[0];
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = ((touch.clientX - rect.left) / rect.width) * 100;
+              const y = ((touch.clientY - rect.top) / rect.height) * 100;
+              setZoomPosition({ x, y });
+            }}
           >
             <img 
               src={colorSwatchActive && colorImages[selectedColor] ? colorImages[selectedColor] : allImages[activeImageIndex] || product.image}
               alt={product.name}
-              className="max-w-[90vw] max-h-[90vh] object-contain cursor-crosshair transition-transform duration-100"
+              className="absolute inset-0 w-full h-full object-contain cursor-move"
               style={{
-                transform: `scale(2)`,
-                transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`
+                transform: `scale(2.5)`,
+                transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
+                transition: 'transform-origin 0.1s ease-out'
               }}
             />
           </div>
