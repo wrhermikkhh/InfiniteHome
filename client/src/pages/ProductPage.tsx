@@ -31,48 +31,50 @@ export default function ProductPage() {
     ? product.variants 
     : [{ size: 'Standard', price: product?.price || 0 }];
   
-  const [hasAutoSelected, setHasAutoSelected] = useState(false);
-
   // Auto-select first size/color combination that has stock (runs once when product loads)
   useEffect(() => {
-    if (!product || hasAutoSelected) return;
-    
-    const variantStock = product.variantStock as { [key: string]: number } | null;
-    const hasVariantStock = variantStock && Object.keys(variantStock).length > 0;
+    if (!product) return;
+    // Only auto-select if nothing selected yet
+    if (selectedSize || selectedColor) return;
     
     // Get available sizes and colors
-    const availableSizes = variants.length > 0 ? variants.map(v => v.size) : ['Standard'];
-    const availableColors = colors.length > 0 ? colors : ['Default'];
+    const availableSizes = variants.map(v => v.size);
+    const availableColors = [...colors];
     
-    // Find first combination with stock
-    let selectedSizeValue = '';
-    let selectedColorValue = '';
+    // Find first combination with stock using getVariantStock (handles flexible matching)
+    let foundSize = '';
+    let foundColor = '';
     
-    if (hasVariantStock) {
-      outerLoop:
-      for (const size of availableSizes) {
-        for (const color of availableColors) {
-          const key = `${size}-${color}`;
-          if (variantStock[key] && variantStock[key] > 0) {
-            selectedSizeValue = size;
-            selectedColorValue = color;
-            break outerLoop;
-          }
+    // Try each size/color combo and use getVariantStock for flexible matching
+    for (const size of availableSizes) {
+      for (const color of availableColors) {
+        const stock = getVariantStock(product, size, color);
+        if (stock > 0) {
+          foundSize = size;
+          foundColor = color;
+          break;
         }
+      }
+      if (foundSize) break;
+    }
+    
+    // If no stock found with combinations, but product has general stock (fallback for legacy data)
+    if (!foundSize) {
+      const variantStock = product.variantStock as { [key: string]: number } | null;
+      const hasVariantStock = variantStock && Object.keys(variantStock).length > 0;
+      
+      if (!hasVariantStock && (product.stock || 0) > 0) {
+        foundSize = availableSizes[0] || '';
+        foundColor = availableColors[0] || '';
       }
     }
     
-    // If no variant stock but has general stock, select first options
-    if (!selectedSizeValue && !hasVariantStock && (product.stock || 0) > 0) {
-      selectedSizeValue = availableSizes[0] || '';
-      selectedColorValue = availableColors[0] || '';
+    // Apply selections together to trigger single re-render
+    if (foundSize && foundColor) {
+      setSelectedSize(foundSize);
+      setSelectedColor(foundColor);
     }
-    
-    // Apply selections
-    if (selectedSizeValue) setSelectedSize(selectedSizeValue);
-    if (selectedColorValue) setSelectedColor(selectedColorValue);
-    setHasAutoSelected(true);
-  }, [product, colors, variants, hasAutoSelected]);
+  }, [product]);
   
   useEffect(() => {
     setQuantity(1);
