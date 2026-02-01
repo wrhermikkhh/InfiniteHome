@@ -4,7 +4,7 @@ import { formatCurrency, ProductVariant, getVariantStock, getVariantStockKey, ge
 import { useProduct } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
 import { useRoute } from "wouter";
-import { Star, Truck, ShieldCheck, RefreshCcw, Minus, Plus, Clock, Package, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { Star, Truck, ShieldCheck, RefreshCcw, Minus, Plus, Clock, Package, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X, ZoomIn } from "lucide-react";
 import { useState, useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import { useCart } from "@/lib/cart";
@@ -25,6 +25,8 @@ export default function ProductPage() {
   const colorImages = (product as any)?.colorImages || {};
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [colorSwatchActive, setColorSwatchActive] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
 
   const colors: string[] = product?.colors && product.colors.length > 0 ? product.colors : ['Default'];
   const variants: ProductVariant[] = product?.variants && product.variants.length > 0 
@@ -144,7 +146,8 @@ export default function ProductPage() {
                     }
                   }
                 }}
-                className="w-full h-full cursor-grab active:cursor-grabbing"
+                onClick={() => setIsZoomed(true)}
+                className="w-full h-full cursor-zoom-in"
               >
                 <img 
                   src={colorSwatchActive && colorImages[selectedColor] ? colorImages[selectedColor] : allImages[activeImageIndex] || product.image} 
@@ -153,6 +156,11 @@ export default function ProductPage() {
                   data-testid="product-main-image"
                 />
               </motion.div>
+              
+              {/* Zoom hint icon */}
+              <div className="absolute bottom-4 right-4 w-10 h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md cursor-pointer" onClick={() => setIsZoomed(true)}>
+                <ZoomIn size={18} />
+              </div>
               
               {/* Navigation Arrows */}
               {allImages.length > 1 && !colorSwatchActive && (
@@ -571,6 +579,74 @@ export default function ProductPage() {
           </motion.div>
         </div>
       </div>
+
+      {/* Zoom Modal */}
+      {isZoomed && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          onClick={() => setIsZoomed(false)}
+        >
+          <button 
+            className="absolute top-6 right-6 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
+            onClick={() => setIsZoomed(false)}
+            data-testid="close-zoom-btn"
+          >
+            <X size={24} />
+          </button>
+          
+          {/* Navigation in zoom mode */}
+          {allImages.length > 1 && !colorSwatchActive && (
+            <>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+                }}
+                className="absolute left-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveImageIndex((prev) => (prev + 1) % allImages.length);
+                }}
+                className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </>
+          )}
+          
+          <div 
+            className="max-w-[90vw] max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+            onMouseMove={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = ((e.clientX - rect.left) / rect.width) * 100;
+              const y = ((e.clientY - rect.top) / rect.height) * 100;
+              setZoomPosition({ x, y });
+            }}
+          >
+            <img 
+              src={colorSwatchActive && colorImages[selectedColor] ? colorImages[selectedColor] : allImages[activeImageIndex] || product.image}
+              alt={product.name}
+              className="max-w-[90vw] max-h-[90vh] object-contain cursor-crosshair transition-transform duration-100"
+              style={{
+                transform: `scale(2)`,
+                transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`
+              }}
+            />
+          </div>
+          
+          {/* Image counter in zoom mode */}
+          {allImages.length > 1 && !colorSwatchActive && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/20 text-white text-sm px-4 py-2 rounded-full">
+              {activeImageIndex + 1} / {allImages.length}
+            </div>
+          )}
+        </div>
+      )}
 
       <Footer />
     </div>
