@@ -1581,9 +1581,17 @@ export default function AdminPanel() {
                       
                       {/* Variant Stock Management */}
                       <div className="space-y-4 pt-4 border-t border-border">
-                        <div>
-                          <Label className="text-xs uppercase tracking-widest font-bold">Stock</Label>
-                          <p className="text-[10px] text-muted-foreground">Set stock for each size/color combination</p>
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <Label className="text-xs uppercase tracking-widest font-bold">Stock</Label>
+                            <p className="text-[10px] text-muted-foreground">Set stock for each size/color combination</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Base Stock</span>
+                            <div className={`text-lg font-bold ${Object.values(productForm.variantStock).reduce((sum, v) => sum + (parseInt(v) || 0), 0) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {Object.values(productForm.variantStock).reduce((sum, v) => sum + (parseInt(v) || 0), 0)}
+                            </div>
+                          </div>
                         </div>
                         <div className="space-y-2 max-h-64 overflow-y-auto">
                           {(() => {

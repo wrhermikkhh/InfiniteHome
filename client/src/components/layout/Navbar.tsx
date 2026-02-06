@@ -1,13 +1,13 @@
 import { Link, useLocation } from "wouter";
-import { Search, ShoppingBag, User, Menu, X, Trash2, Plus, Minus, LogOut } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Search, ShoppingBag, User, Menu, X, Trash2, Plus, Minus, LogOut, AlertCircle } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
-import { formatCurrency, type Product } from "@/lib/products";
+import { formatCurrency, getVariantStock, type Product } from "@/lib/products";
 import { api, type Category } from "@/lib/api";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -27,7 +27,34 @@ export function Navbar() {
   const removeItem = cart.removeItem;
   const updateQuantity = cart.updateQuantity;
 
-  const total = items.reduce((sum, item) => sum + item.price * (item.quantity || 0), 0);
+  const { data: freshProducts = [] } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+    refetchInterval: 30000,
+  });
+
+  const itemStockMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    items.forEach((item) => {
+      const freshProduct = freshProducts.find((p) => p.id === item.id);
+      if (freshProduct) {
+        const stock = getVariantStock(freshProduct, item.selectedSize, item.selectedColor);
+        const key = `${item.id}-${item.selectedColor || ''}-${item.selectedSize || ''}-${(item as any).isPreOrder ? '1' : '0'}`;
+        map[key] = stock;
+      }
+    });
+    return map;
+  }, [items, freshProducts]);
+
+  const getItemStock = (item: typeof items[0]) => {
+    if ((item as any).isPreOrder) return Infinity;
+    const key = `${item.id}-${item.selectedColor || ''}-${item.selectedSize || ''}-${(item as any).isPreOrder ? '1' : '0'}`;
+    if (key in itemStockMap) return itemStockMap[key];
+    return getVariantStock(item, item.selectedSize, item.selectedColor);
+  };
+
+  const inStockItems = items.filter((item) => getItemStock(item) > 0);
+  const total = inStockItems.reduce((sum, item) => sum + item.price * (item.quantity || 0), 0);
+  const hasOutOfStockItems = items.some((item) => getItemStock(item) <= 0);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -257,54 +284,78 @@ export function Navbar() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {items.map((item) => (
-                      <div key={item.id + (item.selectedColor || '') + (item.selectedSize || '') + ((item as any).isPreOrder ? '-preorder' : '')} className="flex gap-4 pb-4 border-b border-border">
-                        <Link href={`/product/${item.id}`} className="w-24 h-24 bg-secondary/30 flex-shrink-0 relative cursor-pointer hover:opacity-80 transition-opacity">
-                          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                          {(item as any).isPreOrder && (
-                            <span className="absolute top-1 left-1 text-[8px] px-1.5 py-0.5 bg-amber-500 text-white uppercase tracking-wider font-bold">Pre-Order</span>
-                          )}
-                        </Link>
-                        <div className="flex-1 min-w-0">
-                          <Link href={`/product/${item.id}`} className="hover:text-primary transition-colors">
-                            <h4 className="font-medium text-sm truncate cursor-pointer">{item.name}</h4>
+                    {items.map((item) => {
+                      const itemStock = getItemStock(item);
+                      const isOOS = itemStock <= 0;
+                      return (
+                        <div key={item.id + (item.selectedColor || '') + (item.selectedSize || '') + ((item as any).isPreOrder ? '-preorder' : '')} className={cn("flex gap-4 pb-4 border-b border-border", isOOS && "opacity-50")}>
+                          <Link href={`/product/${item.id}`} className="w-24 h-24 bg-secondary/30 flex-shrink-0 relative cursor-pointer hover:opacity-80 transition-opacity">
+                            <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                            {(item as any).isPreOrder && (
+                              <span className="absolute top-1 left-1 text-[8px] px-1.5 py-0.5 bg-amber-500 text-white uppercase tracking-wider font-bold">Pre-Order</span>
+                            )}
+                            {isOOS && (
+                              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                                <span className="text-[8px] px-1.5 py-0.5 bg-red-600 text-white uppercase tracking-wider font-bold">Out of Stock</span>
+                              </div>
+                            )}
                           </Link>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {item.selectedColor && <span>{item.selectedColor}</span>}
-                            {item.selectedColor && item.selectedSize && <span> / </span>}
-                            {item.selectedSize && <span>{item.selectedSize}</span>}
-                          </p>
-                          <p className="text-sm font-bold mt-2">{formatCurrency(item.price)}{(item as any).isPreOrder && <span className="text-[10px] text-muted-foreground font-normal ml-1">deposit</span>}</p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <button 
-                              onClick={() => updateQuantity(item.id, (item.quantity || 0) - 1, item.selectedColor, item.selectedSize, (item as any).isPreOrder)}
-                              className="p-1 border border-border hover:bg-secondary/50"
-                            >
-                              <Minus size={12} />
-                            </button>
-                            <span className="text-xs w-6 text-center">{item.quantity}</span>
-                            <button 
-                              onClick={() => updateQuantity(item.id, (item.quantity || 0) + 1, item.selectedColor, item.selectedSize, (item as any).isPreOrder)}
-                              className="p-1 border border-border hover:bg-secondary/50"
-                            >
-                              <Plus size={12} />
-                            </button>
-                            <button 
-                              onClick={() => removeItem(item.id, item.selectedColor, item.selectedSize, (item as any).isPreOrder)}
-                              className="ml-auto p-1 text-muted-foreground hover:text-destructive"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                          <div className="flex-1 min-w-0">
+                            <Link href={`/product/${item.id}`} className="hover:text-primary transition-colors">
+                              <h4 className={cn("font-medium text-sm truncate cursor-pointer", isOOS && "line-through")}>{item.name}</h4>
+                            </Link>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {item.selectedColor && <span>{item.selectedColor}</span>}
+                              {item.selectedColor && item.selectedSize && <span> / </span>}
+                              {item.selectedSize && <span>{item.selectedSize}</span>}
+                            </p>
+                            {isOOS ? (
+                              <p className="text-xs font-bold mt-2 text-red-600 flex items-center gap-1">
+                                <AlertCircle size={12} /> Out of Stock
+                              </p>
+                            ) : (
+                              <p className="text-sm font-bold mt-2">{formatCurrency(item.price)}{(item as any).isPreOrder && <span className="text-[10px] text-muted-foreground font-normal ml-1">deposit</span>}</p>
+                            )}
+                            <div className="flex items-center gap-2 mt-2">
+                              {!isOOS && (
+                                <>
+                                  <button 
+                                    onClick={() => updateQuantity(item.id, (item.quantity || 0) - 1, item.selectedColor, item.selectedSize, (item as any).isPreOrder)}
+                                    className="p-1 border border-border hover:bg-secondary/50"
+                                  >
+                                    <Minus size={12} />
+                                  </button>
+                                  <span className="text-xs w-6 text-center">{item.quantity}</span>
+                                  <button 
+                                    onClick={() => updateQuantity(item.id, (item.quantity || 0) + 1, item.selectedColor, item.selectedSize, (item as any).isPreOrder)}
+                                    className="p-1 border border-border hover:bg-secondary/50"
+                                  >
+                                    <Plus size={12} />
+                                  </button>
+                                </>
+                              )}
+                              <button 
+                                onClick={() => removeItem(item.id, item.selectedColor, item.selectedSize, (item as any).isPreOrder)}
+                                className="ml-auto p-1 text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
               
               {items.length > 0 && (
                 <SheetFooter className="border-t border-border pt-4 block">
+                  {hasOutOfStockItems && (
+                    <div className="mb-3 p-2 bg-red-50 border border-red-200 text-red-700 text-[10px] uppercase tracking-widest font-bold flex items-center gap-2">
+                      <AlertCircle size={12} /> Some items are out of stock
+                    </div>
+                  )}
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-sm uppercase tracking-widest font-bold">Subtotal</span>
                     <span className="text-lg font-bold">{formatCurrency(total)}</span>
@@ -312,9 +363,10 @@ export function Navbar() {
                   <Button 
                     className="w-full h-12 rounded-none text-xs uppercase tracking-widest font-bold"
                     onClick={() => setLocation("/checkout")}
+                    disabled={inStockItems.length === 0}
                     data-testid="button-checkout"
                   >
-                    Checkout
+                    {inStockItems.length === 0 ? "No Items Available" : "Checkout"}
                   </Button>
                 </SheetFooter>
               )}

@@ -1,17 +1,18 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { useCart } from "@/lib/cart";
-import { formatCurrency, getVariantStock } from "@/lib/products";
+import { formatCurrency, getVariantStock, type Product } from "@/lib/products";
 import { api, CustomerAddress } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { CreditCard, Truck, Zap, Wallet, Upload, CheckCircle, MapPin, Plus } from "lucide-react";
 import { useUpload } from "@/hooks/use-upload";
 import { useAuth } from "@/lib/auth";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Checkout() {
   const { items, clearCart } = useCart();
@@ -109,13 +110,26 @@ export default function Checkout() {
     if (addr) applyAddress(addr);
   };
 
-  const subtotal = items.reduce((sum, item) => sum + item.price * (item.quantity || 0), 0);
-  const hasStockIssues = items.some(item => {
-    if ((item as any).isPreOrder) return false;
-    const variantStock = getVariantStock(item, item.selectedSize, item.selectedColor);
-    return variantStock <= 0 || (item.quantity || 0) > variantStock;
+  const { data: freshProducts = [] } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+    refetchInterval: 30000,
   });
-  const hasOutOfStockItems = hasStockIssues;
+
+  const getItemLiveStock = (item: typeof items[0]) => {
+    if ((item as any).isPreOrder) return Infinity;
+    const freshProduct = freshProducts.find((p) => p.id === item.id);
+    if (freshProduct) {
+      return getVariantStock(freshProduct, item.selectedSize, item.selectedColor);
+    }
+    return getVariantStock(item, item.selectedSize, item.selectedColor);
+  };
+
+  const inStockItems = items.filter((item) => getItemLiveStock(item) > 0);
+  const subtotal = inStockItems.reduce((sum, item) => sum + item.price * (item.quantity || 0), 0);
+  const hasOutOfStockItems = items.some(item => {
+    const stock = getItemLiveStock(item);
+    return stock <= 0 || (item.quantity || 0) > stock;
+  });
 
   const discount = eligibleDiscount;
   
@@ -125,7 +139,7 @@ export default function Checkout() {
   );
   
   const expressCharge = deliveryType === "express" && isExpressEligible
-    ? items.reduce((sum, item) => sum + (item.expressCharge || 0) * (item.quantity || 0), 0)
+    ? inStockItems.reduce((sum, item) => sum + (item.expressCharge || 0) * (item.quantity || 0), 0)
     : 0;
   
   const shipping = 0;
@@ -177,17 +191,21 @@ export default function Checkout() {
         customerEmail,
         customerPhone: formData.customerPhone,
         shippingAddress: `${formData.shippingAddress}, ${formData.city}`,
-        items: items.map(item => ({
-          productId: item.id,
-          name: item.name,
-          qty: item.quantity,
-          price: item.price,
-          color: item.selectedColor,
-          size: item.selectedSize,
-          isPreOrder: (item as any).isPreOrder || false,
-          preOrderTotalPrice: (item as any).preOrderTotalPrice,
-          preOrderEta: (item as any).preOrderEta
-        })),
+        items: inStockItems.map(item => {
+          const stock = getItemLiveStock(item);
+          const cappedQty = (item as any).isPreOrder ? item.quantity : Math.min(item.quantity, stock);
+          return {
+            productId: item.id,
+            name: item.name,
+            qty: cappedQty,
+            price: item.price,
+            color: item.selectedColor,
+            size: item.selectedSize,
+            isPreOrder: (item as any).isPreOrder || false,
+            preOrderTotalPrice: (item as any).preOrderTotalPrice,
+            preOrderEta: (item as any).preOrderEta
+          };
+        }),
         subtotal,
         discount,
         shipping: expressCharge,
@@ -528,22 +546,22 @@ export default function Checkout() {
 
               <div className="space-y-4 mb-6">
                 {items.map((item, index) => {
-                  const itemVariantStock = getVariantStock(item, item.selectedSize, item.selectedColor);
+                  const liveStock = getItemLiveStock(item);
                   const isPreOrderItem = (item as any).isPreOrder;
-                  const isInStock = isPreOrderItem || itemVariantStock > 0;
-                  const quantityExceedsStock = !isPreOrderItem && (item.quantity || 0) > itemVariantStock;
+                  const isInStock = isPreOrderItem || liveStock > 0;
+                  const quantityExceedsStock = !isPreOrderItem && liveStock > 0 && (item.quantity || 0) > liveStock;
                   const hasIssue = !isInStock || quantityExceedsStock;
                   const preOrderTotalPrice = (item as any).preOrderTotalPrice;
                   const preOrderEta = (item as any).preOrderEta;
                   const balanceDue = isPreOrderItem && preOrderTotalPrice ? (preOrderTotalPrice - item.price) * (item.quantity || 0) : 0;
                   return (
-                    <div key={`${item.id}-${index}`} className="flex justify-between text-sm">
+                    <div key={`${item.id}-${index}`} className={`flex justify-between text-sm ${!isInStock ? 'opacity-50' : ''}`}>
                       <div className="flex flex-col">
                         <div className="flex items-center gap-2">
-                          <span className={`font-medium ${hasIssue ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          <span className={`font-medium ${hasIssue ? 'text-destructive' : 'text-muted-foreground'} ${!isInStock ? 'line-through' : ''}`}>
                             {item.name} x {item.quantity}
                             {!isInStock && " (Out of Stock)"}
-                            {isInStock && quantityExceedsStock && ` (Only ${itemVariantStock} available)`}
+                            {isInStock && quantityExceedsStock && ` (Only ${liveStock} available)`}
                           </span>
                           {isPreOrderItem && (
                             <span className="text-[8px] px-1.5 py-0.5 bg-amber-100 text-amber-800 uppercase tracking-widest font-bold">Pre-Order</span>
@@ -560,10 +578,14 @@ export default function Checkout() {
                         )}
                       </div>
                       <div className="text-right">
-                        <span className={hasIssue ? 'text-destructive' : ''}>
-                          {formatCurrency(item.price * (item.quantity || 0))}
-                        </span>
-                        {isPreOrderItem && (
+                        {isInStock ? (
+                          <span className={hasIssue ? 'text-destructive' : ''}>
+                            {formatCurrency(item.price * (item.quantity || 0))}
+                          </span>
+                        ) : (
+                          <span className="text-destructive text-xs font-bold">Excluded</span>
+                        )}
+                        {isPreOrderItem && isInStock && (
                           <div className="text-[10px] text-muted-foreground">deposit</div>
                         )}
                       </div>
@@ -573,7 +595,7 @@ export default function Checkout() {
               </div>
               {hasOutOfStockItems && (
                 <div className="mb-6 p-3 bg-destructive/10 border border-destructive text-destructive text-[10px] uppercase tracking-widest font-bold">
-                  Some items have stock issues. Please update quantities or remove unavailable items.
+                  Out of stock items have been excluded from your order total.
                 </div>
               )}
               <div className="space-y-2 py-4 border-t border-border">
@@ -605,10 +627,10 @@ export default function Checkout() {
               <Button 
                 onClick={handlePlaceOrder}
                 className="w-full h-12 rounded-none mt-6 uppercase tracking-widest font-bold"
-                disabled={isSubmitting || hasOutOfStockItems || !formData.customerName || !formData.shippingAddress || !formData.customerPhone || !formData.customerEmail || (paymentMethod === "bank" && !paymentSlipPath)}
+                disabled={isSubmitting || inStockItems.length === 0 || !formData.customerName || !formData.shippingAddress || !formData.customerPhone || !formData.customerEmail || (paymentMethod === "bank" && !paymentSlipPath)}
                 data-testid="button-place-order"
               >
-                {isSubmitting ? "Processing..." : (hasOutOfStockItems ? "Items Out of Stock" : (paymentMethod === "bank" && !paymentSlipPath ? "Upload Slip to Proceed" : "Place Order"))}
+                {isSubmitting ? "Processing..." : (inStockItems.length === 0 ? "No Items Available" : (paymentMethod === "bank" && !paymentSlipPath ? "Upload Slip to Proceed" : "Place Order"))}
               </Button>
             </div>
           </aside>
