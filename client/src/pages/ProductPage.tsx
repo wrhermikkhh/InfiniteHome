@@ -41,15 +41,13 @@ export default function ProductPage() {
     // Only auto-select if nothing selected yet
     if (selectedSize || selectedColor) return;
     
-    // Get available sizes and colors
     const availableSizes = variants.map(v => v.size);
     const availableColors = [...colors];
     
-    // Find first combination with stock using getVariantStock (handles flexible matching)
     let foundSize = '';
     let foundColor = '';
     
-    // Try each size/color combo and use getVariantStock for flexible matching
+    // Try each size/color combo and prefer one with variant stock
     for (const size of availableSizes) {
       for (const color of availableColors) {
         const stock = getVariantStock(product, size, color);
@@ -62,10 +60,11 @@ export default function ProductPage() {
       if (foundSize) break;
     }
     
-    // No fallback to old stock field - only variant stock is used
+    // Fallback: always select first size/color even if no variant stock entries exist
+    if (!foundSize) foundSize = availableSizes[0] || '';
+    if (!foundColor) foundColor = availableColors[0] || '';
     
-    // Apply selections together to trigger single re-render
-    if (foundSize && foundColor) {
+    if (foundSize || foundColor) {
       setSelectedSize(foundSize);
       setSelectedColor(foundColor);
     }
