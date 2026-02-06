@@ -1934,39 +1934,15 @@ export default function AdminPanel() {
                               </td>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-2">
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    defaultValue={totalStock}
-                                    className="w-20 h-8 rounded-none text-sm"
-                                    onBlur={async (e) => {
-                                      const newStock = parseInt(e.target.value);
-                                      if (!isNaN(newStock) && newStock !== totalStock) {
-                                        try {
-                                          await api.updateProductStock(product.id, newStock);
-                                          await loadData();
-                                          toast({ title: "Stock updated", description: `Stock updated to ${newStock}` });
-                                        } catch (error) {
-                                          toast({ title: "Error", description: "Failed to update stock", variant: "destructive" });
-                                        }
-                                      }
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        (e.target as HTMLInputElement).blur();
-                                      }
-                                    }}
-                                  />
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     className="rounded-none h-8"
                                     onClick={() => {
-                                      setEditingProduct(product);
-                                      setIsProductDialogOpen(true);
+                                      handleEditProduct(product);
                                     }}
                                   >
-                                    <Edit size={14} />
+                                    <Edit size={14} className="mr-1" /> Edit Stock
                                   </Button>
                                   <Button
                                     variant="ghost"
