@@ -66,7 +66,7 @@ export function getVariantStock(product: Product, size?: string, color?: string)
   const variantStock = product.variantStock as { [key: string]: number } | null;
   
   if (!variantStock || Object.keys(variantStock).length === 0) {
-    return 0;
+    return product.stock || 0;
   }
   
   const sizeKey = size || 'Standard';
@@ -88,7 +88,7 @@ export function getVariantStock(product: Product, size?: string, color?: string)
 
 export function getTotalVariantStock(product: Product): number {
   const variantStock = product.variantStock as { [key: string]: number } | null;
-  if (!variantStock || typeof variantStock !== 'object') return 0;
+  if (!variantStock || typeof variantStock !== 'object' || Object.keys(variantStock).length === 0) return product.stock || 0;
   return Object.values(variantStock).reduce((sum, qty) => sum + (qty || 0), 0);
 }
 
