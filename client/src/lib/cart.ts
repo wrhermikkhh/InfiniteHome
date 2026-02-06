@@ -100,7 +100,7 @@ export const useCart = create<CartStore>()(
                 const otherQty = get().items
                   .filter(ci => ci.id === productId && !ci.isPreOrder && !(ci.selectedColor === color && ci.selectedSize === size))
                   .reduce((sum, ci) => sum + (ci.quantity || 0), 0);
-                cappedQuantity = Math.min(cappedQuantity, maxOrderQty - otherQty);
+                cappedQuantity = Math.min(cappedQuantity, Math.max(1, maxOrderQty - otherQty));
               }
               return { ...item, quantity: cappedQuantity };
             }

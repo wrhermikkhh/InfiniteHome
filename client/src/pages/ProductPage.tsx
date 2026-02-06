@@ -30,8 +30,15 @@ export default function ProductPage() {
   const [isZoomed, setIsZoomed] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
 
-  const colors: string[] = product?.colors && product.colors.length > 0 ? product.colors : ['Default'];
   const variantStockObj = (product?.variantStock || {}) as { [key: string]: number };
+  const colors: string[] = (() => {
+    const productColors = product?.colors && product.colors.length > 0 ? [...product.colors] : [];
+    if (Object.keys(variantStockObj).length > 0) {
+      const stockColors = Object.keys(variantStockObj).map(k => { const parts = k.split('-'); return parts.slice(1).join('-') || 'Default'; });
+      stockColors.forEach(c => { if (!productColors.includes(c)) productColors.push(c); });
+    }
+    return productColors.length > 0 ? productColors : ['Default'];
+  })();
   const variants: ProductVariant[] = product?.variants && product.variants.length > 0 
     ? product.variants 
     : Object.keys(variantStockObj).length > 0

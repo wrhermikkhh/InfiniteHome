@@ -460,7 +460,7 @@ export default function AdminPanel() {
             .section { margin-bottom: 20px; }
             .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 5px; }
             .address { font-size: 18px; line-height: 1.4; }
-            .footer { border-top: 1px solid #eee; pt: 20px; mt: 20px; font-size: 12px; }
+            .footer { border-top: 1px solid #eee; padding-top: 20px; margin-top: 20px; font-size: 12px; }
             table { width: 100%; border-collapse: collapse; margin-top: 10px; }
             @media print { .no-print { display: none; } }
           </style>
@@ -501,7 +501,7 @@ export default function AdminPanel() {
                   <p><strong>Order Date:</strong> ${selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleDateString() : 'N/A'}</p>
                 </div>
               </div>
-              <p style="margin-top: 20px; text-align: center; border-top: 1px dashed #eee; pt: 10px;">Thank you for shopping with INFINITE HOME!</p>
+              <p style="margin-top: 20px; text-align: center; border-top: 1px dashed #eee; padding-top: 10px;">Thank you for shopping with INFINITE HOME!</p>
             </div>
           </div>
           <script>
@@ -647,12 +647,18 @@ export default function AdminPanel() {
       colorVariants: (() => {
         const colors = product.colors || [];
         const colorImages = (product as any).colorImages || {};
+        if (colors.length === 0 && Object.keys(existingVariantStock).length > 0) {
+          const derivedColors = Array.from(new Set(Object.keys(existingVariantStock).map(k => { const parts = k.split('-'); return parts.slice(1).join('-') || 'Default'; })));
+          return derivedColors.map(c => ({ name: c, image: colorImages[c] || "" }));
+        }
         if (colors.length === 0) return [{ name: "", image: "" }];
         return colors.map((c: string) => ({ name: c, image: colorImages[c] || "" }));
       })(),
       variants: product.variants && product.variants.length > 0 
         ? product.variants.map(v => ({ size: v.size, price: v.price.toString() }))
-        : [{ size: "", price: product.price.toString() }],
+        : Object.keys(existingVariantStock).length > 0
+          ? Array.from(new Set(Object.keys(existingVariantStock).map(k => k.split('-')[0]))).map(size => ({ size, price: product.price.toString() }))
+          : [{ size: "", price: product.price.toString() }],
       variantStock: variantStockStrings,
       expressCharge: (product.expressCharge || 0).toString(),
       sizeGuide: (product as any).sizeGuide || [],
@@ -1616,24 +1622,40 @@ export default function AdminPanel() {
                             const sizes = productForm.variants.filter(v => v.size).map(v => v.size);
                             const colors = productForm.colorVariants.filter(cv => cv.name.trim()).map(cv => cv.name.trim());
                             const combos: { size: string; color: string; key: string }[] = [];
+                            const addedKeys = new Set<string>();
                             
                             if (sizes.length > 0 && colors.length > 0) {
                               sizes.forEach(size => {
                                 colors.forEach(color => {
-                                  combos.push({ size, color, key: `${size}-${color}` });
+                                  const key = `${size}-${color}`;
+                                  combos.push({ size, color, key });
+                                  addedKeys.add(key.toLowerCase());
                                 });
                               });
                             } else if (sizes.length > 0) {
                               sizes.forEach(size => {
                                 combos.push({ size, color: "Default", key: `${size}-Default` });
+                                addedKeys.add(`${size}-default`.toLowerCase());
                               });
                             } else if (colors.length > 0) {
                               colors.forEach(color => {
                                 combos.push({ size: "Standard", color, key: `Standard-${color}` });
+                                addedKeys.add(`standard-${color}`.toLowerCase());
                               });
                             } else {
                               combos.push({ size: "Standard", color: "Default", key: "Standard-Default" });
+                              addedKeys.add("standard-default");
                             }
+                            
+                            Object.keys(productForm.variantStock).forEach(key => {
+                              if (!addedKeys.has(key.toLowerCase())) {
+                                const parts = key.split('-');
+                                const size = parts[0] || 'Standard';
+                                const color = parts.slice(1).join('-') || 'Default';
+                                combos.push({ size, color, key });
+                                addedKeys.add(key.toLowerCase());
+                              }
+                            });
                             
                             return combos.map(({ size, color, key }) => (
                               <div key={key} className="flex items-center gap-2 p-2 bg-secondary/5 border border-border">
@@ -3190,7 +3212,8 @@ export default function AdminPanel() {
                             background: white;
                           }
                           .invoice-wrapper { display: flex; flex-direction: column; min-height: 100vh; }
-                          .invoice-body { flex: 1; }
+                          .invoice-body { flex: 1 1 auto; }
+                          .footer { flex-shrink: 0; margin-top: auto; }
                           .header { background: linear-gradient(to right, #1c1917, #292524); color: white; padding: 2rem 2.5rem; }
                           .header h1 { font-size: 1.5rem; font-weight: 300; letter-spacing: 0.3em; text-transform: uppercase; }
                           .header-subtitle { color: #a8a29e; font-size: 0.75rem; letter-spacing: 0.1em; margin-top: 0.25rem; }
@@ -3235,6 +3258,9 @@ export default function AdminPanel() {
                           .footer-contact { font-size: 0.75rem; color: #78716c; }
                           @media print {
                             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                            .invoice-wrapper { min-height: 100vh; }
+                            .footer { position: fixed; bottom: 0; left: 0; right: 0; }
+                            .invoice-body { padding-bottom: 5rem; }
                           }
                         </style>
                       </head>
