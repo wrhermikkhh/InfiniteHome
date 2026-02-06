@@ -462,7 +462,8 @@ export async function registerRoutes(
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       const randomId = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
       const orderNumber = randomId;
-      const data = insertOrderSchema.parse({ ...req.body, orderNumber });
+      const initialStatus = req.body.status || "pending";
+      const data = insertOrderSchema.parse({ ...req.body, orderNumber, statusHistory: [{ status: initialStatus, timestamp: new Date().toISOString() }] });
       const order = await storage.createOrder(data);
       console.log("Order created:", order.id, "Order Number:", order.orderNumber);
       

@@ -41,6 +41,7 @@ interface TrackingStep {
   isCompleted: boolean;
   isCurrent: boolean;
   isException?: boolean;
+  timestamp?: string;
 }
 
 const statusConfig: Record<OrderStatus, { label: string; description: string; icon: React.ReactNode }> = {
@@ -98,24 +99,36 @@ function normalizeStatus(status: string): OrderStatus {
   return status as OrderStatus;
 }
 
-function getTrackingSteps(rawStatus: string): TrackingStep[] {
+function formatGMT5(isoString: string): string {
+  const date = new Date(isoString);
+  const gmt5 = new Date(date.getTime() + 5 * 60 * 60 * 1000);
+  const day = gmt5.getUTCDate();
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const month = months[gmt5.getUTCMonth()];
+  const year = gmt5.getUTCFullYear();
+  let hours = gmt5.getUTCHours();
+  const minutes = gmt5.getUTCMinutes().toString().padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  return `${day} ${month} ${year}, ${hours}:${minutes} ${ampm}`;
+}
+
+function getTrackingSteps(rawStatus: string, statusHistory?: { status: string; timestamp: string }[]): TrackingStep[] {
   const currentStatus = normalizeStatus(rawStatus);
   const steps: TrackingStep[] = [];
-  
+  const history = statusHistory || [];
+  const historyMap = new Map<string, string>();
+  history.forEach(h => {
+    historyMap.set(normalizeStatus(h.status), h.timestamp);
+  });
+
   if (currentStatus === "payment_verification") {
     steps.push({
       status: "payment_verification",
       ...statusConfig.payment_verification,
       isCompleted: false,
       isCurrent: true,
-    });
-    normalFlow.slice(1).forEach((status) => {
-      steps.push({
-        status,
-        ...statusConfig[status],
-        isCompleted: false,
-        isCurrent: false,
-      });
+      timestamp: historyMap.get("payment_verification"),
     });
     return steps;
   }
@@ -123,12 +136,15 @@ function getTrackingSteps(rawStatus: string): TrackingStep[] {
   if (currentStatus === "delivery_exception") {
     const preExceptionFlow: OrderStatus[] = ["pending", "confirmed", "processing", "shipped", "in_transit"];
     preExceptionFlow.forEach((status) => {
-      steps.push({
-        status,
-        ...statusConfig[status],
-        isCompleted: true,
-        isCurrent: false,
-      });
+      if (historyMap.has(status)) {
+        steps.push({
+          status,
+          ...statusConfig[status],
+          isCompleted: true,
+          isCurrent: false,
+          timestamp: historyMap.get(status),
+        });
+      }
     });
     steps.push({
       status: "delivery_exception",
@@ -136,25 +152,25 @@ function getTrackingSteps(rawStatus: string): TrackingStep[] {
       isCompleted: false,
       isCurrent: true,
       isException: true,
+      timestamp: historyMap.get("delivery_exception"),
     });
     return steps;
   }
 
   const currentIndex = normalFlow.indexOf(currentStatus);
-  
+
   normalFlow.forEach((status, idx) => {
+    if (idx > currentIndex) return;
+    const isLast = idx === currentIndex;
+    const isDelivered = status === "delivered" && isLast;
     steps.push({
       status,
       ...statusConfig[status],
-      isCompleted: idx < currentIndex || (idx === currentIndex && status === "delivered"),
-      isCurrent: idx === currentIndex && status !== "delivered",
+      isCompleted: idx < currentIndex || isDelivered,
+      isCurrent: isLast && !isDelivered,
+      timestamp: historyMap.get(status),
     });
   });
-
-  if (currentStatus === "delivered") {
-    steps[steps.length - 1].isCompleted = true;
-    steps[steps.length - 1].isCurrent = false;
-  }
 
   return steps;
 }
@@ -223,7 +239,7 @@ export default function OrderTracking() {
       } else {
         const orderData = await res.json();
         setOrder(orderData);
-        setTrackingSteps(getTrackingSteps(orderData.status));
+        setTrackingSteps(getTrackingSteps(orderData.status, orderData.statusHistory));
       }
     } catch (err) {
       setError("Unable to fetch order details. Please try again later.");
@@ -240,12 +256,7 @@ export default function OrderTracking() {
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return formatGMT5(dateString);
   };
 
   return (
@@ -415,6 +426,11 @@ export default function OrderTracking() {
                         )}>
                           {step.description}
                         </p>
+                        {step.timestamp && (
+                          <p className="text-xs text-muted-foreground/70 mt-1.5 font-medium tracking-wide">
+                            {formatGMT5(step.timestamp)} (GMT+5)
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}

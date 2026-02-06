@@ -242,7 +242,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
-    const [updated] = await db.update(orders).set({ status }).where(eq(orders.id, id)).returning();
+    const existing = await db.select().from(orders).where(eq(orders.id, id));
+    if (!existing[0]) return undefined;
+    const currentHistory = (existing[0].statusHistory as { status: string; timestamp: string }[]) || [];
+    const newHistory = [...currentHistory, { status, timestamp: new Date().toISOString() }];
+    const [updated] = await db.update(orders).set({ status, statusHistory: newHistory }).where(eq(orders.id, id)).returning();
     return updated || undefined;
   }
 
