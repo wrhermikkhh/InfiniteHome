@@ -371,27 +371,28 @@ export default function ProductPage() {
                 <div className="flex flex-wrap gap-3">
                   {colors.map((color: string) => {
                     const colorImage = product.colorImages?.[color];
+                    const hasAnyStockForColor = !product.isPreOrder && variants.some(v => getVariantStock(product, v.size, color) > 0);
+                    const hasVariantStockEntries = product.variantStock && Object.keys(product.variantStock as object).length > 0;
+                    const colorOos = hasVariantStockEntries && !hasAnyStockForColor && !product.isPreOrder;
                     return (
                       <button
                         key={color}
                         onClick={() => {
                           setSelectedColor(color);
-                          // If this color has an image, show it in main view
                           if (colorImages[color]) {
                             setColorSwatchActive(true);
                           } else {
-                            // Reset to gallery view if no color image
                             setColorSwatchActive(false);
                             setActiveImageIndex(0);
                           }
                         }}
-                        className={`w-12 h-12 rounded-full transition-all overflow-hidden ${selectedColor === color ? 'ring-2 ring-primary ring-offset-2' : 'hover:ring-2 hover:ring-primary/50 hover:ring-offset-1'}`}
+                        className={`w-12 h-12 rounded-full transition-all overflow-hidden relative ${selectedColor === color ? 'ring-2 ring-primary ring-offset-2' : 'hover:ring-2 hover:ring-primary/50 hover:ring-offset-1'} ${colorOos ? 'opacity-40' : ''}`}
                         style={{ 
                           backgroundColor: colorImage ? 'transparent' : getColorCode(color), 
                           border: (!colorImage && (color === 'White' || color === 'Ivory')) ? '1px solid #e5e5e5' : 'none' 
                         }}
                         data-testid={`color-${color.toLowerCase()}`}
-                        title={color}
+                        title={colorOos ? `${color} - Out of Stock` : color}
                       >
                         {colorImage && (
                           <img 
@@ -399,6 +400,11 @@ export default function ProductPage() {
                             alt={color} 
                             className="w-full h-full object-cover"
                           />
+                        )}
+                        {colorOos && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-full h-[2px] bg-red-500 rotate-45" />
+                          </div>
                         )}
                       </button>
                     );
@@ -413,16 +419,22 @@ export default function ProductPage() {
                    <a href="/size-guide" className="text-sm text-primary hover:underline transition-colors" data-testid="link-size-guide">Size Guide</a>
                  </div>
                  <div className="flex flex-wrap gap-2">
-                   {variants.map((v: ProductVariant) => (
-                     <button
-                       key={v.size}
-                       onClick={() => setSelectedSize(v.size)}
-                       className={`px-4 py-2 text-sm border transition-all ${selectedSize === v.size ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:border-primary/50'}`}
-                       data-testid={`size-${v.size.toLowerCase()}`}
-                     >
-                       {v.size}
-                     </button>
-                   ))}
+                   {variants.map((v: ProductVariant) => {
+                     const hasVariantStockEntries = product.variantStock && Object.keys(product.variantStock as object).length > 0;
+                     const hasAnyStockForSize = colors.some(c => getVariantStock(product, v.size, c) > 0);
+                     const sizeOos = hasVariantStockEntries && !hasAnyStockForSize && !product.isPreOrder;
+                     return (
+                       <button
+                         key={v.size}
+                         onClick={() => setSelectedSize(v.size)}
+                         className={`px-4 py-2 text-sm border transition-all relative ${selectedSize === v.size ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:border-primary/50'} ${sizeOos ? 'opacity-50 line-through' : ''}`}
+                         data-testid={`size-${v.size.toLowerCase()}`}
+                         title={sizeOos ? `${v.size} - Out of Stock` : v.size}
+                       >
+                         {v.size}
+                       </button>
+                     );
+                   })}
                  </div>
                  {(product.category?.toLowerCase().includes('mattress') || product.name?.toLowerCase().includes('mattress')) && (
                    <a href="/custom-mattress" className="inline-flex items-center gap-2 text-sm text-amber-700 hover:text-amber-800 transition-colors" data-testid="link-custom-mattress">
