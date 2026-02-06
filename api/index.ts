@@ -163,6 +163,7 @@ const orders = pgTable("orders", {
   paymentMethod: text("payment_method").notNull(),
   paymentSlip: text("payment_slip"),
   status: text("status").notNull().default("pending"),
+  statusHistory: jsonb("status_history").$type<{ status: string; timestamp: string }[]>().default([]),
   couponCode: text("coupon_code"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -527,7 +528,14 @@ class DatabaseStorage {
   }
 
   async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
-    const [updated] = await this.getDb().update(orders).set({ status }).where(eq(orders.id, id)).returning();
+    const existing = await this.getDb().select().from(orders).where(eq(orders.id, id));
+    if (!existing[0]) return undefined;
+    let currentHistory = (existing[0].statusHistory as { status: string; timestamp: string }[]) || [];
+    if (currentHistory.length === 0 && existing[0].createdAt) {
+      currentHistory = [{ status: existing[0].status, timestamp: existing[0].createdAt.toISOString() }];
+    }
+    const newHistory = [...currentHistory, { status, timestamp: new Date().toISOString() }];
+    const [updated] = await this.getDb().update(orders).set({ status, statusHistory: newHistory }).where(eq(orders.id, id)).returning();
     return updated || undefined;
   }
 
@@ -1315,7 +1323,8 @@ app.post("/api/orders", async (req, res) => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     const randomId = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
     const orderNumber = randomId;
-    const data = insertOrderSchema.parse({ ...req.body, orderNumber });
+    const initialStatus = req.body.status || "pending";
+    const data = insertOrderSchema.parse({ ...req.body, orderNumber, statusHistory: [{ status: initialStatus, timestamp: new Date().toISOString() }] });
     const order = await storage.createOrder(data);
     
     for (const item of items) {
