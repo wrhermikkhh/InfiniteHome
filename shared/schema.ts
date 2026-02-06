@@ -97,6 +97,7 @@ export const products = pgTable("products", {
   sku: text("sku"),
   barcode: text("barcode"),
   costPrice: real("cost_price"),
+  maxOrderQty: integer("max_order_qty"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

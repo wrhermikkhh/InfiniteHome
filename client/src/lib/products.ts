@@ -39,6 +39,7 @@ export interface Product {
   sku?: string | null;
   barcode?: string | null;
   costPrice?: number | null;
+  maxOrderQty?: number | null;
   productDetails?: string | null;
   materialsAndCare?: string | null;
 }

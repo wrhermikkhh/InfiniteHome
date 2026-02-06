@@ -271,16 +271,31 @@ export class DatabaseStorage implements IStorage {
     const variantKey = `${size}-${color}`;
     const variantStock = (product.variantStock as { [key: string]: number } | null) || {};
     
-    // Check if variant stock is being used
-    if (Object.keys(variantStock).length > 0 && variantStock[variantKey] !== undefined) {
-      // Deduct from variant stock
+    if (Object.keys(variantStock).length > 0) {
       const newVariantStock = { ...variantStock };
-      newVariantStock[variantKey] = Math.max(0, (newVariantStock[variantKey] || 0) - quantity);
-      await db.update(products).set({ variantStock: newVariantStock }).where(eq(products.id, productId));
-    } else {
-      // Deduct from general stock
-      const newStock = Math.max(0, (product.stock || 0) - quantity);
-      await db.update(products).set({ stock: newStock }).where(eq(products.id, productId));
+      let matchedKey = variantKey;
+      
+      if (newVariantStock[variantKey] === undefined) {
+        const lowerKey = variantKey.toLowerCase();
+        const caseMatch = Object.keys(newVariantStock).find(k => k.toLowerCase() === lowerKey);
+        if (caseMatch) {
+          matchedKey = caseMatch;
+        } else {
+          const sizeMatch = Object.keys(newVariantStock).find(k => 
+            k.toLowerCase().startsWith(size.toLowerCase() + '-')
+          );
+          const colorMatch = Object.keys(newVariantStock).find(k => 
+            k.toLowerCase().endsWith('-' + color.toLowerCase())
+          );
+          if (sizeMatch) matchedKey = sizeMatch;
+          else if (colorMatch) matchedKey = colorMatch;
+        }
+      }
+      
+      if (newVariantStock[matchedKey] !== undefined) {
+        newVariantStock[matchedKey] = Math.max(0, (newVariantStock[matchedKey] || 0) - quantity);
+        await db.update(products).set({ variantStock: newVariantStock }).where(eq(products.id, productId));
+      }
     }
   }
 
@@ -291,16 +306,31 @@ export class DatabaseStorage implements IStorage {
     const variantKey = `${size}-${color}`;
     const variantStock = (product.variantStock as { [key: string]: number } | null) || {};
     
-    // Check if variant stock is being used
-    if (Object.keys(variantStock).length > 0 && variantStock[variantKey] !== undefined) {
-      // Restore to variant stock
+    if (Object.keys(variantStock).length > 0) {
       const newVariantStock = { ...variantStock };
-      newVariantStock[variantKey] = (newVariantStock[variantKey] || 0) + quantity;
-      await db.update(products).set({ variantStock: newVariantStock }).where(eq(products.id, productId));
-    } else {
-      // Restore to general stock
-      const newStock = (product.stock || 0) + quantity;
-      await db.update(products).set({ stock: newStock }).where(eq(products.id, productId));
+      let matchedKey = variantKey;
+      
+      if (newVariantStock[variantKey] === undefined) {
+        const lowerKey = variantKey.toLowerCase();
+        const caseMatch = Object.keys(newVariantStock).find(k => k.toLowerCase() === lowerKey);
+        if (caseMatch) {
+          matchedKey = caseMatch;
+        } else {
+          const sizeMatch = Object.keys(newVariantStock).find(k => 
+            k.toLowerCase().startsWith(size.toLowerCase() + '-')
+          );
+          const colorMatch = Object.keys(newVariantStock).find(k => 
+            k.toLowerCase().endsWith('-' + color.toLowerCase())
+          );
+          if (sizeMatch) matchedKey = sizeMatch;
+          else if (colorMatch) matchedKey = colorMatch;
+        }
+      }
+      
+      if (newVariantStock[matchedKey] !== undefined) {
+        newVariantStock[matchedKey] = (newVariantStock[matchedKey] || 0) + quantity;
+        await db.update(products).set({ variantStock: newVariantStock }).where(eq(products.id, productId));
+      }
     }
   }
 

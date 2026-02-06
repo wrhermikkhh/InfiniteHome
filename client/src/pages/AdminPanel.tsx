@@ -381,7 +381,8 @@ export default function AdminPanel() {
     preOrderInitialPayment: "",
     preOrderEta: "",
     productDetails: "",
-    materialsAndCare: ""
+    materialsAndCare: "",
+    maxOrderQty: ""
   });
   
   const availableCertifications = [
@@ -577,7 +578,8 @@ export default function AdminPanel() {
       preOrderInitialPayment: productForm.isPreOrder && productForm.preOrderInitialPayment ? Number(productForm.preOrderInitialPayment) : null,
       preOrderEta: productForm.isPreOrder ? productForm.preOrderEta : null,
       productDetails: productForm.productDetails || null,
-      materialsAndCare: productForm.materialsAndCare || null
+      materialsAndCare: productForm.materialsAndCare || null,
+      maxOrderQty: productForm.maxOrderQty ? Number(productForm.maxOrderQty) : null
     };
 
     try {
@@ -619,7 +621,8 @@ export default function AdminPanel() {
       preOrderInitialPayment: "",
       preOrderEta: "",
       productDetails: "",
-      materialsAndCare: ""
+      materialsAndCare: "",
+      maxOrderQty: ""
     });
     setShowNewCategoryInput(false);
     setNewCategoryName("");
@@ -659,7 +662,8 @@ export default function AdminPanel() {
       preOrderInitialPayment: ((product as any).preOrderInitialPayment || "").toString(),
       preOrderEta: (product as any).preOrderEta || "",
       productDetails: (product as any).productDetails || "",
-      materialsAndCare: (product as any).materialsAndCare || ""
+      materialsAndCare: (product as any).materialsAndCare || "",
+      maxOrderQty: ((product as any).maxOrderQty || "").toString()
     });
     setShowNewCategoryInput(false);
     setNewCategoryName("");
@@ -1305,6 +1309,20 @@ export default function AdminPanel() {
                           />
                           <p className="text-[10px] text-muted-foreground">Extra charge for express delivery (Male'/Hulhumale')</p>
                         </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-widest font-bold">Max Order Qty Per Customer</Label>
+                        <Input 
+                          type="number"
+                          min="1"
+                          value={productForm.maxOrderQty}
+                          onChange={(e) => setProductForm({...productForm, maxOrderQty: e.target.value})}
+                          className="rounded-none"
+                          placeholder="No limit"
+                          data-testid="input-max-order-qty"
+                        />
+                        <p className="text-[10px] text-muted-foreground">Maximum quantity a customer can order for this product. Leave empty for no limit.</p>
                       </div>
                       
                       <div className="space-y-2">
@@ -3164,12 +3182,15 @@ export default function AdminPanel() {
                         <style>
                           @page { size: A4; margin: 0; }
                           * { margin: 0; padding: 0; box-sizing: border-box; }
+                          html, body { height: 100%; }
                           body { 
                             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
                             line-height: 1.5;
                             color: #1c1917;
                             background: white;
                           }
+                          .invoice-wrapper { display: flex; flex-direction: column; min-height: 100vh; }
+                          .invoice-body { flex: 1; }
                           .header { background: linear-gradient(to right, #1c1917, #292524); color: white; padding: 2rem 2.5rem; }
                           .header h1 { font-size: 1.5rem; font-weight: 300; letter-spacing: 0.3em; text-transform: uppercase; }
                           .header-subtitle { color: #a8a29e; font-size: 0.75rem; letter-spacing: 0.1em; margin-top: 0.25rem; }
@@ -3218,6 +3239,8 @@ export default function AdminPanel() {
                         </style>
                       </head>
                       <body>
+                        <div class="invoice-wrapper">
+                        <div class="invoice-body">
                         <div class="header" style="display: flex; justify-content: space-between; align-items: center;">
                           <div>
                             <h1>Infinite Home</h1>
@@ -3323,9 +3346,11 @@ export default function AdminPanel() {
                             <p class="notes-text">${selectedTransaction.notes}</p>
                           </div>
                         ` : ""}
+                        </div>
                         <div class="footer">
                           <p class="footer-thanks">Thank you for shopping with us!</p>
                           <p class="footer-contact">Male', Maldives • support@infinitehome.mv</p>
+                        </div>
                         </div>
                       </body>
                       </html>

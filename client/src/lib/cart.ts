@@ -31,6 +31,10 @@ export const useCart = create<CartStore>()(
         if (!isPreOrder && variantStock <= 0) return;
         const items = get().items;
         const itemPrice = price ?? product.price;
+        const maxOrderQty = (product as any).maxOrderQty || null;
+        const totalInCartForProduct = items
+          .filter(ci => ci.id === product.id && !ci.isPreOrder)
+          .reduce((sum, ci) => sum + (ci.quantity || 0), 0);
         const existingItem = items.find(
           (item) => 
             item.id === product.id && 
@@ -40,7 +44,11 @@ export const useCart = create<CartStore>()(
         );
 
         if (existingItem) {
-          const newQuantity = isPreOrder ? existingItem.quantity + quantity : Math.min(existingItem.quantity + quantity, variantStock);
+          let newQuantity = isPreOrder ? existingItem.quantity + quantity : Math.min(existingItem.quantity + quantity, variantStock);
+          if (!isPreOrder && maxOrderQty) {
+            const otherQty = totalInCartForProduct - existingItem.quantity;
+            newQuantity = Math.min(newQuantity, maxOrderQty - otherQty);
+          }
           set({
             items: items.map((item) =>
               item.id === product.id && 
@@ -52,7 +60,11 @@ export const useCart = create<CartStore>()(
             ),
           });
         } else {
-          const cappedQuantity = isPreOrder ? quantity : Math.min(quantity, variantStock);
+          let cappedQuantity = isPreOrder ? quantity : Math.min(quantity, variantStock);
+          if (!isPreOrder && maxOrderQty) {
+            cappedQuantity = Math.min(cappedQuantity, maxOrderQty - totalInCartForProduct);
+          }
+          if (cappedQuantity <= 0) return;
           set({ 
             items: [...items, { 
               ...product, 
@@ -82,7 +94,14 @@ export const useCart = create<CartStore>()(
                 return { ...item, quantity: Math.max(1, quantity) };
               }
               const variantStock = getVariantStock(item, size, color);
-              const cappedQuantity = Math.min(Math.max(1, quantity), variantStock);
+              let cappedQuantity = Math.min(Math.max(1, quantity), variantStock);
+              const maxOrderQty = (item as any).maxOrderQty || null;
+              if (maxOrderQty) {
+                const otherQty = get().items
+                  .filter(ci => ci.id === productId && !ci.isPreOrder && !(ci.selectedColor === color && ci.selectedSize === size))
+                  .reduce((sum, ci) => sum + (ci.quantity || 0), 0);
+                cappedQuantity = Math.min(cappedQuantity, maxOrderQty - otherQty);
+              }
               return { ...item, quantity: cappedQuantity };
             }
             return item;

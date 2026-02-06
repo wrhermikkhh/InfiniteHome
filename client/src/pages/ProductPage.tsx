@@ -81,7 +81,13 @@ export default function ProductPage() {
     const inCart = cartItems
       .filter(ci => ci.id === product.id && ci.selectedColor === selectedColor && ci.selectedSize === selectedSize && !(ci as any).isPreOrder)
       .reduce((sum, ci) => sum + (ci.quantity || 0), 0);
-    const remaining = Math.max(0, stock - inCart);
+    const allInCart = cartItems
+      .filter(ci => ci.id === product.id && !(ci as any).isPreOrder)
+      .reduce((sum, ci) => sum + (ci.quantity || 0), 0);
+    const pMaxQty = (product as any).maxOrderQty || null;
+    const byLimit = pMaxQty ? Math.max(0, pMaxQty - allInCart) : Infinity;
+    const byStock = Math.max(0, stock - inCart);
+    const remaining = Math.min(byStock, byLimit);
     if (remaining > 0 && quantity > remaining) {
       setQuantity(remaining);
     }
@@ -102,10 +108,16 @@ export default function ProductPage() {
   const currentVariant = variants.find(v => v.size === selectedSize) || variants[0];
   const currentPrice = currentVariant.price;
   const currentStock = product ? getVariantStock(product, selectedSize, selectedColor) : 0;
+  const allCartForProduct = cartItems
+    .filter(ci => ci.id === product?.id && !(ci as any).isPreOrder)
+    .reduce((sum, ci) => sum + (ci.quantity || 0), 0);
   const alreadyInCart = cartItems
     .filter(ci => ci.id === product?.id && ci.selectedColor === selectedColor && ci.selectedSize === selectedSize && !(ci as any).isPreOrder)
     .reduce((sum, ci) => sum + (ci.quantity || 0), 0);
-  const remainingStock = Math.max(0, currentStock - alreadyInCart);
+  const maxOrderQty = (product as any)?.maxOrderQty || null;
+  const maxByLimit = maxOrderQty ? Math.max(0, maxOrderQty - allCartForProduct) : Infinity;
+  const maxByStock = Math.max(0, currentStock - alreadyInCart);
+  const remainingStock = Math.min(maxByStock, maxByLimit);
   const isOutOfStock = currentStock <= 0;
   
   const isPreOrder = product.isPreOrder || false;
@@ -498,14 +510,18 @@ export default function ProductPage() {
                     </div>
                   )}
 
-                  {alreadyInCart > 0 && !isPreOrder && currentStock > 0 && (
-                    <p className="text-xs text-muted-foreground">{alreadyInCart} already in your bag{remainingStock > 0 ? ` — ${remainingStock} more available` : ''}</p>
+                  {allCartForProduct > 0 && !isPreOrder && currentStock > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {allCartForProduct} already in your bag
+                      {remainingStock > 0 ? ` — ${remainingStock} more available` : ''}
+                      {maxOrderQty ? ` (limit: ${maxOrderQty} per customer)` : ''}
+                    </p>
                   )}
                   
-                  {/* Regular product - all stock already in cart */}
+                  {/* Regular product - max reached (stock or order limit) */}
                   {!isPreOrder && currentStock > 0 && remainingStock <= 0 && (
                     <Button disabled className="w-full h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-secondary text-muted-foreground">
-                      Max Stock in Cart
+                      {maxOrderQty && allCartForProduct >= maxOrderQty ? `Limit ${maxOrderQty} Per Customer` : 'Max Stock in Cart'}
                     </Button>
                   )}
 

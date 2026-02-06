@@ -52,6 +52,19 @@ export function Navbar() {
     return getVariantStock(item, item.selectedSize, item.selectedColor);
   };
 
+  const getMaxForItem = (item: typeof items[0]) => {
+    if ((item as any).isPreOrder) return Infinity;
+    const freshProduct = freshProducts.find((p) => p.id === item.id);
+    const productMaxQty = (freshProduct as any)?.maxOrderQty || (item as any)?.maxOrderQty || null;
+    const variantStock = getItemStock(item);
+    if (!productMaxQty) return variantStock;
+    const totalInCart = items
+      .filter(ci => ci.id === item.id && !(ci as any).isPreOrder)
+      .reduce((sum, ci) => sum + (ci.quantity || 0), 0);
+    const remainingLimit = Math.max(0, productMaxQty - totalInCart + (item.quantity || 0));
+    return Math.min(variantStock, remainingLimit);
+  };
+
   const inStockItems = items.filter((item) => getItemStock(item) > 0);
   const total = inStockItems.reduce((sum, item) => sum + item.price * (item.quantity || 0), 0);
   const hasOutOfStockItems = items.some((item) => getItemStock(item) <= 0);
@@ -328,8 +341,8 @@ export function Navbar() {
                                   <span className="text-xs w-6 text-center">{item.quantity}</span>
                                   <button 
                                     onClick={() => updateQuantity(item.id, (item.quantity || 0) + 1, item.selectedColor, item.selectedSize, (item as any).isPreOrder)}
-                                    disabled={!(item as any).isPreOrder && (item.quantity || 0) >= itemStock}
-                                    className={`p-1 border border-border hover:bg-secondary/50 ${!(item as any).isPreOrder && (item.quantity || 0) >= itemStock ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                    disabled={!(item as any).isPreOrder && (item.quantity || 0) >= getMaxForItem(item)}
+                                    className={`p-1 border border-border hover:bg-secondary/50 ${!(item as any).isPreOrder && (item.quantity || 0) >= getMaxForItem(item) ? 'opacity-30 cursor-not-allowed' : ''}`}
                                   >
                                     <Plus size={12} />
                                   </button>
