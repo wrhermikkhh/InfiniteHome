@@ -27,8 +27,8 @@ export async function sendOrderConfirmationEmail(order: any) {
         <td style="padding: 12px 10px; border-bottom: 1px solid #eee;">
           <div style="font-weight: bold; color: #1a1a1a;">${item.name}</div>
           <div style="font-size: 12px; color: #666; margin-top: 4px;">
-            ${item.color ? `<span style="margin-right: 10px;">Color: ${item.color}</span>` : ''}
-            ${item.size ? `<span>Size: ${item.size}</span>` : ''}
+            ${item.color && item.color !== 'Default' ? `<span style="margin-right: 10px;">Color: ${item.color}</span>` : ''}
+            ${item.size && item.size !== 'Standard' ? `<span>Size: ${item.size}</span>` : ''}
           </div>
         </td>
         <td style="padding: 12px 10px; border-bottom: 1px solid #eee; text-align: center; vertical-align: top;">

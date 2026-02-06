@@ -376,6 +376,7 @@ export default function ProductPage() {
               className="space-y-6 pt-6 border-t border-border"
             >
               {/* Color */}
+              {!(colors.length === 1 && colors[0] === 'Default') && (
               <div className="space-y-3">
                 <span className="text-sm font-bold uppercase tracking-widest">Color: <span className="text-muted-foreground font-normal normal-case">{selectedColor}</span></span>
                 <div className="flex flex-wrap gap-3">
@@ -416,8 +417,10 @@ export default function ProductPage() {
                   })}
                 </div>
               </div>
+              )}
 
               {/* Size */}
+              {!(variants.length === 1 && variants[0].size === 'Standard') && (
               <div className="space-y-3">
                  <div className="flex items-center justify-between">
                    <span className="text-sm font-bold uppercase tracking-widest">Size: <span className="text-muted-foreground font-normal normal-case">{selectedSize}</span></span>
@@ -448,6 +451,7 @@ export default function ProductPage() {
                    </a>
                  )}
               </div>
+              )}
 
               {/* Pre-Order Info */}
               {isPreOrder && (

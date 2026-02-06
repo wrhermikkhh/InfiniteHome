@@ -568,7 +568,10 @@ export default function Checkout() {
                           )}
                         </div>
                         <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                          {item.selectedColor}{item.selectedSize ? ` / ${item.selectedSize}` : ''}
+                          {[
+                            item.selectedColor && item.selectedColor !== 'Default' ? item.selectedColor : '',
+                            item.selectedSize && item.selectedSize !== 'Standard' ? item.selectedSize : ''
+                          ].filter(Boolean).join(' / ')}
                         </span>
                         {isPreOrderItem && preOrderEta && (
                           <span className="text-[10px] text-amber-700">ETA: {preOrderEta}</span>

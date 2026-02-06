@@ -318,9 +318,9 @@ export function Navbar() {
                               <h4 className={cn("font-medium text-sm truncate cursor-pointer", isOOS && "line-through")}>{item.name}</h4>
                             </Link>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {item.selectedColor && <span>{item.selectedColor}</span>}
-                              {item.selectedColor && item.selectedSize && <span> / </span>}
-                              {item.selectedSize && <span>{item.selectedSize}</span>}
+                              {item.selectedColor && item.selectedColor !== 'Default' && <span>{item.selectedColor}</span>}
+                              {item.selectedColor && item.selectedColor !== 'Default' && item.selectedSize && item.selectedSize !== 'Standard' && <span> / </span>}
+                              {item.selectedSize && item.selectedSize !== 'Standard' && <span>{item.selectedSize}</span>}
                             </p>
                             {isOOS ? (
                               <p className="text-xs font-bold mt-2 text-red-600 flex items-center gap-1">

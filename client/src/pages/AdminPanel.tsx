@@ -446,7 +446,7 @@ export default function AdminPanel() {
 
     const itemsHtml = selectedOrder.items.map((item: any) => `
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name}${item.size ? ` (${item.size})` : ''}${item.color ? ` - ${item.color}` : ''} x ${item.qty}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name}${item.size && item.size !== 'Standard' ? ` (${item.size})` : ''}${item.color && item.color !== 'Default' ? ` - ${item.color}` : ''} x ${item.qty}</td>
       </tr>
     `).join('');
 
@@ -569,12 +569,30 @@ export default function AdminPanel() {
         if (cv.image.trim()) acc[cv.name.trim()] = cv.image.trim();
         return acc;
       }, {} as { [key: string]: string }),
-      variants: productForm.variants.filter(v => v.size && v.price).map(v => ({
-        size: v.size.trim(),
-        price: Number(v.price)
-      })),
+      variants: (() => {
+        const filtered = productForm.variants.filter(v => v.size && v.price).map(v => ({
+          size: v.size.trim(),
+          price: Number(v.price)
+        }));
+        if (filtered.length > 0) return filtered;
+        const basePrice = Number(productForm.price) || 0;
+        return [{ size: 'Standard', price: basePrice }];
+      })(),
       stock: 0,
-      variantStock: variantStockNumbers,
+      variantStock: (() => {
+        const hasRealVariants = productForm.variants.filter(v => v.size && v.price).length > 0;
+        if (hasRealVariants) return variantStockNumbers;
+        const colorNames = productForm.colorVariants.filter(cv => cv.name.trim()).map(cv => cv.name.trim());
+        if (colorNames.length > 0) {
+          const defaults: { [key: string]: number } = {};
+          colorNames.forEach(c => {
+            const key = `Standard-${c}`;
+            defaults[key] = variantStockNumbers[key] ?? 0;
+          });
+          return defaults;
+        }
+        return { 'Standard-Default': variantStockNumbers['Standard-Default'] ?? 0 };
+      })(),
       expressCharge: productForm.expressCharge ? Number(productForm.expressCharge) : 0,
       sizeGuide: productForm.sizeGuide.filter(sg => sg.measurement && Object.keys(sg.sizes).length > 0),
       certifications: productForm.certifications,
@@ -2185,8 +2203,8 @@ export default function AdminPanel() {
                             <div key={index} className="flex items-center justify-between gap-2 p-2 bg-secondary/10">
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium truncate">{item.name}</p>
-                                {(item.size || item.color) && (
-                                  <p className="text-xs text-primary">{item.size}{item.size && item.color ? " / " : ""}{item.color}</p>
+                                {((item.size && item.size !== 'Standard') || (item.color && item.color !== 'Default')) && (
+                                  <p className="text-xs text-primary">{item.size && item.size !== 'Standard' ? item.size : ''}{item.size && item.size !== 'Standard' && item.color && item.color !== 'Default' ? " / " : ""}{item.color && item.color !== 'Default' ? item.color : ''}</p>
                                 )}
                                 <p className="text-xs text-muted-foreground">{formatCurrency(item.price)} each</p>
                               </div>
@@ -2970,7 +2988,7 @@ export default function AdminPanel() {
               </div>
 
               {/* Size Selection */}
-              {selectedPosProduct.variants && selectedPosProduct.variants.length > 0 && (
+              {selectedPosProduct.variants && selectedPosProduct.variants.length > 0 && !(selectedPosProduct.variants.length === 1 && selectedPosProduct.variants[0].size === 'Standard') && (
                 <div className="space-y-2">
                   <Label className="text-xs uppercase tracking-widest font-bold">Size</Label>
                   <div className="flex flex-wrap gap-2">
@@ -2995,7 +3013,7 @@ export default function AdminPanel() {
               )}
 
               {/* Color Selection */}
-              {selectedPosProduct.colors && selectedPosProduct.colors.length > 0 && (
+              {selectedPosProduct.colors && selectedPosProduct.colors.length > 0 && !(selectedPosProduct.colors.length === 1 && selectedPosProduct.colors[0] === 'Default') && (
                 <div className="space-y-2">
                   <Label className="text-xs uppercase tracking-widest font-bold">Color</Label>
                   <div className="flex flex-wrap gap-2">
@@ -3182,9 +3200,9 @@ export default function AdminPanel() {
                       <tr key={idx} className="border-b border-stone-100">
                         <td className="py-4 px-2">
                           <p className="font-medium text-stone-900">{item.name}</p>
-                          {(item.color || item.size) && (
+                          {((item.size && item.size !== 'Standard') || (item.color && item.color !== 'Default')) && (
                             <p className="text-xs text-stone-500 mt-0.5">
-                              {[item.size, item.color].filter(Boolean).join(" • ")}
+                              {[item.size !== 'Standard' ? item.size : '', item.color !== 'Default' ? item.color : ''].filter(Boolean).join(" • ")}
                             </p>
                           )}
                         </td>
@@ -3390,7 +3408,7 @@ export default function AdminPanel() {
                               <tr>
                                 <td>
                                   <p class="item-name">${item.name}</p>
-                                  ${item.size || item.color ? `<p class="item-variant">${[item.size, item.color].filter(Boolean).join(" • ")}</p>` : ""}
+                                  ${(item.size && item.size !== 'Standard') || (item.color && item.color !== 'Default') ? `<p class="item-variant">${[item.size !== 'Standard' ? item.size : '', item.color !== 'Default' ? item.color : ''].filter(Boolean).join(" • ")}</p>` : ""}
                                 </td>
                                 <td>${item.qty}</td>
                                 <td>${formatCurrency(item.price)}</td>
