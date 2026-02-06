@@ -412,8 +412,8 @@ export default function ProductPage() {
                           />
                         )}
                         {colorOos && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-full h-[2px] bg-red-500 rotate-45" />
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="w-[140%] h-[2px] bg-red-500 rotate-45" />
                           </div>
                         )}
                       </button>
@@ -437,11 +437,16 @@ export default function ProductPage() {
                        <button
                          key={v.size}
                          onClick={() => setSelectedSize(v.size)}
-                         className={`px-4 py-2 text-sm border transition-all relative ${selectedSize === v.size ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:border-primary/50'} ${sizeOos ? 'opacity-50 line-through' : ''}`}
+                         className={`px-4 py-2 text-sm border transition-all relative overflow-hidden ${selectedSize === v.size ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:border-primary/50'} ${sizeOos ? 'opacity-60 text-muted-foreground' : ''}`}
                          data-testid={`size-${v.size.toLowerCase()}`}
                          title={sizeOos ? `${v.size} - Out of Stock` : v.size}
                        >
                          {v.size}
+                         {sizeOos && (
+                           <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                             <span className="block w-[140%] h-[1.5px] bg-red-400 rotate-[-20deg]" />
+                           </span>
+                         )}
                        </button>
                      );
                    })}
