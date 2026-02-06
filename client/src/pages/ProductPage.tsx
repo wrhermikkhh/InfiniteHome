@@ -31,9 +31,12 @@ export default function ProductPage() {
   const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
 
   const colors: string[] = product?.colors && product.colors.length > 0 ? product.colors : ['Default'];
+  const variantStockObj = (product?.variantStock || {}) as { [key: string]: number };
   const variants: ProductVariant[] = product?.variants && product.variants.length > 0 
     ? product.variants 
-    : [{ size: 'Standard', price: product?.price || 0 }];
+    : Object.keys(variantStockObj).length > 0
+      ? Array.from(new Set(Object.keys(variantStockObj).map(k => k.split('-')[0]))).map(size => ({ size, price: product?.price || 0 }))
+      : [{ size: 'Standard', price: product?.price || 0 }];
   
   // Auto-select first size/color combination that has stock (runs once when product loads)
   useEffect(() => {

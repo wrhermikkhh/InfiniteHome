@@ -83,16 +83,6 @@ export function getVariantStock(product: Product, size?: string, color?: string)
     return variantStock[matchingKey];
   }
   
-  const sizeMatch = Object.keys(variantStock).find(k => 
-    k.toLowerCase().startsWith(sizeKey.toLowerCase() + '-')
-  );
-  const colorMatch = Object.keys(variantStock).find(k => 
-    k.toLowerCase().endsWith('-' + colorKey.toLowerCase())
-  );
-  
-  if (sizeMatch) return variantStock[sizeMatch];
-  if (colorMatch) return variantStock[colorMatch];
-  
   return 0;
 }
 
