@@ -411,11 +411,6 @@ export default function ProductPage() {
                             className="w-full h-full object-cover"
                           />
                         )}
-                        {colorOos && (
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="w-[140%] h-[2px] bg-red-500 rotate-45" />
-                          </div>
-                        )}
                       </button>
                     );
                   })}
@@ -442,11 +437,6 @@ export default function ProductPage() {
                          title={sizeOos ? `${v.size} - Out of Stock` : v.size}
                        >
                          {v.size}
-                         {sizeOos && (
-                           <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                             <span className="block w-[140%] h-[1.5px] bg-red-400 rotate-[-20deg]" />
-                           </span>
-                         )}
                        </button>
                      );
                    })}
