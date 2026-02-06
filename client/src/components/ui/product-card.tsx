@@ -1,8 +1,10 @@
 import { Link } from "wouter";
 import { Product, formatCurrency, getDiscountPercentage, getDisplayPrice, getTotalVariantStock } from "@/lib/products";
 import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/lib/cart";
+import { useState } from "react";
+import { Check } from "lucide-react";
 
 interface ProductCardProps {
   product: Product;
@@ -13,6 +15,24 @@ export function ProductCard({ product }: ProductCardProps) {
   const discountPercent = getDiscountPercentage(product);
   const displayPrice = getDisplayPrice(product);
   const totalStock = getTotalVariantStock(product);
+  const [justAdded, setJustAdded] = useState(false);
+
+  const handleQuickAdd = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (totalStock > 0 || product.isPreOrder) {
+      addItem(product);
+      setJustAdded(true);
+      
+      const cartBtn = document.querySelector('[data-testid="button-cart"]');
+      if (cartBtn) {
+        cartBtn.classList.add('scale-125');
+        setTimeout(() => cartBtn.classList.remove('scale-125'), 400);
+      }
+      
+      setTimeout(() => setJustAdded(false), 1500);
+    }
+  };
 
   return (
     <div className="group block" data-testid={`card-product-${product.id}`}>
@@ -52,20 +72,36 @@ export function ProductCard({ product }: ProductCardProps) {
               )}
             </div>
 
+            <AnimatePresence>
+              {justAdded && (
+                <motion.div
+                  className="absolute inset-0 bg-black/40 flex items-center justify-center"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <motion.div
+                    className="bg-white rounded-full p-3 shadow-xl"
+                    initial={{ scale: 0, rotate: -90 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    exit={{ scale: 0 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                  >
+                    <Check size={24} className="text-green-600" strokeWidth={3} />
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="absolute bottom-0 left-0 w-full p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
                <Button 
-                 onClick={(e) => {
-                   e.preventDefault();
-                   e.stopPropagation();
-                   if (totalStock > 0 || product.isPreOrder) {
-                     addItem(product);
-                   }
-                 }}
+                 onClick={handleQuickAdd}
                  disabled={totalStock <= 0 && !product.isPreOrder}
                  className="w-full rounded-sm h-10 text-xs tracking-wide font-semibold shadow-lg"
                  data-testid={`button-quick-add-${product.id}`}
                >
-                 {totalStock > 0 || product.isPreOrder ? "Quick Add" : "Out of Stock"}
+                 {justAdded ? "Added!" : (totalStock > 0 || product.isPreOrder ? "Quick Add" : "Out of Stock")}
                </Button>
             </div>
           </div>

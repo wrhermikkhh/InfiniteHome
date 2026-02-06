@@ -10,6 +10,7 @@ import NotFound from "@/pages/not-found";
 import { useCart } from "@/lib/cart";
 import { motion } from "framer-motion";
 import { getCertificationInfo } from "@/lib/certifications";
+import { useCartAnimation, FlyingItems, CartConfirmation } from "@/components/ui/cart-animation";
 
 export default function ProductPage() {
   const [match, params] = useRoute("/product/:id");
@@ -17,6 +18,7 @@ export default function ProductPage() {
   const [selectedColor, setSelectedColor] = useState("");
   const [selectedSize, setSelectedSize] = useState("");
   const { addItem, clearCart } = useCart();
+  const { flyingItems, cartBounce, showConfirmation, triggerAnimation } = useCartAnimation();
 
   const productId = params?.id || "";
   const { product, loading, error } = useProduct(productId);
@@ -103,6 +105,8 @@ export default function ProductPage() {
 
   return (
     <div className="min-h-screen bg-background font-body overflow-x-hidden">
+      <FlyingItems items={flyingItems} />
+      <CartConfirmation show={showConfirmation} />
       <Navbar />
 
       <div className="pt-32 pb-16 container mx-auto px-4">
@@ -455,8 +459,9 @@ export default function ProductPage() {
                     <div className="flex flex-col sm:flex-row gap-4 w-full">
                       <Button 
                         variant="outline"
-                        onClick={() => {
+                        onClick={(e) => {
                           addItem(product, quantity, selectedColor, selectedSize, currentPrice);
+                          triggerAnimation(e, product.image);
                         }}
                         className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm border-primary text-primary hover:bg-primary/5 transition-all"
                         data-testid="button-add-to-cart"
@@ -491,8 +496,9 @@ export default function ProductPage() {
                       <div className="flex flex-col sm:flex-row gap-4">
                         <Button 
                           variant="outline"
-                          onClick={() => {
+                          onClick={(e) => {
                             addItem(product, quantity, selectedColor, selectedSize, currentPrice);
+                            triggerAnimation(e, product.image);
                           }}
                           disabled={currentStock <= 0}
                           className={`flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm border-primary text-primary hover:bg-primary/5 transition-all ${currentStock <= 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
