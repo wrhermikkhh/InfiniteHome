@@ -46,49 +46,49 @@ interface TrackingStep {
 
 const statusConfig: Record<OrderStatus, { label: string; description: string; icon: React.ReactNode }> = {
   pending: {
-    label: "Order Pending",
+    label: "Order Placed",
     description: "Your order has been received and is awaiting confirmation.",
-    icon: <Clock size={24} />,
+    icon: <Clock size={20} />,
   },
   confirmed: {
     label: "Order Confirmed",
     description: "Your order has been confirmed and payment verified.",
-    icon: <CheckCircle2 size={24} />,
+    icon: <CheckCircle2 size={20} />,
   },
   processing: {
     label: "Processing",
     description: "Your items are being carefully packed and prepared for shipment.",
-    icon: <Package size={24} />,
+    icon: <Package size={20} />,
   },
   shipped: {
     label: "Shipped",
     description: "Your package has been handed over to our delivery partner.",
-    icon: <PackageCheck size={24} />,
+    icon: <PackageCheck size={20} />,
   },
   in_transit: {
     label: "In Transit",
     description: "Your package is on its way and moving through our delivery network.",
-    icon: <Truck size={24} />,
+    icon: <Truck size={20} />,
   },
   out_for_delivery: {
     label: "Out for Delivery",
     description: "Your package is with the delivery driver and will arrive today.",
-    icon: <Home size={24} />,
+    icon: <Home size={20} />,
   },
   delivered: {
     label: "Delivered",
     description: "Your package has been successfully delivered. Enjoy your purchase!",
-    icon: <CheckCircle2 size={24} />,
+    icon: <CheckCircle2 size={20} />,
   },
   delivery_exception: {
     label: "Delivery Exception",
     description: "There was an issue with delivery. Our team is working to resolve it.",
-    icon: <AlertTriangle size={24} />,
+    icon: <AlertTriangle size={20} />,
   },
   payment_verification: {
     label: "Payment Verification",
     description: "We are verifying your bank transfer. This usually takes 1-2 business hours.",
-    icon: <CreditCard size={24} />,
+    icon: <CreditCard size={20} />,
   },
 };
 
@@ -115,60 +115,38 @@ function formatGMT5(isoString: string): string {
 
 function getTrackingSteps(rawStatus: string, statusHistory?: { status: string; timestamp: string }[]): TrackingStep[] {
   const currentStatus = normalizeStatus(rawStatus);
-  const steps: TrackingStep[] = [];
   const history = statusHistory || [];
-  const historyMap = new Map<string, string>();
-  history.forEach(h => {
-    historyMap.set(normalizeStatus(h.status), h.timestamp);
-  });
 
-  if (currentStatus === "payment_verification") {
-    steps.push({
-      status: "payment_verification",
-      ...statusConfig.payment_verification,
-      isCompleted: false,
-      isCurrent: true,
-      timestamp: historyMap.get("payment_verification"),
-    });
-    return steps;
+  if (history.length === 0) {
+    const config = statusConfig[currentStatus];
+    if (config) {
+      return [{
+        status: currentStatus,
+        ...config,
+        isCompleted: currentStatus === "delivered",
+        isCurrent: currentStatus !== "delivered",
+        isException: currentStatus === "delivery_exception",
+      }];
+    }
+    return [];
   }
 
-  if (currentStatus === "delivery_exception") {
-    const preExceptionFlow: OrderStatus[] = ["pending", "confirmed", "processing", "shipped", "in_transit"];
-    preExceptionFlow.forEach((status) => {
-      if (historyMap.has(status)) {
-        steps.push({
-          status,
-          ...statusConfig[status],
-          isCompleted: true,
-          isCurrent: false,
-          timestamp: historyMap.get(status),
-        });
-      }
-    });
-    steps.push({
-      status: "delivery_exception",
-      ...statusConfig.delivery_exception,
-      isCompleted: false,
-      isCurrent: true,
-      isException: true,
-      timestamp: historyMap.get("delivery_exception"),
-    });
-    return steps;
-  }
+  const steps: TrackingStep[] = [];
+  const lastIdx = history.length - 1;
 
-  const currentIndex = normalFlow.indexOf(currentStatus);
-
-  normalFlow.forEach((status, idx) => {
-    if (idx > currentIndex) return;
-    const isLast = idx === currentIndex;
+  history.forEach((h, idx) => {
+    const status = normalizeStatus(h.status);
+    const config = statusConfig[status];
+    if (!config) return;
+    const isLast = idx === lastIdx;
     const isDelivered = status === "delivered" && isLast;
     steps.push({
       status,
-      ...statusConfig[status],
-      isCompleted: idx < currentIndex || isDelivered,
+      ...config,
+      isCompleted: !isLast || isDelivered,
       isCurrent: isLast && !isDelivered,
-      timestamp: historyMap.get(status),
+      isException: status === "delivery_exception",
+      timestamp: h.timestamp,
     });
   });
 
@@ -363,74 +341,87 @@ export default function OrderTracking() {
               </h2>
               
               <div className="relative">
-                <div className="absolute left-[27px] top-8 bottom-8 w-1 bg-gradient-to-b from-primary/30 via-border to-border hidden md:block rounded-full" />
-                
                 <div className="space-y-0">
                   {trackingSteps.map((step, idx) => (
                     <div 
                       key={idx} 
-                      className={cn(
-                        "relative flex items-start gap-6 py-6 transition-all",
-                        idx !== trackingSteps.length - 1 && "border-b border-border/50"
-                      )}
+                      className="relative flex gap-0"
                     >
-                      <div className={cn(
-                        "z-10 w-14 h-14 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 shadow-sm",
-                        step.isException 
-                          ? "bg-red-500 text-white ring-4 ring-red-100" 
-                          : step.isCompleted 
-                            ? "bg-primary text-primary-foreground ring-4 ring-primary/20" 
+                      <div className="w-[130px] md:w-[160px] shrink-0 pr-4 pt-5 text-right">
+                        {step.timestamp && (
+                          <div>
+                            <p className="text-sm font-semibold text-foreground leading-tight">
+                              {(() => {
+                                const d = new Date(step.timestamp);
+                                const gmt5 = new Date(d.getTime() + 5 * 60 * 60 * 1000);
+                                const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                                return `${gmt5.getUTCDate()} ${months[gmt5.getUTCMonth()]} ${gmt5.getUTCFullYear()}`;
+                              })()}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {(() => {
+                                const d = new Date(step.timestamp);
+                                const gmt5 = new Date(d.getTime() + 5 * 60 * 60 * 1000);
+                                let hours = gmt5.getUTCHours();
+                                const minutes = gmt5.getUTCMinutes().toString().padStart(2, '0');
+                                const ampm = hours >= 12 ? 'PM' : 'AM';
+                                hours = hours % 12 || 12;
+                                return `${hours}:${minutes} ${ampm}`;
+                              })()}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col items-center shrink-0">
+                        <div className={cn(
+                          "z-10 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300",
+                          step.isException 
+                            ? "bg-red-500 text-white ring-4 ring-red-100" 
                             : step.isCurrent 
                               ? "bg-primary text-primary-foreground ring-4 ring-primary/30 animate-pulse" 
-                              : "bg-muted text-muted-foreground"
-                      )}>
-                        {step.icon}
+                              : step.isCompleted 
+                                ? "bg-primary text-primary-foreground" 
+                                : "bg-muted text-muted-foreground"
+                        )}>
+                          {step.isCompleted && !step.isException ? <CheckCircle2 size={20} /> : step.icon}
+                        </div>
+                        {idx !== trackingSteps.length - 1 && (
+                          <div className={cn(
+                            "w-0.5 flex-1 min-h-[40px]",
+                            step.isCompleted ? "bg-primary" : "bg-border"
+                          )} />
+                        )}
                       </div>
-                      
-                      <div className="flex-1 min-w-0 pt-1">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-2">
+
+                      <div className="flex-1 pl-4 pb-8 pt-3">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className={cn(
-                            "text-xl font-serif font-medium",
+                            "text-base font-semibold",
                             step.isException 
                               ? "text-red-600" 
                               : step.isCurrent 
                                 ? "text-primary" 
-                                : step.isCompleted 
-                                  ? "text-foreground" 
-                                  : "text-muted-foreground"
+                                : "text-foreground"
                           )}>
                             {step.label}
                           </h3>
-                          {step.isCompleted && !step.isException && (
-                            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">
-                              <CheckCircle2 size={14} />
-                              Completed
-                            </span>
-                          )}
                           {step.isCurrent && !step.isException && (
-                            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-600 bg-amber-50 px-3 py-1 rounded-full">
-                              <Clock size={14} />
-                              In Progress
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                              <Clock size={10} />
+                              Current
                             </span>
                           )}
                           {step.isException && (
-                            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-red-600 bg-red-50 px-3 py-1 rounded-full">
-                              <AlertTriangle size={14} />
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+                              <AlertTriangle size={10} />
                               Action Required
                             </span>
                           )}
                         </div>
-                        <p className={cn(
-                          "text-base max-w-lg",
-                          step.isCompleted || step.isCurrent ? "text-muted-foreground" : "text-muted-foreground/60"
-                        )}>
+                        <p className="text-sm text-muted-foreground mt-1 max-w-md">
                           {step.description}
                         </p>
-                        {step.timestamp && (
-                          <p className="text-xs text-muted-foreground/70 mt-1.5 font-medium tracking-wide">
-                            {formatGMT5(step.timestamp)} (GMT+5)
-                          </p>
-                        )}
                       </div>
                     </div>
                   ))}
