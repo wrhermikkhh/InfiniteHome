@@ -17,7 +17,7 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState("");
   const [selectedSize, setSelectedSize] = useState("");
-  const { addItem, clearCart } = useCart();
+  const { addItem, clearCart, items: cartItems } = useCart();
   const { flyingItems, cartBounce, showConfirmation, triggerAnimation } = useCartAnimation();
 
   const productId = params?.id || "";
@@ -75,6 +75,18 @@ export default function ProductPage() {
     setQuantity(1);
   }, [selectedColor, selectedSize]);
 
+  useEffect(() => {
+    if (!product || product.isPreOrder) return;
+    const stock = getVariantStock(product, selectedSize, selectedColor);
+    const inCart = cartItems
+      .filter(ci => ci.id === product.id && ci.selectedColor === selectedColor && ci.selectedSize === selectedSize && !(ci as any).isPreOrder)
+      .reduce((sum, ci) => sum + (ci.quantity || 0), 0);
+    const remaining = Math.max(0, stock - inCart);
+    if (remaining > 0 && quantity > remaining) {
+      setQuantity(remaining);
+    }
+  }, [product, selectedColor, selectedSize, cartItems, quantity]);
+
   if (!match || !params) return <NotFound />;
   if (loading) return (
     <div className="min-h-screen bg-background font-body">
@@ -90,6 +102,10 @@ export default function ProductPage() {
   const currentVariant = variants.find(v => v.size === selectedSize) || variants[0];
   const currentPrice = currentVariant.price;
   const currentStock = product ? getVariantStock(product, selectedSize, selectedColor) : 0;
+  const alreadyInCart = cartItems
+    .filter(ci => ci.id === product?.id && ci.selectedColor === selectedColor && ci.selectedSize === selectedSize && !(ci as any).isPreOrder)
+    .reduce((sum, ci) => sum + (ci.quantity || 0), 0);
+  const remainingStock = Math.max(0, currentStock - alreadyInCart);
   const isOutOfStock = currentStock <= 0;
   
   const isPreOrder = product.isPreOrder || false;
@@ -434,10 +450,10 @@ export default function ProductPage() {
               {/* Quantity & Add */}
               <div className="flex flex-col gap-4 pt-6">
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <div className={`flex items-center border border-border w-fit ${!isPreOrder && currentStock <= 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className={`flex items-center border border-border w-fit ${!isPreOrder && remainingStock <= 0 ? 'opacity-50 pointer-events-none' : ''}`}>
                     <button 
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      disabled={!isPreOrder && currentStock <= 0}
+                      disabled={!isPreOrder && remainingStock <= 0}
                       className="p-3 hover:bg-secondary/50 transition-colors"
                       data-testid="quantity-decrease"
                     >
@@ -445,8 +461,8 @@ export default function ProductPage() {
                     </button>
                     <span className="w-12 text-center font-medium" data-testid="quantity-value">{quantity}</span>
                     <button 
-                      onClick={() => (isPreOrder || currentStock > quantity) ? setQuantity(quantity + 1) : null}
-                      disabled={!isPreOrder && (currentStock <= 0 || quantity >= currentStock)}
+                      onClick={() => (isPreOrder || remainingStock > quantity) ? setQuantity(quantity + 1) : null}
+                      disabled={!isPreOrder && (remainingStock <= 0 || quantity >= remainingStock)}
                       className="p-3 hover:bg-secondary/50 transition-colors"
                       data-testid="quantity-increase"
                     >
@@ -454,8 +470,8 @@ export default function ProductPage() {
                     </button>
                   </div>
                   
-                  {/* Regular product (not pre-order) with stock */}
-                  {!isPreOrder && currentStock > 0 && (
+                  {/* Regular product (not pre-order) with remaining stock */}
+                  {!isPreOrder && currentStock > 0 && remainingStock > 0 && (
                     <div className="flex flex-col sm:flex-row gap-4 w-full">
                       <Button 
                         variant="outline"
@@ -481,7 +497,18 @@ export default function ProductPage() {
                       </Button>
                     </div>
                   )}
+
+                  {alreadyInCart > 0 && !isPreOrder && currentStock > 0 && (
+                    <p className="text-xs text-muted-foreground">{alreadyInCart} already in your bag{remainingStock > 0 ? ` — ${remainingStock} more available` : ''}</p>
+                  )}
                   
+                  {/* Regular product - all stock already in cart */}
+                  {!isPreOrder && currentStock > 0 && remainingStock <= 0 && (
+                    <Button disabled className="w-full h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-secondary text-muted-foreground">
+                      Max Stock in Cart
+                    </Button>
+                  )}
+
                   {/* Regular product (not pre-order) out of stock */}
                   {!isPreOrder && currentStock <= 0 && (
                     <Button disabled className="w-full h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-secondary text-muted-foreground">

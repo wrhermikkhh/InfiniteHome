@@ -328,7 +328,8 @@ export function Navbar() {
                                   <span className="text-xs w-6 text-center">{item.quantity}</span>
                                   <button 
                                     onClick={() => updateQuantity(item.id, (item.quantity || 0) + 1, item.selectedColor, item.selectedSize, (item as any).isPreOrder)}
-                                    className="p-1 border border-border hover:bg-secondary/50"
+                                    disabled={!(item as any).isPreOrder && (item.quantity || 0) >= itemStock}
+                                    className={`p-1 border border-border hover:bg-secondary/50 ${!(item as any).isPreOrder && (item.quantity || 0) >= itemStock ? 'opacity-30 cursor-not-allowed' : ''}`}
                                   >
                                     <Plus size={12} />
                                   </button>
