@@ -46,17 +46,32 @@ export interface Product {
 }
 
 export function getDiscountPercentage(product: Product): number | null {
+  if (product.isOnSale && product.salePercent) {
+    return Math.round(product.salePercent);
+  }
   if (product.isOnSale && product.salePrice && product.salePrice < product.price) {
     return Math.round(((product.price - product.salePrice) / product.price) * 100);
   }
   return null;
 }
 
-export function getDisplayPrice(product: Product): number {
-  if (product.isOnSale && product.salePrice) {
+export function getVariantSalePrice(product: Product, variantPrice: number): number {
+  if (!product.isOnSale) return variantPrice;
+  if (product.salePercent) {
+    return Math.round(variantPrice * (1 - product.salePercent / 100) * 100) / 100;
+  }
+  if (product.salePrice) {
     return product.salePrice;
   }
-  return product.price;
+  return variantPrice;
+}
+
+export function getDisplayPrice(product: Product, variantPrice?: number): number {
+  const basePrice = variantPrice ?? product.price;
+  if (product.isOnSale) {
+    return getVariantSalePrice(product, basePrice);
+  }
+  return basePrice;
 }
 
 export function getVariantStockKey(size?: string, color?: string): string {

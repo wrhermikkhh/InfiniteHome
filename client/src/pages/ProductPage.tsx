@@ -1,6 +1,6 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { formatCurrency, ProductVariant, getVariantStock, getVariantStockKey, getDiscountPercentage } from "@/lib/products";
+import { formatCurrency, ProductVariant, getVariantStock, getVariantStockKey, getDiscountPercentage, getVariantSalePrice } from "@/lib/products";
 import { useProduct } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
 import { useRoute } from "wouter";
@@ -132,13 +132,13 @@ export default function ProductPage() {
   const isPreOrder = product.isPreOrder || false;
   const preOrderPrice = product.preOrderPrice;
   const isOnSale = product.isOnSale || false;
-  const salePrice = product.salePrice;
   const discountPercent = getDiscountPercentage(product);
   const preOrderInitialPayment = product.preOrderInitialPayment;
   const preOrderEta = product.preOrderEta;
+  const variantSalePrice = isOnSale ? getVariantSalePrice(product, currentPrice) : null;
   const displayPrice = isPreOrder && preOrderPrice 
     ? preOrderPrice 
-    : (isOnSale && salePrice ? salePrice : currentPrice);
+    : (isOnSale && variantSalePrice ? variantSalePrice : currentPrice);
 
   return (
     <div className="min-h-screen bg-background font-body overflow-x-hidden">
@@ -221,7 +221,7 @@ export default function ProductPage() {
                 </div>
               )}
               
-              {isOnSale && salePrice && (
+              {isOnSale && variantSalePrice && (
                 <span className="absolute top-4 left-4 bg-red-500 text-white text-xs font-bold px-3 py-1.5 uppercase tracking-widest">
                   -{discountPercent}% OFF
                 </span>
@@ -306,7 +306,7 @@ export default function ProductPage() {
                 <p className="text-2xl font-medium text-foreground">
                   {formatCurrency(displayPrice)}
                 </p>
-                {isOnSale && salePrice && !isPreOrder && (
+                {isOnSale && variantSalePrice && !isPreOrder && (
                   <>
                     <p className="text-xl text-muted-foreground line-through">
                       {formatCurrency(currentPrice)}
@@ -504,7 +504,7 @@ export default function ProductPage() {
                       <Button 
                         variant="outline"
                         onClick={(e) => {
-                          addItem(product, quantity, selectedColor, selectedSize, currentPrice);
+                          addItem(product, quantity, selectedColor, selectedSize, displayPrice);
                           triggerAnimation(e, product.image);
                         }}
                         className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm border-primary text-primary hover:bg-primary/5 transition-all"
@@ -515,7 +515,7 @@ export default function ProductPage() {
                       <Button 
                         onClick={() => {
                           clearCart();
-                          addItem(product, quantity, selectedColor, selectedSize, currentPrice);
+                          addItem(product, quantity, selectedColor, selectedSize, displayPrice);
                           window.location.href = "/checkout?direct=true";
                         }}
                         className="flex-1 h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
@@ -556,7 +556,7 @@ export default function ProductPage() {
                         <Button 
                           variant="outline"
                           onClick={(e) => {
-                            addItem(product, quantity, selectedColor, selectedSize, currentPrice);
+                            addItem(product, quantity, selectedColor, selectedSize, displayPrice);
                             triggerAnimation(e, product.image);
                           }}
                           disabled={currentStock <= 0}
@@ -568,7 +568,7 @@ export default function ProductPage() {
                         <Button 
                           onClick={() => {
                             clearCart();
-                            addItem(product, quantity, selectedColor, selectedSize, currentPrice);
+                            addItem(product, quantity, selectedColor, selectedSize, displayPrice);
                             window.location.href = "/checkout?direct=true";
                           }}
                           disabled={currentStock <= 0}

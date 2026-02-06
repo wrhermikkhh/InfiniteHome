@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Product, formatCurrency } from "@/lib/products";
+import { Product, formatCurrency, getVariantSalePrice } from "@/lib/products";
 import { 
   LayoutDashboard, 
   ShoppingBag, 
@@ -555,11 +555,10 @@ export default function AdminPanel() {
       price: productForm.variants.length > 0 && productForm.variants[0].price 
         ? Number(productForm.variants[0].price) 
         : Number(productForm.price),
-      salePrice: productForm.isOnSale ? (
-        productForm.saleMode === 'percentage' && productForm.salePercent
-          ? Math.round((Number(productForm.variants.length > 0 && productForm.variants[0].price ? productForm.variants[0].price : productForm.price) * (1 - Number(productForm.salePercent) / 100)) * 100) / 100
-          : productForm.salePrice ? Number(productForm.salePrice) : null
-      ) : null,
+      salePrice: productForm.isOnSale && productForm.saleMode === 'fixed' && productForm.salePrice
+        ? Number(productForm.salePrice) : null,
+      salePercent: productForm.isOnSale && productForm.saleMode === 'percentage' && productForm.salePercent
+        ? Number(productForm.salePercent) : null,
       isOnSale: productForm.isOnSale,
       category: productForm.category,
       description: productForm.description,
@@ -647,15 +646,8 @@ export default function AdminPanel() {
       name: product.name,
       price: product.price.toString(),
       salePrice: ((product as any).salePrice || "").toString(),
-      saleMode: "percentage" as "percentage" | "fixed",
-      salePercent: (() => {
-        const sp = (product as any).salePrice;
-        const p = product.price;
-        if (sp && p && (product as any).isOnSale) {
-          return Math.round((1 - sp / p) * 100).toString();
-        }
-        return "";
-      })(),
+      saleMode: ((product as any).salePercent ? "percentage" : (product as any).salePrice ? "fixed" : "percentage") as "percentage" | "fixed",
+      salePercent: ((product as any).salePercent || "").toString(),
       isOnSale: (product as any).isOnSale || false,
       category: product.category,
       description: product.description || "",
@@ -1287,10 +1279,21 @@ export default function AdminPanel() {
                                     />
                                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
                                   </div>
-                                  {productForm.salePercent && Number(productForm.price) > 0 && (
-                                    <p className="text-xs text-muted-foreground">
-                                      Sale price: <span className="font-semibold text-red-600">{formatCurrency(Math.round(Number(productForm.variants.length > 0 && productForm.variants[0].price ? productForm.variants[0].price : productForm.price) * (1 - Number(productForm.salePercent) / 100) * 100) / 100)}</span>
-                                    </p>
+                                  {productForm.salePercent && (
+                                    <div className="text-xs text-muted-foreground space-y-0.5">
+                                      {productForm.variants.filter(v => v.size && v.price).length > 0 ? (
+                                        productForm.variants.filter(v => v.size && v.price).map(v => (
+                                          <p key={v.size}>
+                                            {v.size}: <span className="line-through mr-1">{formatCurrency(Number(v.price))}</span>
+                                            <span className="font-semibold text-red-600">{formatCurrency(Math.round(Number(v.price) * (1 - Number(productForm.salePercent) / 100) * 100) / 100)}</span>
+                                          </p>
+                                        ))
+                                      ) : Number(productForm.price) > 0 ? (
+                                        <p>
+                                          Sale price: <span className="font-semibold text-red-600">{formatCurrency(Math.round(Number(productForm.price) * (1 - Number(productForm.salePercent) / 100) * 100) / 100)}</span>
+                                        </p>
+                                      ) : null}
+                                    </div>
                                   )}
                                 </div>
                               ) : (
@@ -2157,7 +2160,7 @@ export default function AdminPanel() {
                               />
                               <p className="text-xs font-medium line-clamp-2">{product.name}</p>
                               <p className="text-xs text-muted-foreground">
-                                {formatCurrency(Number(product.isOnSale && product.salePrice ? product.salePrice : product.price))}
+                                {formatCurrency(getVariantSalePrice(product, Number(product.price)))}
                               </p>
                             </button>
                           ))}
@@ -2956,8 +2959,11 @@ export default function AdminPanel() {
                   <h3 className="font-medium">{selectedPosProduct.name}</h3>
                   <p className="text-sm text-muted-foreground">
                     {formatCurrency(
-                      selectedPosProduct.variants?.find((v: any) => v.size === selectedPosSize)?.price || 
-                      selectedPosProduct.price
+                      getVariantSalePrice(
+                        selectedPosProduct,
+                        selectedPosProduct.variants?.find((v: any) => v.size === selectedPosSize)?.price || 
+                        selectedPosProduct.price
+                      )
                     )}
                   </p>
                 </div>
@@ -3041,7 +3047,8 @@ export default function AdminPanel() {
                     return;
                   }
 
-                  const variantPrice = selectedPosProduct.variants?.find((v: any) => v.size === selectedPosSize)?.price || selectedPosProduct.price;
+                  const rawVariantPrice = selectedPosProduct.variants?.find((v: any) => v.size === selectedPosSize)?.price || selectedPosProduct.price;
+                  const variantPrice = getVariantSalePrice(selectedPosProduct, Number(rawVariantPrice));
                   const cartKey = `${selectedPosProduct.id}-${selectedPosSize}-${selectedPosColor}`;
                   
                   const existing = posCart.find(item => 
@@ -3065,7 +3072,7 @@ export default function AdminPanel() {
                       productId: selectedPosProduct.id,
                       name: selectedPosProduct.name,
                       qty: 1,
-                      price: Number(variantPrice),
+                      price: variantPrice,
                       size: selectedPosSize,
                       color: selectedPosColor,
                       image: selectedPosProduct.image
