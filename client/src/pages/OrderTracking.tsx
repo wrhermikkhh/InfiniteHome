@@ -113,7 +113,7 @@ function formatGMT5(isoString: string): string {
   return `${day} ${month} ${year}, ${hours}:${minutes} ${ampm}`;
 }
 
-function getTrackingSteps(rawStatus: string, statusHistory?: { status: string; timestamp: string }[]): TrackingStep[] {
+function getTrackingSteps(rawStatus: string, statusHistory?: { status: string; timestamp: string }[], createdAt?: string): TrackingStep[] {
   const currentStatus = normalizeStatus(rawStatus);
   const history = statusHistory || [];
 
@@ -126,6 +126,7 @@ function getTrackingSteps(rawStatus: string, statusHistory?: { status: string; t
         isCompleted: currentStatus === "delivered",
         isCurrent: currentStatus !== "delivered",
         isException: currentStatus === "delivery_exception",
+        timestamp: createdAt,
       }];
     }
     return [];
@@ -217,7 +218,7 @@ export default function OrderTracking() {
       } else {
         const orderData = await res.json();
         setOrder(orderData);
-        setTrackingSteps(getTrackingSteps(orderData.status, orderData.statusHistory));
+        setTrackingSteps(getTrackingSteps(orderData.status, orderData.statusHistory, orderData.createdAt));
       }
     } catch (err) {
       setError("Unable to fetch order details. Please try again later.");
