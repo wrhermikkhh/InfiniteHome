@@ -113,6 +113,7 @@ function formatGMT5(isoString: string): string {
   return `${day} ${month} ${year}, ${hours}:${minutes} ${ampm}`;
 }
 
+// Build tracking steps from status history - only shows events admin has actually set
 function getTrackingSteps(rawStatus: string, statusHistory?: { status: string; timestamp: string }[], createdAt?: string): TrackingStep[] {
   const currentStatus = normalizeStatus(rawStatus);
   const history = statusHistory || [];

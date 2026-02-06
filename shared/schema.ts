@@ -184,7 +184,7 @@ export const orders = pgTable("orders", {
   paymentMethod: text("payment_method").notNull(), // "cod" or "bank"
   paymentSlip: text("payment_slip"), // URL to uploaded slip
   status: text("status").notNull().default("pending"),
-  statusHistory: jsonb("status_history").$type<{ status: string; timestamp: string }[]>().default([]),
+  statusHistory: jsonb("status_history").$type<{ status: string; timestamp: string }[]>().default([]), // tracks all status changes with timestamps
   couponCode: text("coupon_code"),
   createdAt: timestamp("created_at").defaultNow(),
 });

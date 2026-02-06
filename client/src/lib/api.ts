@@ -46,7 +46,7 @@ export interface Order {
   paymentMethod: "cod" | "bank";
   paymentSlip?: string;
   status: string;
-  statusHistory?: { status: string; timestamp: string }[];
+  statusHistory?: { status: string; timestamp: string }[]; // tracks all status changes with timestamps
   couponCode?: string;
   createdAt?: string;
 }
