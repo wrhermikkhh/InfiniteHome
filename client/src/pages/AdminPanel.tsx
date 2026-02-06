@@ -675,22 +675,17 @@ export default function AdminPanel() {
         const colors = product.colors || [];
         const colorImages = (product as any).colorImages || {};
         if (colors.length === 0 && Object.keys(existingVariantStock).length > 0) {
-          const derivedColors = Array.from(new Set(Object.keys(existingVariantStock).map(k => { const parts = k.split('-'); return parts.slice(1).join('-') || 'Default'; }))).filter(c => c !== 'Default');
-          if (derivedColors.length > 0) return derivedColors.map(c => ({ name: c, image: colorImages[c] || "" }));
-          return [{ name: "", image: "" }];
+          const derivedColors = Array.from(new Set(Object.keys(existingVariantStock).map(k => { const parts = k.split('-'); return parts.slice(1).join('-') || 'Default'; })));
+          return derivedColors.map(c => ({ name: c, image: colorImages[c] || "" }));
         }
         if (colors.length === 0) return [{ name: "", image: "" }];
         return colors.map((c: string) => ({ name: c, image: colorImages[c] || "" }));
       })(),
-      variants: (() => {
-        const rawVariants = product.variants && product.variants.length > 0
-          ? product.variants.map(v => ({ size: v.size, price: v.price.toString() }))
-          : Object.keys(existingVariantStock).length > 0
-            ? Array.from(new Set(Object.keys(existingVariantStock).map(k => k.split('-')[0]))).map(size => ({ size, price: product.price.toString() }))
-            : [];
-        const filtered = rawVariants.filter(v => v.size !== 'Standard');
-        return filtered.length > 0 ? filtered : [{ size: "", price: product.price.toString() }];
-      })(),
+      variants: product.variants && product.variants.length > 0 
+        ? product.variants.map(v => ({ size: v.size, price: v.price.toString() }))
+        : Object.keys(existingVariantStock).length > 0
+          ? Array.from(new Set(Object.keys(existingVariantStock).map(k => k.split('-')[0]))).map(size => ({ size, price: product.price.toString() }))
+          : [{ size: "", price: product.price.toString() }],
       variantStock: variantStockStrings,
       expressCharge: (product.expressCharge || 0).toString(),
       sizeGuide: (product as any).sizeGuide || [],
