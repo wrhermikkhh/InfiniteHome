@@ -424,15 +424,27 @@ export async function registerRoutes(
         
         const variantStock = product.variantStock as { [key: string]: number } | null;
         const variantKey = `${requestedSize}-${requestedColor}`;
-        let availableStock = product.stock || 0;
+        let availableStock = 0;
         
-        // Check variant stock if available
         if (variantStock && Object.keys(variantStock).length > 0) {
           if (variantStock[variantKey] !== undefined) {
             availableStock = variantStock[variantKey];
           } else {
-            // If variant stock is defined but this key doesn't exist, use 0
-            availableStock = 0;
+            const matchingKey = Object.keys(variantStock).find(key => 
+              key.toLowerCase() === variantKey.toLowerCase()
+            );
+            if (matchingKey) {
+              availableStock = variantStock[matchingKey];
+            } else {
+              const sizeMatch = Object.keys(variantStock).find(key => 
+                key.toLowerCase().startsWith(requestedSize.toLowerCase() + '-')
+              );
+              const colorMatch = Object.keys(variantStock).find(key => 
+                key.toLowerCase().endsWith('-' + requestedColor.toLowerCase())
+              );
+              if (sizeMatch) availableStock = variantStock[sizeMatch];
+              else if (colorMatch) availableStock = variantStock[colorMatch];
+            }
           }
         }
         

@@ -1,16 +1,11 @@
 import { Link } from "wouter";
-import { Product, formatCurrency, getDiscountPercentage, getDisplayPrice } from "@/lib/products";
+import { Product, formatCurrency, getDiscountPercentage, getDisplayPrice, getTotalVariantStock } from "@/lib/products";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { useCart } from "@/lib/cart";
 
 interface ProductCardProps {
   product: Product;
-}
-
-function getTotalVariantStock(product: Product): number {
-  if (!product.variantStock || typeof product.variantStock !== 'object') return 0;
-  return Object.values(product.variantStock as Record<string, number>).reduce((sum, qty) => sum + (qty || 0), 0);
 }
 
 export function ProductCard({ product }: ProductCardProps) {

@@ -60,16 +60,7 @@ export default function ProductPage() {
       if (foundSize) break;
     }
     
-    // If no stock found with combinations, but product has general stock (fallback for legacy data)
-    if (!foundSize) {
-      const variantStock = product.variantStock as { [key: string]: number } | null;
-      const hasVariantStock = variantStock && Object.keys(variantStock).length > 0;
-      
-      if (!hasVariantStock && (product.stock || 0) > 0) {
-        foundSize = availableSizes[0] || '';
-        foundColor = availableColors[0] || '';
-      }
-    }
+    // No fallback to old stock field - only variant stock is used
     
     // Apply selections together to trigger single re-render
     if (foundSize && foundColor) {

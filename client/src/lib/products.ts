@@ -64,29 +64,24 @@ export function getVariantStockKey(size?: string, color?: string): string {
 export function getVariantStock(product: Product, size?: string, color?: string): number {
   const variantStock = product.variantStock as { [key: string]: number } | null;
   
-  // If no variant stock tracking, fall back to general stock
   if (!variantStock || Object.keys(variantStock).length === 0) {
-    return product.stock || 0;
+    return 0;
   }
   
-  // Build the key to look up
   const sizeKey = size || 'Standard';
   const colorKey = color || 'Default';
   const exactKey = `${sizeKey}-${colorKey}`;
   
-  // Try exact match first
   if (variantStock[exactKey] !== undefined) {
     return variantStock[exactKey];
   }
   
-  // Try case-insensitive match
   const lowerKey = exactKey.toLowerCase();
   const matchingKey = Object.keys(variantStock).find(k => k.toLowerCase() === lowerKey);
   if (matchingKey) {
     return variantStock[matchingKey];
   }
   
-  // Try partial matches (size only or color only)
   const sizeMatch = Object.keys(variantStock).find(k => 
     k.toLowerCase().startsWith(sizeKey.toLowerCase() + '-')
   );
@@ -97,8 +92,13 @@ export function getVariantStock(product: Product, size?: string, color?: string)
   if (sizeMatch) return variantStock[sizeMatch];
   if (colorMatch) return variantStock[colorMatch];
   
-  // No match found
   return 0;
+}
+
+export function getTotalVariantStock(product: Product): number {
+  const variantStock = product.variantStock as { [key: string]: number } | null;
+  if (!variantStock || typeof variantStock !== 'object') return 0;
+  return Object.values(variantStock).reduce((sum, qty) => sum + (qty || 0), 0);
 }
 
 export const formatCurrency = (amount: number) => {
