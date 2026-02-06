@@ -365,6 +365,8 @@ export default function AdminPanel() {
     name: "",
     price: "",
     salePrice: "",
+    saleMode: "percentage" as "percentage" | "fixed",
+    salePercent: "",
     isOnSale: false,
     category: "",
     description: "",
@@ -553,7 +555,11 @@ export default function AdminPanel() {
       price: productForm.variants.length > 0 && productForm.variants[0].price 
         ? Number(productForm.variants[0].price) 
         : Number(productForm.price),
-      salePrice: productForm.isOnSale && productForm.salePrice ? Number(productForm.salePrice) : null,
+      salePrice: productForm.isOnSale ? (
+        productForm.saleMode === 'percentage' && productForm.salePercent
+          ? Math.round((Number(productForm.variants.length > 0 && productForm.variants[0].price ? productForm.variants[0].price : productForm.price) * (1 - Number(productForm.salePercent) / 100)) * 100) / 100
+          : productForm.salePrice ? Number(productForm.salePrice) : null
+      ) : null,
       isOnSale: productForm.isOnSale,
       category: productForm.category,
       description: productForm.description,
@@ -605,6 +611,8 @@ export default function AdminPanel() {
       name: "", 
       price: "",
       salePrice: "",
+      saleMode: "percentage" as "percentage" | "fixed",
+      salePercent: "",
       isOnSale: false,
       category: "", 
       description: "", 
@@ -639,6 +647,15 @@ export default function AdminPanel() {
       name: product.name,
       price: product.price.toString(),
       salePrice: ((product as any).salePrice || "").toString(),
+      saleMode: "percentage" as "percentage" | "fixed",
+      salePercent: (() => {
+        const sp = (product as any).salePrice;
+        const p = product.price;
+        if (sp && p && (product as any).isOnSale) {
+          return Math.round((1 - sp / p) * 100).toString();
+        }
+        return "";
+      })(),
       isOnSale: (product as any).isOnSale || false,
       category: product.category,
       description: product.description || "",
@@ -1225,7 +1242,7 @@ export default function AdminPanel() {
                         </div>
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
-                            <Label className="text-xs uppercase tracking-widest font-bold">Sale Price</Label>
+                            <Label className="text-xs uppercase tracking-widest font-bold">Sale</Label>
                             <button
                               type="button"
                               className={`w-10 h-5 rounded-full transition-colors ${productForm.isOnSale ? 'bg-red-500' : 'bg-gray-300'}`}
@@ -1235,14 +1252,59 @@ export default function AdminPanel() {
                               <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${productForm.isOnSale ? 'translate-x-5' : 'translate-x-0.5'}`} />
                             </button>
                           </div>
-                          <Input 
-                            type="number"
-                            value={productForm.salePrice}
-                            onChange={(e) => setProductForm({...productForm, salePrice: e.target.value})}
-                            className="rounded-none"
-                            placeholder="Sale price"
-                            disabled={!productForm.isOnSale}
-                          />
+                          {productForm.isOnSale && (
+                            <div className="space-y-2">
+                              <div className="flex gap-1">
+                                <button
+                                  type="button"
+                                  className={`flex-1 text-xs py-1 border transition-colors ${productForm.saleMode === 'percentage' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground'}`}
+                                  onClick={() => setProductForm({...productForm, saleMode: 'percentage'})}
+                                  data-testid="sale-mode-percentage"
+                                >
+                                  % Off
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`flex-1 text-xs py-1 border transition-colors ${productForm.saleMode === 'fixed' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground'}`}
+                                  onClick={() => setProductForm({...productForm, saleMode: 'fixed'})}
+                                  data-testid="sale-mode-fixed"
+                                >
+                                  Fixed Price
+                                </button>
+                              </div>
+                              {productForm.saleMode === 'percentage' ? (
+                                <div className="space-y-1">
+                                  <div className="relative">
+                                    <Input 
+                                      type="number"
+                                      value={productForm.salePercent}
+                                      onChange={(e) => setProductForm({...productForm, salePercent: e.target.value})}
+                                      className="rounded-none pr-8"
+                                      placeholder="e.g. 20"
+                                      min="1"
+                                      max="99"
+                                      data-testid="input-sale-percent"
+                                    />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                                  </div>
+                                  {productForm.salePercent && Number(productForm.price) > 0 && (
+                                    <p className="text-xs text-muted-foreground">
+                                      Sale price: <span className="font-semibold text-red-600">{formatCurrency(Math.round(Number(productForm.variants.length > 0 && productForm.variants[0].price ? productForm.variants[0].price : productForm.price) * (1 - Number(productForm.salePercent) / 100) * 100) / 100)}</span>
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <Input 
+                                  type="number"
+                                  value={productForm.salePrice}
+                                  onChange={(e) => setProductForm({...productForm, salePrice: e.target.value})}
+                                  className="rounded-none"
+                                  placeholder="Sale price"
+                                  data-testid="input-sale-price"
+                                />
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
