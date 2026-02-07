@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Product, formatCurrency, getDiscountPercentage, getDisplayPrice, getTotalVariantStock } from "@/lib/products";
+import { Product, formatCurrency, getDiscountPercentage, getDisplayPrice, getProductVariants, getTotalVariantStock } from "@/lib/products";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/lib/cart";
@@ -13,7 +13,10 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
   const discountPercent = getDiscountPercentage(product);
-  const displayPrice = getDisplayPrice(product);
+  const variants = getProductVariants(product);
+  const hasMultiplePrices = variants.length > 1 && variants.some(v => v.price !== variants[0].price);
+  const lowestVariantPrice = hasMultiplePrices ? Math.min(...variants.map(v => v.price)) : null;
+  const displayPrice = getDisplayPrice(product, lowestVariantPrice ?? undefined);
   const totalStock = getTotalVariantStock(product);
   const [justAdded, setJustAdded] = useState(false);
 
@@ -110,13 +113,13 @@ export function ProductCard({ product }: ProductCardProps) {
             <h3 className="font-medium text-[15px] text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors duration-200">
               {product.name}
             </h3>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <p className="text-[15px] font-semibold text-foreground">
-                {formatCurrency(displayPrice)}
+                {hasMultiplePrices ? 'From ' : ''}{formatCurrency(displayPrice)}
               </p>
               {discountPercent && (
                 <p className="text-sm text-muted-foreground line-through">
-                  {formatCurrency(product.price)}
+                  {hasMultiplePrices ? `From ${formatCurrency(lowestVariantPrice!)}` : formatCurrency(product.price)}
                 </p>
               )}
             </div>

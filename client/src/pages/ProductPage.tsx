@@ -1,6 +1,6 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { formatCurrency, ProductVariant, getVariantStock, getVariantStockKey, getDiscountPercentage, getVariantSalePrice } from "@/lib/products";
+import { formatCurrency, ProductVariant, getVariantStock, getVariantStockKey, getDiscountPercentage, getVariantSalePrice, getProductVariants } from "@/lib/products";
 import { useProduct } from "@/hooks/useProducts";
 import { Button } from "@/components/ui/button";
 import { useRoute } from "wouter";
@@ -39,11 +39,7 @@ export default function ProductPage() {
     }
     return productColors.length > 0 ? productColors : ['Default'];
   })();
-  const variants: ProductVariant[] = product?.variants && product.variants.length > 0 
-    ? product.variants 
-    : Object.keys(variantStockObj).length > 0
-      ? Array.from(new Set(Object.keys(variantStockObj).map(k => k.split('-')[0]))).map(size => ({ size, price: product?.price || 0 }))
-      : [{ size: 'Standard', price: product?.price || 0 }];
+  const variants: ProductVariant[] = product ? getProductVariants(product) : [{ size: 'Standard', price: 0 }];
   
   // Auto-select first size/color combination that has stock (runs once when product loads)
   useEffect(() => {
@@ -431,6 +427,8 @@ export default function ProductPage() {
                      const hasVariantStockEntries = product.variantStock && Object.keys(product.variantStock as object).length > 0;
                      const hasAnyStockForSize = colors.some(c => getVariantStock(product, v.size, c) > 0);
                      const sizeOos = hasVariantStockEntries && !hasAnyStockForSize && !product.isPreOrder;
+                     const vSalePrice = isOnSale ? getVariantSalePrice(product, v.price) : null;
+                     const showVariantPrices = variants.length > 1 && variants.some(vr => vr.price !== variants[0].price);
                      return (
                        <button
                          key={v.size}
@@ -439,7 +437,20 @@ export default function ProductPage() {
                          data-testid={`size-${v.size.toLowerCase()}`}
                          title={sizeOos ? `${v.size} - Out of Stock` : v.size}
                        >
-                         {v.size}
+                         <span>{v.size}</span>
+                         {showVariantPrices && (
+                           <span className="block text-[11px] mt-0.5">
+                             {isOnSale && vSalePrice ? (
+                               <>
+                                 <span className={selectedSize === v.size ? 'text-primary-foreground/70 line-through' : 'text-muted-foreground/60 line-through'}>{formatCurrency(v.price)}</span>
+                                 {' '}
+                                 <span className={selectedSize === v.size ? 'text-primary-foreground font-semibold' : 'text-red-500 font-semibold'}>{formatCurrency(vSalePrice)}</span>
+                               </>
+                             ) : (
+                               <span className={selectedSize === v.size ? 'text-primary-foreground/80' : 'text-muted-foreground/80'}>{formatCurrency(v.price)}</span>
+                             )}
+                           </span>
+                         )}
                        </button>
                      );
                    })}

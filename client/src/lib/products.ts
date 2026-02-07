@@ -60,10 +60,20 @@ export function getVariantSalePrice(product: Product, variantPrice: number): num
   if (product.salePercent) {
     return Math.round(variantPrice * (1 - product.salePercent / 100) * 100) / 100;
   }
-  if (product.salePrice) {
-    return product.salePrice;
+  if (product.salePrice && product.price > 0) {
+    const derivedPercent = ((product.price - product.salePrice) / product.price) * 100;
+    return Math.round(variantPrice * (1 - derivedPercent / 100) * 100) / 100;
   }
   return variantPrice;
+}
+
+export function getProductVariants(product: Product): ProductVariant[] {
+  if (product.variants && product.variants.length > 0) return product.variants;
+  const variantStock = product.variantStock as { [key: string]: number } | null;
+  if (variantStock && Object.keys(variantStock).length > 0) {
+    return Array.from(new Set(Object.keys(variantStock).map(k => k.split('-')[0]))).map(size => ({ size, price: product.price }));
+  }
+  return [{ size: 'Standard', price: product.price }];
 }
 
 export function getDisplayPrice(product: Product, variantPrice?: number): number {
