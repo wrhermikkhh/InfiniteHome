@@ -95,6 +95,7 @@ const products = pgTable("products", {
   description: text("description"),
   price: real("price").notNull(),
   salePrice: real("sale_price"),
+  salePercent: real("sale_percent"),
   category: text("category").notNull(),
   image: text("image").notNull(),
   images: jsonb("images").$type<string[]>().default([]),
@@ -122,6 +123,7 @@ const products = pgTable("products", {
   sku: text("sku"),
   barcode: text("barcode"),
   costPrice: real("cost_price"),
+  maxOrderQty: integer("max_order_qty"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
