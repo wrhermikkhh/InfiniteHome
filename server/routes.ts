@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema, insertPosTransactionSchema } from "@shared/schema";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { sendOrderConfirmationEmail } from "./lib/email";
+import { sendOrderConfirmationEmail, sendOrderStatusEmail } from "./lib/email";
 import { hashPassword, comparePasswords } from "./auth";
 
 export async function registerRoutes(
@@ -517,6 +517,13 @@ export async function registerRoutes(
               console.log(`Stock restored: ${item.name} (${size}/${color}) x${item.qty}`);
             }
           }
+        }
+        
+        // Send email notification for status change
+        if (status !== previousStatus) {
+          sendOrderStatusEmail(order, status).catch(err => {
+            console.error("Failed to send status email:", err);
+          });
         }
         
         res.json(order);

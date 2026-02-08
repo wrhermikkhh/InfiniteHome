@@ -202,3 +202,121 @@ export async function sendOrderConfirmationEmail(order: any) {
     console.error('Error sending order confirmation email:', error);
   }
 }
+
+export async function sendOrderStatusEmail(order: any, newStatus: string) {
+  try {
+    const { apiKey, fromEmail } = await getCredentials();
+    const resend = new Resend(apiKey);
+    const baseUrl = 'https://infinitehome.mv';
+    const trackingUrl = `${baseUrl}/track?order=${order.orderNumber}`;
+
+    const statusContent: { [key: string]: { subject: string; title: string; message: string; icon: string } } = {
+      confirmed: {
+        subject: `Order Confirmed - ${order.orderNumber}`,
+        title: 'Order Confirmed!',
+        message: 'Great news! Your order has been confirmed and payment verified. We are now preparing your items for shipment.',
+        icon: '✓'
+      },
+      processing: {
+        subject: `Preparing Your Order - ${order.orderNumber}`,
+        title: 'Preparing Your Order',
+        message: 'Your order is being prepared for shipment. Our team is carefully packing your items to ensure they arrive in perfect condition.',
+        icon: '📦'
+      },
+      shipped: {
+        subject: `Your Order Has Shipped! - ${order.orderNumber}`,
+        title: 'Order Shipped!',
+        message: 'Exciting news! Your order has been handed over to our delivery partner and is on its way to you.',
+        icon: '🚚'
+      },
+      in_transit: {
+        subject: `Order In Transit - ${order.orderNumber}`,
+        title: 'On The Way',
+        message: 'Your package is moving through our delivery network and will arrive soon.',
+        icon: '📍'
+      },
+      out_for_delivery: {
+        subject: `Out for Delivery Today! - ${order.orderNumber}`,
+        title: 'Arriving Today!',
+        message: 'Your order is out for delivery! Our delivery partner will arrive at your address today. Please ensure someone is available to receive the package.',
+        icon: '🏠'
+      },
+      delivered: {
+        subject: `Order Delivered - ${order.orderNumber}`,
+        title: 'Order Delivered!',
+        message: 'Your order has been successfully delivered! We hope you love your new items. Thank you for shopping with INFINITE HOME.',
+        icon: '🎉'
+      },
+      cancelled: {
+        subject: `Order Cancelled - ${order.orderNumber}`,
+        title: 'Order Cancelled',
+        message: 'Your order has been cancelled. If you did not request this cancellation, please contact us immediately.',
+        icon: '✕'
+      },
+      refunded: {
+        subject: `Refund Processed - ${order.orderNumber}`,
+        title: 'Refund Processed',
+        message: 'Your refund has been processed. Please allow 5-7 business days for the amount to reflect in your account.',
+        icon: '💰'
+      },
+      delivery_exception: {
+        subject: `Delivery Exception - ${order.orderNumber}`,
+        title: 'Delivery Exception',
+        message: 'There has been an issue with the delivery of your order. Our team is looking into it and will update you shortly. If you have any questions, please don\'t hesitate to contact us.',
+        icon: '⚠️'
+      }
+    };
+
+    const content = statusContent[newStatus];
+    if (!content) {
+      console.log(`No email template for status: ${newStatus}`);
+      return;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <body style="margin: 0; padding: 0; background-color: #fcfaf7; font-family: 'Helvetica Neue', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+          <div style="padding: 40px 20px; text-align: center; background-color: #1a1a1a; color: #ffffff;">
+            <h1 style="font-family: serif; margin: 0; font-size: 28px; letter-spacing: 2px;">INFINITE HOME</h1>
+            <p style="margin: 10px 0 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.8;">Premium E-commerce</p>
+          </div>
+          <div style="padding: 40px 30px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <div style="font-size: 48px; margin-bottom: 10px;">${content.icon}</div>
+              <h2 style="color: #1a1a1a; font-size: 24px; margin: 0;">${content.title}</h2>
+            </div>
+            <p style="color: #333; line-height: 1.6;">Dear ${order.customerName},</p>
+            <p style="color: #333; line-height: 1.6;">${content.message}</p>
+            <div style="background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; font-size: 14px; color: #666;">Order Number</p>
+              <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: bold; color: #1a1a1a;">${order.orderNumber}</p>
+            </div>
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="${trackingUrl}" style="display: inline-block; background-color: #1a1a1a; color: #ffffff; padding: 14px 30px; text-decoration: none; border-radius: 4px; font-weight: bold;">Track Your Order</a>
+            </div>
+            <p style="color: #666; font-size: 14px; margin-top: 30px; line-height: 1.6;">
+              If you have any questions, please contact us at support@infinitehome.mv or call 7840001.
+            </p>
+          </div>
+          <div style="padding: 30px 20px; background-color: #f8f8f8; text-align: center; border-top: 1px solid #eee;">
+            <p style="margin: 0; font-size: 11px; color: #999;">&copy; 2026 INFINITE LOOP PVT LTD. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await resend.emails.send({
+      from: `INFINITE HOME <${fromEmail}>`,
+      to: order.customerEmail,
+      subject: content.subject,
+      html: html,
+    });
+
+    console.log(`Status email (${newStatus}) sent to ${order.customerEmail}`);
+  } catch (error) {
+    console.error('Error sending status email:', error);
+  }
+}

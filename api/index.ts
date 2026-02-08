@@ -824,6 +824,12 @@ async function sendOrderStatusEmail(order: any, newStatus: string) {
         title: 'Refund Processed',
         message: 'Your refund has been processed. Please allow 5-7 business days for the amount to reflect in your account.',
         icon: '💰'
+      },
+      delivery_exception: {
+        subject: `Delivery Exception - ${order.orderNumber}`,
+        title: 'Delivery Exception',
+        message: 'There has been an issue with the delivery of your order. Our team is looking into it and will update you shortly. If you have any questions, please don\'t hesitate to contact us.',
+        icon: '⚠️'
       }
     };
     
