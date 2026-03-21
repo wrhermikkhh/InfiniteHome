@@ -20,6 +20,7 @@ export default function Checkout() {
   const { user, isAuthenticated } = useAuth();
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [deliveryLocation, setDeliveryLocation] = useState<"male" | "hulhumale" | "boat">("male");
+  const [isExpressDelivery, setIsExpressDelivery] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState("");
@@ -137,7 +138,13 @@ export default function Checkout() {
 
   const discount = eligibleDiscount;
   
-  const shipping = 0;
+  // Express delivery only available for Male/Hulhumale, not for boat deliveries
+  const isExpressAvailable = deliveryLocation !== "boat";
+  const expressCharge = isExpressDelivery && isExpressAvailable
+    ? inStockItems.reduce((sum, item) => sum + (item.expressCharge || 0) * (item.quantity || 0), 0)
+    : 0;
+  
+  const shipping = expressCharge;
   const total = Math.max(0, subtotal - discount + shipping);
 
   const handleApplyCoupon = async () => {
@@ -276,6 +283,32 @@ export default function Checkout() {
                   <Truck size={18} className="mr-3" /> Boat Delivery
                 </Button>
               </div>
+
+              {/* Express Delivery Option - Only for Male/Hulhumale */}
+              {isExpressAvailable && (
+                <div className="mt-6 pt-6 border-t border-border space-y-4">
+                  <h3 className="font-bold uppercase tracking-widest text-xs">Delivery Speed</h3>
+                  <Label className={`flex items-center p-4 border cursor-pointer transition-colors ${isExpressDelivery ? "border-primary bg-secondary/10" : "border-border"}`}>
+                    <input
+                      type="checkbox"
+                      checked={isExpressDelivery}
+                      onChange={(e) => setIsExpressDelivery(e.target.checked)}
+                      className="w-4 h-4"
+                      data-testid="checkbox-express-delivery"
+                    />
+                    <div className="ml-3 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Zap size={16} />
+                        <span className="font-medium">Express Delivery</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Delivery within 1-6 hours (Orders after 10 PM delivered next morning)</p>
+                    </div>
+                    {expressCharge > 0 && (
+                      <span className="text-sm font-bold">+{formatCurrency(expressCharge)}</span>
+                    )}
+                  </Label>
+                </div>
+              )}
 
               {/* Conditional Form Fields Based on Delivery Location */}
               {deliveryLocation !== "boat" ? (
@@ -577,8 +610,12 @@ export default function Checkout() {
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span className="text-green-600">FREE</span>
+                  <span className="text-muted-foreground">
+                    {isExpressDelivery ? "Express Delivery" : "Standard Shipping"}
+                  </span>
+                  <span className={expressCharge > 0 ? "" : "text-green-600"}>
+                    {expressCharge > 0 ? `+${formatCurrency(expressCharge)}` : "FREE"}
+                  </span>
                 </div>
                 <div className="flex justify-between text-lg font-bold pt-2">
                   <span>Total</span>
