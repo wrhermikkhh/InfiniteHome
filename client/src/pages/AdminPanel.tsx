@@ -453,8 +453,21 @@ export default function AdminPanel() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const escHtml = (s: string) => String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+    const escJs = (s: string) => String(s)
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/\r/g, '\\r')
+      .replace(/\n/g, '\\n');
+
     const itemsText = selectedOrder.items.map((item: any) =>
-      `${item.qty}x ${item.name}${item.size && item.size !== 'Standard' ? ` (${item.size})` : ''}${item.color && item.color !== 'Default' ? ` - ${item.color}` : ''}`
+      escHtml(`${item.qty}x ${item.name}${item.size && item.size !== 'Standard' ? ` (${item.size})` : ''}${item.color && item.color !== 'Default' ? ` - ${item.color}` : ''}`)
     ).join(' | ');
 
     const deliveryLabel = (selectedOrder.deliveryType === 'express' || selectedOrder.shipping > 0)
@@ -464,6 +477,8 @@ export default function AdminPanel() {
     const orderDate = selectedOrder.createdAt
       ? new Date(selectedOrder.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
       : '';
+
+    const safeOrderNum = escJs(selectedOrder.orderNumber);
 
     // Fetch QR code as base64 to ensure it loads
     let qrCodeBase64 = '';
@@ -710,8 +725,8 @@ export default function AdminPanel() {
                 </div>
                 <div class="top-right">
                   ${qrCodeBase64 ? `<img src="${qrCodeBase64}" alt="QR" class="qr-img">` : ''}
-                  <div class="order-ref">${selectedOrder.orderNumber}</div>
-                  <div class="order-date">${orderDate}</div>
+                  <div class="order-ref">${escHtml(selectedOrder.orderNumber)}</div>
+                  <div class="order-date">${escHtml(orderDate)}</div>
                 </div>
               </div>
               <!-- Thin barcode strip spanning full width -->
@@ -735,9 +750,9 @@ export default function AdminPanel() {
               <div class="ship-to-block">
                 <div class="ship-to-label-col">SHIP<br>TO:</div>
                 <div class="ship-to-details">
-                  <div class="ship-to-name">${selectedOrder.customerName}</div>
-                  <div class="ship-to-addr">${selectedOrder.shippingAddress}</div>
-                  <div class="ship-to-phone">Tel: ${selectedOrder.customerPhone}</div>
+                  <div class="ship-to-name">${escHtml(selectedOrder.customerName)}</div>
+                  <div class="ship-to-addr">${escHtml(selectedOrder.shippingAddress)}</div>
+                  <div class="ship-to-phone">Tel: ${escHtml(selectedOrder.customerPhone)}</div>
                 </div>
               </div>
             </div>
@@ -755,7 +770,7 @@ export default function AdminPanel() {
               <div class="barcode-container">
                 <svg id="barcode"></svg>
               </div>
-              <div class="tracking-number">${selectedOrder.orderNumber}</div>
+              <div class="tracking-number">${escHtml(selectedOrder.orderNumber)}</div>
             </div>
 
           </div>
@@ -768,14 +783,14 @@ export default function AdminPanel() {
               printed = true;
 
               try {
-                JsBarcode('#header-barcode', '${selectedOrder.orderNumber}', {
+                JsBarcode('#header-barcode', '${safeOrderNum}', {
                   format: 'CODE128',
                   width: 1.5,
                   height: 28,
                   displayValue: false,
                   margin: 0,
                 });
-                JsBarcode('#barcode', '${selectedOrder.orderNumber}', {
+                JsBarcode('#barcode', '${safeOrderNum}', {
                   format: 'CODE128',
                   width: 2.2,
                   height: 70,
