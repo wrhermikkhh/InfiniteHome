@@ -625,7 +625,7 @@ export default function Checkout() {
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {isExpressDelivery ? "Express Delivery" : "Standard Shipping"}
+                    {deliveryType === "express" ? "Express Delivery" : "Standard Delivery"}
                   </span>
                   <span className={expressCharge > 0 ? "" : "text-green-600"}>
                     {expressCharge > 0 ? `+${formatCurrency(expressCharge)}` : "FREE"}
