@@ -339,6 +339,7 @@ export default function AdminPanel() {
 
   // Search states for filtering
   const [inventorySearch, setInventorySearch] = useState("");
+  const [orderFilter, setOrderFilter] = useState<"all" | "active" | "completed">("all");
 
   // POS State
   const [posCart, setPosCart] = useState<{ productId: string; name: string; qty: number; price: number; color?: string; size?: string; image?: string }[]>([]);
@@ -2547,10 +2548,48 @@ export default function AdminPanel() {
                 <p className="text-muted-foreground">Manage and track customer orders</p>
               </div>
 
+              {/* Order Filter */}
+              <div className="flex gap-2 mb-6">
+                <Button
+                  variant={orderFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  className="rounded-none uppercase tracking-widest text-xs font-bold"
+                  onClick={() => setOrderFilter("all")}
+                  data-testid="button-filter-all-orders"
+                >
+                  All Orders
+                </Button>
+                <Button
+                  variant={orderFilter === "active" ? "default" : "outline"}
+                  size="sm"
+                  className="rounded-none uppercase tracking-widest text-xs font-bold"
+                  onClick={() => setOrderFilter("active")}
+                  data-testid="button-filter-active-orders"
+                >
+                  Active
+                </Button>
+                <Button
+                  variant={orderFilter === "completed" ? "default" : "outline"}
+                  size="sm"
+                  className="rounded-none uppercase tracking-widest text-xs font-bold"
+                  onClick={() => setOrderFilter("completed")}
+                  data-testid="button-filter-completed-orders"
+                >
+                  Completed/Delivered
+                </Button>
+              </div>
+
               <Card className="rounded-none border-border shadow-none">
                 <CardContent className="p-0">
                   <div className="divide-y divide-border">
-                    {orders.map((order) => (
+                    {orders.filter(order => {
+                      if (orderFilter === "completed") {
+                        return order.status === "delivered" || order.status === "cancelled" || order.status === "refunded";
+                      } else if (orderFilter === "active") {
+                        return order.status !== "delivered" && order.status !== "cancelled" && order.status !== "refunded";
+                      }
+                      return true;
+                    }).map((order) => (
                       <div key={order.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
@@ -2722,8 +2761,17 @@ export default function AdminPanel() {
                         </div>
                       </div>
                     ))}
-                    {orders.length === 0 && (
-                      <div className="p-8 text-center text-muted-foreground">No orders yet.</div>
+                    {orders.filter(order => {
+                      if (orderFilter === "completed") {
+                        return order.status === "delivered" || order.status === "cancelled" || order.status === "refunded";
+                      } else if (orderFilter === "active") {
+                        return order.status !== "delivered" && order.status !== "cancelled" && order.status !== "refunded";
+                      }
+                      return true;
+                    }).length === 0 && (
+                      <div className="p-8 text-center text-muted-foreground">
+                        {orderFilter === "completed" ? "No completed orders." : orderFilter === "active" ? "No active orders." : "No orders yet."}
+                      </div>
                     )}
                   </div>
                 </CardContent>
