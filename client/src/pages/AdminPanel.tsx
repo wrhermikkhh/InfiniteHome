@@ -455,71 +455,114 @@ export default function AdminPanel() {
 
     const itemsHtml = selectedOrder.items.map((item: any) => `
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name}${item.size && item.size !== 'Standard' ? ` (${item.size})` : ''}${item.color && item.color !== 'Default' ? ` - ${item.color}` : ''} x ${item.qty}</td>
+        <td style="padding: 6px 0; border-bottom: 1px solid #ccc; font-size: 11px;">
+          <span style="font-weight: 600;">${item.qty}x</span> ${item.name}${item.size && item.size !== 'Standard' ? ` (${item.size})` : ''}${item.color && item.color !== 'Default' ? ` - ${item.color}` : ''}
+        </td>
       </tr>
     `).join('');
 
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(selectedOrder.orderNumber)}`;
+
     printWindow.document.write(`
+      <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="UTF-8">
           <title>Shipping Label - ${selectedOrder.orderNumber}</title>
           <style>
-            body { font-family: sans-serif; padding: 40px; color: #333; }
-            .label-container { border: 2px solid #000; padding: 30px; max-width: 500px; margin: 0 auto; }
-            .header { border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-            .order-no { font-size: 24px; font-weight: bold; }
-            .section { margin-bottom: 20px; }
-            .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 5px; }
-            .address { font-size: 18px; line-height: 1.4; }
-            .footer { border-top: 1px solid #eee; padding-top: 20px; margin-top: 20px; font-size: 12px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            @media print { .no-print { display: none; } }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Arial', sans-serif; background: white; color: #000; }
+            .label-page { width: 8.5in; height: 5.5in; margin: 0 auto; padding: 0.3in; border: 1px solid #333; background: white; position: relative; }
+            
+            .header-section { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.15in; border-bottom: 3px solid #000; padding-bottom: 0.1in; }
+            .company-info { flex: 1; }
+            .company-name { font-size: 18pt; font-weight: bold; letter-spacing: 2px; }
+            .company-location { font-size: 8pt; margin-top: 2px; }
+            .qr-section { text-align: center; }
+            .qr-code { width: 120px; height: 120px; }
+            .order-number-large { font-size: 14pt; font-weight: bold; margin-top: 4px; font-family: 'Courier New', monospace; letter-spacing: 1px; }
+            
+            .main-content { display: flex; gap: 0.2in; height: 4in; }
+            .left-panel { flex: 1; display: flex; flex-direction: column; border-right: 2px solid #000; padding-right: 0.15in; }
+            .right-panel { flex: 0 0 1.3in; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+            
+            .section-label { font-size: 7pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #555; margin-bottom: 0.05in; margin-top: 0.1in; }
+            .ship-to { font-size: 13pt; font-weight: bold; line-height: 1.3; margin-bottom: 0.1in; }
+            .address-line { font-size: 10pt; line-height: 1.4; }
+            .phone { font-size: 9pt; margin-top: 0.05in; }
+            
+            .items-section { flex: 1; border-top: 1px solid #ccc; margin-top: 0.1in; padding-top: 0.05in; overflow: hidden; }
+            .items-table { width: 100%; font-size: 9pt; border-collapse: collapse; }
+            .items-table td { padding: 3px 0; border-bottom: 1px solid #ddd; }
+            
+            .barcode-section { text-align: center; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+            .barcode-label { font-size: 6pt; font-weight: bold; margin-bottom: 3px; }
+            .barcode { font-size: 12pt; font-weight: bold; font-family: 'Courier New', monospace; letter-spacing: 2px; }
+            
+            .footer-info { font-size: 7pt; color: #666; margin-top: 0.05in; line-height: 1.2; }
+            .date-time { margin-top: 0.05in; }
+            
+            @media print {
+              body { margin: 0; padding: 0; }
+              .label-page { margin: 0; border: none; page-break-after: avoid; }
+            }
           </style>
         </head>
         <body>
-          <div class="label-container">
-            <div class="header">
-              <div class="order-no">${selectedOrder.orderNumber}</div>
-              <div style="text-align: right;">
-                <div style="font-weight: bold; font-size: 14px;">INFINITE HOME</div>
-                <div style="font-size: 10px;">Male', Maldives</div>
+          <div class="label-page">
+            <!-- Header Section -->
+            <div class="header-section">
+              <div class="company-info">
+                <div class="company-name">INFINITE HOME</div>
+                <div class="company-location">Malé, Maldives</div>
+              </div>
+              <div class="qr-section">
+                <img src="${qrCodeUrl}" alt="QR Code" class="qr-code">
+                <div class="order-number-large">${selectedOrder.orderNumber}</div>
               </div>
             </div>
             
-            <div class="section">
-              <div class="section-title">Delivery To:</div>
-              <div class="address">
-                <strong>${selectedOrder.customerName}</strong><br>
-                ${selectedOrder.shippingAddress}<br>
-                Tel: ${selectedOrder.customerPhone}
-              </div>
-            </div>
-
-            <div class="section">
-              <div class="section-title">Order Items:</div>
-              <table>
-                ${itemsHtml}
-              </table>
-            </div>
-
-            <div class="footer">
-              <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+            <!-- Main Content -->
+            <div class="main-content">
+              <!-- Left Panel: Shipping Details -->
+              <div class="left-panel">
                 <div>
-                  <p><strong>Payment Method:</strong> ${selectedOrder.paymentMethod.toUpperCase()}</p>
-                  <p><strong>Status:</strong> ${selectedOrder.status.replace("_", " ").toUpperCase()}</p>
+                  <div class="section-label">Ship To</div>
+                  <div class="ship-to">${selectedOrder.customerName}</div>
+                  <div class="address-line">${selectedOrder.shippingAddress}</div>
+                  <div class="phone">Tel: ${selectedOrder.customerPhone}</div>
                 </div>
-                <div style="text-align: right;">
-                  <p><strong>Order Date:</strong> ${selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleDateString() : 'N/A'}</p>
+                
+                <!-- Items Section -->
+                <div class="items-section">
+                  <div class="section-label">Package Contents</div>
+                  <table class="items-table">
+                    ${itemsHtml}
+                  </table>
+                </div>
+                
+                <!-- Footer Info -->
+                <div class="footer-info">
+                  <div><strong>Payment:</strong> ${selectedOrder.paymentMethod === 'cod' ? 'CASH ON DELIVERY' : 'BANK TRANSFER'}</div>
+                  <div class="date-time"><strong>Date:</strong> ${selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) : 'N/A'}</div>
                 </div>
               </div>
-              <p style="margin-top: 20px; text-align: center; border-top: 1px dashed #eee; padding-top: 10px;">Thank you for shopping with INFINITE HOME!</p>
+              
+              <!-- Right Panel: Barcode -->
+              <div class="right-panel">
+                <div class="barcode-section">
+                  <div class="barcode-label">TRACKING</div>
+                  <div class="barcode">${selectedOrder.orderNumber}</div>
+                </div>
+              </div>
             </div>
           </div>
+          
           <script>
             setTimeout(() => {
               window.print();
               window.close();
-            }, 500);
+            }, 800);
           </script>
         </body>
       </html>
