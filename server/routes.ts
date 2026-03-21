@@ -481,9 +481,6 @@ export async function registerRoutes(
         }
       }
       
-      // Test log to verify order object
-      console.log("Full order object for email:", JSON.stringify(order, null, 2));
-      
       // Send confirmation email asynchronously
       sendOrderConfirmationEmail(order).catch(err => {
         console.error("Email delivery failed for order", order.orderNumber, ":", err);

@@ -217,7 +217,7 @@ export default function Checkout() {
         }),
         subtotal,
         discount,
-        shipping: 0,
+        shipping,
         total,
         paymentMethod: paymentMethod as "cod" | "bank",
         paymentSlip: paymentSlipPath || undefined,
