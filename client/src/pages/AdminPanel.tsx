@@ -504,9 +504,13 @@ export default function AdminPanel() {
             /* TOP HEADER ROW */
             .top-header {
               display: flex;
-              align-items: stretch;
+              flex-direction: column;
               border-bottom: 3px solid #000;
-              min-height: 1.1in;
+            }
+            .top-header-row {
+              display: flex;
+              align-items: stretch;
+              min-height: 1.0in;
             }
             .top-left {
               flex: 1;
@@ -555,6 +559,16 @@ export default function AdminPanel() {
               font-size: 6.5pt;
               color: #444;
               text-align: center;
+            }
+            .header-barcode-strip {
+              border-top: 2px solid #000;
+              padding: 0.04in 0.12in;
+              overflow: hidden;
+              background: white;
+            }
+            #header-barcode {
+              width: 100%;
+              height: 28px;
             }
 
             /* DELIVERY TYPE BANNER */
@@ -689,14 +703,20 @@ export default function AdminPanel() {
 
             <!-- TOP HEADER -->
             <div class="top-header">
-              <div class="top-left">
-                <div class="company-name">INFINITE<br>HOME</div>
-                <div class="company-sub">Malé, Maldives</div>
+              <div class="top-header-row">
+                <div class="top-left">
+                  <div class="company-name">INFINITE<br>HOME</div>
+                  <div class="company-sub">Malé, Maldives</div>
+                </div>
+                <div class="top-right">
+                  ${qrCodeBase64 ? `<img src="${qrCodeBase64}" alt="QR" class="qr-img">` : ''}
+                  <div class="order-ref">${selectedOrder.orderNumber}</div>
+                  <div class="order-date">${orderDate}</div>
+                </div>
               </div>
-              <div class="top-right">
-                ${qrCodeBase64 ? `<img src="${qrCodeBase64}" alt="QR" class="qr-img">` : ''}
-                <div class="order-ref">${selectedOrder.orderNumber}</div>
-                <div class="order-date">${orderDate}</div>
+              <!-- Thin barcode strip spanning full width -->
+              <div class="header-barcode-strip">
+                <svg id="header-barcode"></svg>
               </div>
             </div>
 
@@ -741,8 +761,18 @@ export default function AdminPanel() {
           </div>
 
           <script>
+            var printed = false;
             function doPrint() {
+              if (printed) return;
+              printed = true;
               try {
+                JsBarcode('#header-barcode', '${selectedOrder.orderNumber}', {
+                  format: 'CODE128',
+                  width: 1.5,
+                  height: 28,
+                  displayValue: false,
+                  margin: 0,
+                });
                 JsBarcode('#barcode', '${selectedOrder.orderNumber}', {
                   format: 'CODE128',
                   width: 2.2,
@@ -753,17 +783,20 @@ export default function AdminPanel() {
               } catch(e) {
                 console.error('Barcode error:', e);
               }
-              setTimeout(() => {
+              setTimeout(function() {
                 window.print();
                 window.close();
               }, 400);
             }
 
+            var barcodeScript = document.querySelector('script[src*="jsbarcode"]');
             if (typeof JsBarcode !== 'undefined') {
               doPrint();
+            } else if (barcodeScript) {
+              barcodeScript.addEventListener('load', doPrint);
+              barcodeScript.addEventListener('error', doPrint);
             } else {
-              document.querySelector('script[src*="jsbarcode"]').addEventListener('load', doPrint);
-              setTimeout(doPrint, 2000);
+              setTimeout(doPrint, 2500);
             }
           <\/script>
         </body>
