@@ -448,7 +448,7 @@ export default function AdminPanel() {
     }
   };
 
-  const handlePrintLabel = () => {
+  const handlePrintLabel = async () => {
     if (!selectedOrder) return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -461,7 +461,19 @@ export default function AdminPanel() {
       </tr>
     `).join('');
 
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(selectedOrder.orderNumber)}`;
+    // Fetch QR code as base64 to ensure it loads
+    let qrCodeBase64 = '';
+    try {
+      const response = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(selectedOrder.orderNumber)}`);
+      const blob = await response.blob();
+      qrCodeBase64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Failed to load QR code:', error);
+    }
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -641,7 +653,7 @@ export default function AdminPanel() {
                 <div class="company-location">Malé, Maldives</div>
               </div>
               <div class="qr-barcode-section">
-                <img src="${qrCodeUrl}" alt="QR Code" class="qr-code" onerror="this.style.border='2px solid red'">
+                <img src="${qrCodeBase64}" alt="QR Code" class="qr-code">
                 <div class="order-number">${selectedOrder.orderNumber}</div>
               </div>
             </div>
@@ -684,7 +696,7 @@ export default function AdminPanel() {
             setTimeout(() => {
               window.print();
               window.close();
-            }, 1000);
+            }, 1500);
           </script>
         </body>
       </html>
