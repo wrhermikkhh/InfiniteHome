@@ -20,7 +20,7 @@ export default function Checkout() {
   const { user, isAuthenticated } = useAuth();
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [deliveryLocation, setDeliveryLocation] = useState<"male" | "hulhumale" | "boat">("male");
-  const [isExpressDelivery, setIsExpressDelivery] = useState(false);
+  const [deliveryType, setDeliveryType] = useState<"standard" | "express">("standard");
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState("");
@@ -140,7 +140,7 @@ export default function Checkout() {
   
   // Express delivery only available for Male/Hulhumale, not for boat deliveries
   const isExpressAvailable = deliveryLocation !== "boat";
-  const expressCharge = isExpressDelivery && isExpressAvailable
+  const expressCharge = deliveryType === "express" && isExpressAvailable
     ? inStockItems.reduce((sum, item) => sum + (item.expressCharge || 0) * (item.quantity || 0), 0)
     : 0;
   
@@ -284,31 +284,45 @@ export default function Checkout() {
                 </Button>
               </div>
 
-              {/* Express Delivery Option - Only for Male/Hulhumale */}
-              {isExpressAvailable && (
-                <div className="mt-6 pt-6 border-t border-border space-y-4">
-                  <h3 className="font-bold uppercase tracking-widest text-xs">Delivery Speed</h3>
-                  <Label className={`flex items-center p-4 border cursor-pointer transition-colors ${isExpressDelivery ? "border-primary bg-secondary/10" : "border-border"}`}>
-                    <input
-                      type="checkbox"
-                      checked={isExpressDelivery}
-                      onChange={(e) => setIsExpressDelivery(e.target.checked)}
-                      className="w-4 h-4"
-                      data-testid="checkbox-express-delivery"
-                    />
-                    <div className="ml-3 flex-1">
+              {/* Delivery Type - Standard or Express */}
+              <div className="mt-6 pt-6 border-t border-border space-y-4">
+                <h3 className="font-bold uppercase tracking-widest text-xs">Delivery Type</h3>
+                <RadioGroup value={deliveryType} onValueChange={(value) => setDeliveryType(value as "standard" | "express")} className="grid gap-4">
+                  <Label
+                    className={`flex items-center justify-between p-4 border cursor-pointer transition-colors ${deliveryType === "standard" ? "border-primary bg-secondary/10" : "border-border"}`}
+                    data-testid="delivery-type-standard"
+                  >
+                    <div className="flex items-center gap-3">
+                      <RadioGroupItem value="standard" />
                       <div className="flex items-center gap-2">
-                        <Zap size={16} />
-                        <span className="font-medium">Express Delivery</span>
+                        <Truck size={16} />
+                        <span className="font-medium">Standard Delivery</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">Delivery within 1-6 hours (Orders after 10 PM delivered next morning)</p>
                     </div>
-                    {expressCharge > 0 && (
-                      <span className="text-sm font-bold">+{formatCurrency(expressCharge)}</span>
-                    )}
+                    <span className="text-sm font-bold text-green-600">FREE</span>
                   </Label>
-                </div>
-              )}
+                  {isExpressAvailable && (
+                    <Label
+                      className={`flex items-center justify-between p-4 border cursor-pointer transition-colors ${deliveryType === "express" ? "border-primary bg-secondary/10" : "border-border"}`}
+                      data-testid="delivery-type-express"
+                    >
+                      <div className="flex items-center gap-3">
+                        <RadioGroupItem value="express" />
+                        <div className="flex items-center gap-2">
+                          <Zap size={16} />
+                          <div>
+                            <span className="font-medium">Express Delivery</span>
+                            <p className="text-xs text-muted-foreground mt-1">Delivery within 1-6 hours (Orders after 10 PM delivered next morning)</p>
+                          </div>
+                        </div>
+                      </div>
+                      {expressCharge > 0 && (
+                        <span className="text-sm font-bold">+{formatCurrency(expressCharge)}</span>
+                      )}
+                    </Label>
+                  )}
+                </RadioGroup>
+              </div>
 
               {/* Conditional Form Fields Based on Delivery Location */}
               {deliveryLocation !== "boat" ? (
@@ -375,7 +389,7 @@ export default function Checkout() {
                       data-testid="input-boat-email"
                     />
                     <Input
-                      placeholder="Street Address / Harbor *"
+                      placeholder="Street Address *"
                       className="rounded-none h-12"
                       value={formData.shippingAddress}
                       onChange={(e) => setFormData({...formData, shippingAddress: e.target.value})}
