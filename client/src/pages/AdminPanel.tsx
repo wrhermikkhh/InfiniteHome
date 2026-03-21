@@ -453,18 +453,22 @@ export default function AdminPanel() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const itemsHtml = selectedOrder.items.map((item: any) => `
-      <tr>
-        <td style="padding: 6px 0; border-bottom: 1px solid #ccc; font-size: 11px;">
-          <span style="font-weight: 600;">${item.qty}x</span> ${item.name}${item.size && item.size !== 'Standard' ? ` (${item.size})` : ''}${item.color && item.color !== 'Default' ? ` - ${item.color}` : ''}
-        </td>
-      </tr>
-    `).join('');
+    const itemsText = selectedOrder.items.map((item: any) =>
+      `${item.qty}x ${item.name}${item.size && item.size !== 'Standard' ? ` (${item.size})` : ''}${item.color && item.color !== 'Default' ? ` - ${item.color}` : ''}`
+    ).join(' | ');
+
+    const deliveryLabel = (selectedOrder.deliveryType === 'express' || selectedOrder.shipping > 0)
+      ? 'EXPRESS DELIVERY'
+      : 'STANDARD DELIVERY';
+
+    const orderDate = selectedOrder.createdAt
+      ? new Date(selectedOrder.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
+      : '';
 
     // Fetch QR code as base64 to ensure it loads
     let qrCodeBase64 = '';
     try {
-      const response = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(selectedOrder.orderNumber)}`);
+      const response = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(selectedOrder.orderNumber)}`);
       const blob = await response.blob();
       qrCodeBase64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
@@ -481,223 +485,287 @@ export default function AdminPanel() {
         <head>
           <meta charset="UTF-8">
           <title>Shipping Label - ${selectedOrder.orderNumber}</title>
+          <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            html, body { width: 100%; height: 100%; }
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: white; color: #000; }
-            .label-page { 
-              width: 8.5in; 
-              height: 5.5in; 
-              padding: 0.25in; 
-              background: white; 
-              position: relative;
-              display: flex;
-              flex-direction: column;
-              gap: 0.2in;
+            body {
+              font-family: Arial, Helvetica, sans-serif;
+              background: white;
+              color: #000;
+              width: 4in;
+              margin: 0 auto;
             }
-            
-            .header { 
-              display: flex; 
-              justify-content: space-between; 
-              align-items: center;
-              border-bottom: 2px solid #000;
-              padding-bottom: 0.15in;
-            }
-            
-            .company-branding { flex: 1; }
-            .company-name { font-size: 22pt; font-weight: 900; letter-spacing: 1px; }
-            .company-location { font-size: 7pt; color: #333; margin-top: 2px; }
-            
-            .qr-barcode-section {
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              gap: 0.05in;
-            }
-            
-            .qr-code { 
-              width: 160px; 
-              height: 160px;
-              border: 1px solid #000;
-              image-rendering: pixelated;
-            }
-            
-            .order-number { 
-              font-size: 13pt; 
-              font-weight: bold;
-              font-family: 'Courier New', monospace;
-              letter-spacing: 1px;
-            }
-            
-            .content {
-              display: flex;
-              gap: 0.15in;
-              flex: 1;
-            }
-            
-            .shipping-panel {
-              flex: 1;
-              display: flex;
-              flex-direction: column;
-              gap: 0.1in;
-            }
-            
-            .address-block {
+            .label {
+              width: 4in;
               border: 2px solid #000;
-              padding: 0.1in;
+              background: white;
             }
-            
-            .ship-to-label { 
-              font-size: 7pt; 
-              font-weight: bold; 
-              text-transform: uppercase;
-              color: #666;
-            }
-            
-            .ship-to-name { 
-              font-size: 14pt; 
-              font-weight: bold;
-              margin: 0.05in 0;
-            }
-            
-            .address-line { 
-              font-size: 10pt; 
-              line-height: 1.3;
-            }
-            
-            .contact-info {
-              font-size: 8pt;
-              margin-top: 0.05in;
-            }
-            
-            .items-box {
-              flex: 1;
-              border: 1px solid #ccc;
-              padding: 0.05in;
-              overflow: hidden;
-            }
-            
-            .items-header {
-              font-size: 7pt;
-              font-weight: bold;
-              text-transform: uppercase;
-              color: #666;
-              margin-bottom: 0.03in;
-            }
-            
-            .items-table { 
-              width: 100%; 
-              font-size: 8pt; 
-              border-collapse: collapse;
-            }
-            
-            .items-table td { 
-              padding: 2px 3px;
-              border-bottom: 1px solid #eee;
-            }
-            
-            .footer-info {
-              font-size: 7pt;
+
+            /* TOP HEADER ROW */
+            .top-header {
               display: flex;
-              justify-content: space-between;
-              padding-top: 0.05in;
+              align-items: stretch;
+              border-bottom: 3px solid #000;
+              min-height: 1.1in;
             }
-            
-            .right-panel {
-              flex: 0 0 1.5in;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: space-between;
-              padding: 0.1in;
-              border-left: 2px solid #000;
-            }
-            
-            .barcode-visual {
-              text-align: center;
+            .top-left {
               flex: 1;
+              padding: 0.1in 0.12in;
               display: flex;
               flex-direction: column;
               justify-content: center;
-              align-items: center;
+              border-right: 2px solid #000;
             }
-            
-            .barcode-label { 
-              font-size: 6pt; 
-              font-weight: bold; 
+            .company-name {
+              font-size: 20pt;
+              font-weight: 900;
+              letter-spacing: -1px;
+              line-height: 1;
+            }
+            .company-sub {
+              font-size: 7pt;
+              color: #333;
+              margin-top: 3px;
+              font-weight: bold;
               text-transform: uppercase;
-              margin-bottom: 0.08in;
+              letter-spacing: 0.5px;
             }
-            
-            .barcode-number { 
-              font-size: 16pt; 
-              font-weight: bold; 
+            .top-right {
+              flex: 0 0 1.35in;
+              padding: 0.08in 0.1in;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              gap: 4px;
+            }
+            .qr-img {
+              width: 80px;
+              height: 80px;
+              image-rendering: pixelated;
+            }
+            .order-ref {
+              font-size: 7.5pt;
+              font-weight: bold;
               font-family: 'Courier New', monospace;
               letter-spacing: 1px;
-              line-height: 1.2;
-              word-break: break-all;
+              text-align: center;
             }
-            
+            .order-date {
+              font-size: 6.5pt;
+              color: #444;
+              text-align: center;
+            }
+
+            /* DELIVERY TYPE BANNER */
+            .delivery-banner {
+              border-bottom: 3px solid #000;
+              padding: 0.09in 0.12in;
+              text-align: center;
+            }
+            .delivery-banner-text {
+              font-size: 17pt;
+              font-weight: 900;
+              letter-spacing: 0.5px;
+              line-height: 1;
+            }
+
+            /* FROM & SHIP-TO */
+            .addresses {
+              border-bottom: 3px solid #000;
+              padding: 0.1in 0.12in;
+            }
+            .from-block {
+              margin-bottom: 0.1in;
+            }
+            .from-label {
+              font-size: 7pt;
+              font-weight: bold;
+              text-transform: uppercase;
+              color: #555;
+            }
+            .from-name {
+              font-size: 9pt;
+              font-weight: bold;
+              margin-top: 2px;
+            }
+            .from-addr {
+              font-size: 8.5pt;
+              color: #222;
+            }
+
+            .ship-to-block {
+              display: flex;
+              gap: 0.08in;
+              align-items: flex-start;
+            }
+            .ship-to-label-col {
+              font-size: 9pt;
+              font-weight: 900;
+              text-transform: uppercase;
+              line-height: 1.1;
+              white-space: nowrap;
+              padding-top: 2px;
+            }
+            .ship-to-details {
+              flex: 1;
+            }
+            .ship-to-name {
+              font-size: 14pt;
+              font-weight: 900;
+              line-height: 1.15;
+            }
+            .ship-to-addr {
+              font-size: 11pt;
+              line-height: 1.3;
+              margin-top: 2px;
+            }
+            .ship-to-phone {
+              font-size: 9pt;
+              color: #333;
+              margin-top: 3px;
+            }
+
+            /* ITEMS ROW */
+            .items-section {
+              border-bottom: 3px solid #000;
+              padding: 0.07in 0.12in;
+            }
+            .items-label {
+              font-size: 6.5pt;
+              font-weight: bold;
+              text-transform: uppercase;
+              color: #666;
+              margin-bottom: 3px;
+            }
+            .items-text {
+              font-size: 8pt;
+              line-height: 1.4;
+            }
+            .payment-info {
+              font-size: 7pt;
+              color: #444;
+              margin-top: 3px;
+              font-weight: bold;
+            }
+
+            /* TRACKING SECTION */
+            .tracking-section {
+              padding: 0.08in 0.12in 0.1in;
+              text-align: center;
+            }
+            .tracking-label {
+              font-size: 10pt;
+              font-weight: 900;
+              text-transform: uppercase;
+              letter-spacing: 2px;
+              margin-bottom: 0.06in;
+            }
+            .barcode-container {
+              width: 100%;
+              overflow: hidden;
+            }
+            #barcode {
+              width: 100%;
+              height: 70px;
+            }
+            .tracking-number {
+              font-size: 11pt;
+              font-weight: bold;
+              font-family: 'Courier New', monospace;
+              letter-spacing: 2px;
+              margin-top: 0.05in;
+            }
+
             @media print {
-              body { margin: 0; padding: 0; }
-              .label-page { margin: 0; }
+              @page { margin: 0; size: 4in 6in; }
+              body { margin: 0; width: 4in; }
+              .label { border: none; }
             }
           </style>
         </head>
         <body>
-          <div class="label-page">
-            <!-- Header -->
-            <div class="header">
-              <div class="company-branding">
-                <div class="company-name">INFINITE HOME</div>
-                <div class="company-location">Malé, Maldives</div>
+          <div class="label">
+
+            <!-- TOP HEADER -->
+            <div class="top-header">
+              <div class="top-left">
+                <div class="company-name">INFINITE<br>HOME</div>
+                <div class="company-sub">Malé, Maldives</div>
               </div>
-              <div class="qr-barcode-section">
-                <img src="${qrCodeBase64}" alt="QR Code" class="qr-code">
-                <div class="order-number">${selectedOrder.orderNumber}</div>
+              <div class="top-right">
+                ${qrCodeBase64 ? `<img src="${qrCodeBase64}" alt="QR" class="qr-img">` : ''}
+                <div class="order-ref">${selectedOrder.orderNumber}</div>
+                <div class="order-date">${orderDate}</div>
               </div>
             </div>
-            
-            <!-- Main Content -->
-            <div class="content">
-              <!-- Shipping Panel -->
-              <div class="shipping-panel">
-                <div class="address-block">
-                  <div class="ship-to-label">Ship To</div>
+
+            <!-- DELIVERY BANNER -->
+            <div class="delivery-banner">
+              <div class="delivery-banner-text">${deliveryLabel}</div>
+            </div>
+
+            <!-- ADDRESSES -->
+            <div class="addresses">
+              <div class="from-block">
+                <div class="from-label">From:</div>
+                <div class="from-name">INFINITE HOME</div>
+                <div class="from-addr">Malé, Maldives</div>
+              </div>
+              <div class="ship-to-block">
+                <div class="ship-to-label-col">SHIP<br>TO:</div>
+                <div class="ship-to-details">
                   <div class="ship-to-name">${selectedOrder.customerName}</div>
-                  <div class="address-line">${selectedOrder.shippingAddress}</div>
-                  <div class="contact-info">Tel: ${selectedOrder.customerPhone}</div>
-                </div>
-                
-                <div class="items-box">
-                  <div class="items-header">Package Contents</div>
-                  <table class="items-table">
-                    ${itemsHtml}
-                  </table>
-                </div>
-                
-                <div class="footer-info">
-                  <span><strong>Payment:</strong> ${selectedOrder.paymentMethod === 'cod' ? 'COD' : 'TRANSFER'}</span>
-                  <span><strong>Date:</strong> ${selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }) : 'N/A'}</span>
-                </div>
-              </div>
-              
-              <!-- Right Panel: Barcode -->
-              <div class="right-panel">
-                <div class="barcode-visual">
-                  <div class="barcode-label">TRACKING</div>
-                  <div class="barcode-number">${selectedOrder.orderNumber}</div>
+                  <div class="ship-to-addr">${selectedOrder.shippingAddress}</div>
+                  <div class="ship-to-phone">Tel: ${selectedOrder.customerPhone}</div>
                 </div>
               </div>
             </div>
+
+            <!-- ITEMS -->
+            <div class="items-section">
+              <div class="items-label">Package Contents</div>
+              <div class="items-text">${itemsText}</div>
+              <div class="payment-info">Payment: ${selectedOrder.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Bank Transfer'}</div>
+            </div>
+
+            <!-- TRACKING -->
+            <div class="tracking-section">
+              <div class="tracking-label">Tracking #</div>
+              <div class="barcode-container">
+                <svg id="barcode"></svg>
+              </div>
+              <div class="tracking-number">${selectedOrder.orderNumber}</div>
+            </div>
+
           </div>
-          
+
           <script>
-            setTimeout(() => {
-              window.print();
-              window.close();
-            }, 1500);
-          </script>
+            function doPrint() {
+              try {
+                JsBarcode('#barcode', '${selectedOrder.orderNumber}', {
+                  format: 'CODE128',
+                  width: 2.2,
+                  height: 70,
+                  displayValue: false,
+                  margin: 0,
+                });
+              } catch(e) {
+                console.error('Barcode error:', e);
+              }
+              setTimeout(() => {
+                window.print();
+                window.close();
+              }, 400);
+            }
+
+            if (typeof JsBarcode !== 'undefined') {
+              doPrint();
+            } else {
+              document.querySelector('script[src*="jsbarcode"]').addEventListener('load', doPrint);
+              setTimeout(doPrint, 2000);
+            }
+          <\/script>
         </body>
       </html>
     `);
