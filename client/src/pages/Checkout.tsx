@@ -372,7 +372,7 @@ export default function Checkout() {
                       data-testid="input-boat-name-field"
                     />
                     <Input
-                      placeholder="Boat Number / Registration *"
+                      placeholder="Boat Contact Number *"
                       className="rounded-none h-12"
                       value={formData.boatNumber}
                       onChange={(e) => setFormData({...formData, boatNumber: e.target.value})}
