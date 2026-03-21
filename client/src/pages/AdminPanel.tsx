@@ -762,9 +762,11 @@ export default function AdminPanel() {
 
           <script>
             var printed = false;
-            function doPrint() {
+
+            function renderAndPrint() {
               if (printed) return;
               printed = true;
+
               try {
                 JsBarcode('#header-barcode', '${selectedOrder.orderNumber}', {
                   format: 'CODE128',
@@ -780,23 +782,35 @@ export default function AdminPanel() {
                   displayValue: false,
                   margin: 0,
                 });
-              } catch(e) {
-                console.error('Barcode error:', e);
+              } catch (e) {
+                document.body.innerHTML = '<p style="color:red;font-size:13pt;padding:20px;">Barcode render error: ' + e.message + '</p>';
+                return;
               }
-              setTimeout(function() {
+
+              var qrImg = document.querySelector('.qr-img');
+              var qrReady = (qrImg && !qrImg.complete)
+                ? new Promise(function(resolve) { qrImg.onload = resolve; qrImg.onerror = resolve; })
+                : Promise.resolve();
+
+              qrReady.then(function() {
                 window.print();
                 window.close();
-              }, 400);
+              });
+            }
+
+            function onBarcodeLoadError() {
+              printed = true;
+              document.body.innerHTML = '<p style="color:red;font-size:13pt;padding:20px;">Could not load barcode library. Check your internet connection and try again.</p>';
             }
 
             var barcodeScript = document.querySelector('script[src*="jsbarcode"]');
             if (typeof JsBarcode !== 'undefined') {
-              doPrint();
+              renderAndPrint();
             } else if (barcodeScript) {
-              barcodeScript.addEventListener('load', doPrint);
-              barcodeScript.addEventListener('error', doPrint);
+              barcodeScript.addEventListener('load', renderAndPrint);
+              barcodeScript.addEventListener('error', onBarcodeLoadError);
             } else {
-              setTimeout(doPrint, 2500);
+              onBarcodeLoadError();
             }
           <\/script>
         </body>
