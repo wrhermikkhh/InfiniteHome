@@ -19,7 +19,7 @@ export default function Checkout() {
   const [, setLocation] = useLocation();
   const { user, isAuthenticated } = useAuth();
   const [paymentMethod, setPaymentMethod] = useState("cod");
-  const [deliveryType, setDeliveryType] = useState("standard");
+  const [deliveryLocation, setDeliveryLocation] = useState<"male" | "hulhumale" | "boat">("male");
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState("");
@@ -44,7 +44,11 @@ export default function Checkout() {
     shippingAddress: "",
     city: "",
     customerPhone: "",
-    customerEmail: ""
+    customerEmail: "",
+    boatName: "",
+    boatNumber: "",
+    boatLocation: "",
+    notes: ""
   });
 
   useEffect(() => {
@@ -176,7 +180,13 @@ export default function Checkout() {
   };
 
   const handlePlaceOrder = async () => {
+    // Validate required fields
     if (!formData.customerName || !formData.shippingAddress || !formData.customerPhone || !formData.customerEmail) {
+      return;
+    }
+
+    // Additional validation for boat deliveries
+    if (deliveryLocation === "boat" && (!formData.boatName || !formData.boatNumber || !formData.boatLocation)) {
       return;
     }
 
@@ -186,11 +196,12 @@ export default function Checkout() {
         ? user.email 
         : (formData.customerEmail || `${formData.customerName.toLowerCase().replace(/\s+/g, '')}@customer.mv`);
       
-      const orderData = {
+      const orderData: any = {
         customerName: formData.customerName,
         customerEmail,
         customerPhone: formData.customerPhone,
-        shippingAddress: `${formData.shippingAddress}, ${formData.city}`,
+        shippingAddress: formData.shippingAddress,
+        deliveryType: deliveryLocation,
         items: inStockItems.map(item => {
           const stock = getItemLiveStock(item);
           const cappedQty = (item as any).isPreOrder ? item.quantity : Math.min(item.quantity, stock);
@@ -208,13 +219,21 @@ export default function Checkout() {
         }),
         subtotal,
         discount,
-        shipping: expressCharge,
+        shipping: 0,
         total,
         paymentMethod: paymentMethod as "cod" | "bank",
         paymentSlip: paymentSlipPath || undefined,
         couponCode: appliedCoupon?.code,
-        status: paymentMethod === "bank" ? "payment_verification" : "pending"
+        status: paymentMethod === "bank" ? "payment_verification" : "pending",
+        notes: formData.notes || null
       };
+
+      // Add boat-specific fields if boat delivery
+      if (deliveryLocation === "boat") {
+        orderData.boatName = formData.boatName;
+        orderData.boatNumber = formData.boatNumber;
+        orderData.boatLocation = formData.boatLocation;
+      }
 
       const order = await api.createOrder(orderData);
       clearCart();
@@ -237,190 +256,144 @@ export default function Checkout() {
       <div className="pt-32 pb-24 container mx-auto px-4">
         <div className="grid lg:grid-cols-2 gap-16">
           <div className="space-y-12">
+
             <section>
-              <h2 className="text-2xl font-serif mb-6">Delivery Information</h2>
-              
-              {isAuthenticated && loadingAddresses ? (
-                <div className="p-8 border border-border text-center">
-                  <p className="text-sm text-muted-foreground">Loading your saved addresses...</p>
-                </div>
-              ) : isAuthenticated && savedAddresses.length > 0 && !showNewAddressForm ? (
-                <div className="space-y-4">
-                  <RadioGroup value={selectedAddressId || ""} onValueChange={handleAddressSelect} className="grid gap-3">
-                    {savedAddresses.map((addr) => (
-                      <Label
-                        key={addr.id}
-                        className={`flex items-start gap-3 p-4 border cursor-pointer transition-colors ${selectedAddressId === addr.id ? "border-primary bg-secondary/10" : "border-border"}`}
-                        data-testid={`address-${addr.id}`}
-                      >
-                        <RadioGroupItem value={addr.id} className="mt-1" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <MapPin size={14} className="text-primary" />
-                            <span className="font-medium text-sm">{addr.label}</span>
-                            {addr.isDefault && (
-                              <span className="text-[10px] uppercase tracking-widest text-primary font-bold">Default</span>
-                            )}
-                          </div>
-                          {addr.fullName && <p className="text-sm mt-1">{addr.fullName}</p>}
-                          <p className="text-xs text-muted-foreground mt-1">{addr.fullAddress}</p>
-                          {addr.mobileNo && <p className="text-xs text-muted-foreground">Tel: {addr.mobileNo}</p>}
-                        </div>
-                      </Label>
-                    ))}
-                  </RadioGroup>
-                  <Button
-                    variant="outline"
-                    className="w-full rounded-none h-10 text-xs uppercase tracking-widest"
-                    onClick={() => {
-                      setShowNewAddressForm(true);
-                      setSelectedAddressId(null);
-                      setFormData(prev => ({
-                        ...prev,
-                        customerName: user?.name || "",
-                        shippingAddress: "",
-                        city: "",
-                        customerPhone: user?.phone || ""
-                      }));
-                    }}
-                    data-testid="button-new-address"
-                  >
-                    <Plus size={14} className="mr-2" /> Use a Different Address
-                  </Button>
-                  
-                  <div className="col-span-2 pt-4 border-t border-border">
-                    <Input 
-                      placeholder="Email *" 
-                      type="email"
-                      className="rounded-none h-12 bg-muted"
-                      value={formData.customerEmail}
-                      readOnly
-                      data-testid="input-email"
-                    />
-                    <p className="text-[10px] text-muted-foreground mt-1">Email linked to your account</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {isAuthenticated && savedAddresses.length > 0 && (
-                    <Button
-                      variant="outline"
-                      className="w-full rounded-none h-10 text-xs uppercase tracking-widest mb-4"
-                      onClick={() => {
-                        setShowNewAddressForm(false);
-                        const defaultAddr = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
-                        setSelectedAddressId(defaultAddr.id);
-                        applyAddress(defaultAddr);
-                      }}
-                      data-testid="button-use-saved-address"
-                    >
-                      <MapPin size={14} className="mr-2" /> Use Saved Address
-                    </Button>
-                  )}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                      <Input 
-                        placeholder="Full Name" 
-                        className="rounded-none h-12"
-                        value={formData.customerName}
-                        onChange={(e) => setFormData({...formData, customerName: e.target.value})}
-                        data-testid="input-name"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Input 
-                        placeholder="Email *" 
-                        type="email"
-                        className={`rounded-none h-12 ${isAuthenticated ? 'bg-muted' : ''}`}
-                        value={formData.customerEmail}
-                        onChange={(e) => setFormData({...formData, customerEmail: e.target.value})}
-                        readOnly={isAuthenticated}
-                        required
-                        data-testid="input-email"
-                      />
-                      {isAuthenticated ? (
-                        <p className="text-[10px] text-muted-foreground mt-1">Email linked to your account</p>
-                      ) : (
-                        <p className="text-[10px] text-muted-foreground mt-1">Required for order confirmation</p>
-                      )}
-                    </div>
-                    <div className="col-span-2">
-                      <Input 
-                        placeholder="Shipping Address" 
-                        className="rounded-none h-12"
-                        value={formData.shippingAddress}
-                        onChange={(e) => setFormData({...formData, shippingAddress: e.target.value})}
-                        data-testid="input-address"
-                      />
-                    </div>
-                    <Input 
-                      placeholder="City / Island / Boat Name" 
+              <h2 className="text-2xl font-serif mb-6">Delivery Location</h2>
+              <div className="grid gap-4 mb-6">
+                <Button
+                  variant={deliveryLocation === "male" ? "default" : "outline"}
+                  className="rounded-none h-12 uppercase tracking-widest text-sm font-bold text-left justify-start"
+                  onClick={() => setDeliveryLocation("male")}
+                  data-testid="button-delivery-male"
+                >
+                  <MapPin size={18} className="mr-3" /> Male Delivery
+                </Button>
+                <Button
+                  variant={deliveryLocation === "hulhumale" ? "default" : "outline"}
+                  className="rounded-none h-12 uppercase tracking-widest text-sm font-bold text-left justify-start"
+                  onClick={() => setDeliveryLocation("hulhumale")}
+                  data-testid="button-delivery-hulhumale"
+                >
+                  <MapPin size={18} className="mr-3" /> Hulhumale Delivery
+                </Button>
+                <Button
+                  variant={deliveryLocation === "boat" ? "default" : "outline"}
+                  className="rounded-none h-12 uppercase tracking-widest text-sm font-bold text-left justify-start"
+                  onClick={() => setDeliveryLocation("boat")}
+                  data-testid="button-delivery-boat"
+                >
+                  <Truck size={18} className="mr-3" /> Boat Delivery
+                </Button>
+              </div>
+
+              {/* Conditional Form Fields Based on Delivery Location */}
+              {deliveryLocation !== "boat" ? (
+                // Male / Hulhumale Delivery Form
+                <div className="space-y-4 mt-6 pt-6 border-t border-border">
+                  <h3 className="font-bold uppercase tracking-widest text-xs">Delivery Details</h3>
+                  <div className="space-y-4">
+                    <Input
+                      placeholder="Full Name *"
                       className="rounded-none h-12"
-                      value={formData.city}
-                      onChange={(e) => setFormData({...formData, city: e.target.value})}
-                      data-testid="input-city"
+                      value={formData.customerName}
+                      onChange={(e) => setFormData({...formData, customerName: e.target.value})}
+                      data-testid="input-delivery-name"
                     />
-                    <Input 
-                      placeholder="Phone *" 
+                    <Input
+                      placeholder="Email *"
+                      type="email"
+                      className="rounded-none h-12"
+                      value={formData.customerEmail}
+                      onChange={(e) => setFormData({...formData, customerEmail: e.target.value})}
+                      data-testid="input-delivery-email"
+                    />
+                    <Input
+                      placeholder="Street Address *"
+                      className="rounded-none h-12"
+                      value={formData.shippingAddress}
+                      onChange={(e) => setFormData({...formData, shippingAddress: e.target.value})}
+                      data-testid="input-delivery-address"
+                    />
+                    <Input
+                      placeholder="Phone Number *"
                       className="rounded-none h-12"
                       value={formData.customerPhone}
                       onChange={(e) => setFormData({...formData, customerPhone: e.target.value})}
-                      required
-                      data-testid="input-phone"
+                      data-testid="input-delivery-phone"
+                    />
+                    <textarea
+                      placeholder="Additional Notes (Optional)"
+                      className="w-full p-3 border border-border rounded-none bg-background text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-ring text-sm min-h-[80px]"
+                      value={formData.notes}
+                      onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                      data-testid="textarea-delivery-notes"
                     />
                   </div>
                 </div>
-              )}
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-serif mb-6">Delivery Type</h2>
-              <RadioGroup value={deliveryType} onValueChange={setDeliveryType} className="grid gap-4">
-                <Label
-                  className={`flex items-center justify-between p-4 border cursor-pointer transition-colors ${deliveryType === "standard" ? "border-primary bg-secondary/10" : "border-border"}`}
-                  data-testid="delivery-standard"
-                >
-                  <div className="flex items-center gap-3">
-                    <RadioGroupItem value="standard" />
-                    <div className="flex items-center gap-2">
-                      <Truck size={18} />
-                      <div>
-                        <span className="font-medium">Standard Delivery</span>
-                        <p className="text-xs text-muted-foreground">FREE for Male', Hulhumale' & Boats. Other islands: charges apply.</p>
-                      </div>
-                    </div>
+              ) : (
+                // Boat Delivery Form
+                <div className="space-y-4 mt-6 pt-6 border-t border-border">
+                  <h3 className="font-bold uppercase tracking-widest text-xs">Boat Delivery Details</h3>
+                  <div className="space-y-4">
+                    <Input
+                      placeholder="Full Name *"
+                      className="rounded-none h-12"
+                      value={formData.customerName}
+                      onChange={(e) => setFormData({...formData, customerName: e.target.value})}
+                      data-testid="input-boat-name"
+                    />
+                    <Input
+                      placeholder="Email *"
+                      type="email"
+                      className="rounded-none h-12"
+                      value={formData.customerEmail}
+                      onChange={(e) => setFormData({...formData, customerEmail: e.target.value})}
+                      data-testid="input-boat-email"
+                    />
+                    <Input
+                      placeholder="Street Address / Harbor *"
+                      className="rounded-none h-12"
+                      value={formData.shippingAddress}
+                      onChange={(e) => setFormData({...formData, shippingAddress: e.target.value})}
+                      data-testid="input-boat-address"
+                    />
+                    <Input
+                      placeholder="Phone Number *"
+                      className="rounded-none h-12"
+                      value={formData.customerPhone}
+                      onChange={(e) => setFormData({...formData, customerPhone: e.target.value})}
+                      data-testid="input-boat-phone"
+                    />
+                    <Input
+                      placeholder="Boat Name *"
+                      className="rounded-none h-12"
+                      value={formData.boatName}
+                      onChange={(e) => setFormData({...formData, boatName: e.target.value})}
+                      data-testid="input-boat-name-field"
+                    />
+                    <Input
+                      placeholder="Boat Number / Registration *"
+                      className="rounded-none h-12"
+                      value={formData.boatNumber}
+                      onChange={(e) => setFormData({...formData, boatNumber: e.target.value})}
+                      data-testid="input-boat-number"
+                    />
+                    <Input
+                      placeholder="Boat Location / Mooring Point *"
+                      className="rounded-none h-12"
+                      value={formData.boatLocation}
+                      onChange={(e) => setFormData({...formData, boatLocation: e.target.value})}
+                      data-testid="input-boat-location"
+                    />
+                    <textarea
+                      placeholder="Additional Notes (Optional)"
+                      className="w-full p-3 border border-border rounded-none bg-background text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-ring text-sm min-h-[80px]"
+                      value={formData.notes}
+                      onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                      data-testid="textarea-boat-notes"
+                    />
                   </div>
-                  <span className="text-sm font-bold text-green-600">FREE*</span>
-                </Label>
-                <Label
-                  className={`flex items-center justify-between p-4 border cursor-pointer transition-colors ${deliveryType === "express" ? "border-primary bg-secondary/10" : "border-border"} ${!isExpressEligible ? 'opacity-50' : ''}`}
-                  data-testid="delivery-express"
-                >
-                  <div className="flex items-center gap-3">
-                    <RadioGroupItem value="express" disabled={!isExpressEligible} />
-                    <div className="flex items-center gap-2">
-                      <Zap size={18} />
-                      <div>
-                        <span className="font-medium">Express Delivery</span>
-                        <p className="text-xs text-muted-foreground">
-                          {isExpressEligible 
-                            ? "Delivery within 1-6 hours (Orders after 10 PM delivered next morning)" 
-                            : "Only available in Male' & Hulhumale'"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  {isExpressEligible && (
-                    <span className="text-sm font-bold">
-                      +{formatCurrency(items.reduce((sum, item) => sum + (item.expressCharge || 0) * (item.quantity || 0), 0))}
-                    </span>
-                  )}
-                </Label>
-              </RadioGroup>
-              {!isExpressEligible && formData.city && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Express delivery is currently only available in Male' and Hulhumale'. Enter one of these cities to enable express delivery.
-                </p>
+                </div>
               )}
             </section>
 
@@ -630,7 +603,16 @@ export default function Checkout() {
               <Button 
                 onClick={handlePlaceOrder}
                 className="w-full h-12 rounded-none mt-6 uppercase tracking-widest font-bold"
-                disabled={isSubmitting || inStockItems.length === 0 || !formData.customerName || !formData.shippingAddress || !formData.customerPhone || !formData.customerEmail || (paymentMethod === "bank" && !paymentSlipPath)}
+                disabled={
+                  isSubmitting || 
+                  inStockItems.length === 0 || 
+                  !formData.customerName || 
+                  !formData.shippingAddress || 
+                  !formData.customerPhone || 
+                  !formData.customerEmail || 
+                  (paymentMethod === "bank" && !paymentSlipPath) ||
+                  (deliveryLocation === "boat" && (!formData.boatName || !formData.boatNumber || !formData.boatLocation))
+                }
                 data-testid="button-place-order"
               >
                 {isSubmitting ? "Processing..." : (inStockItems.length === 0 ? "No Items Available" : (paymentMethod === "bank" && !paymentSlipPath ? "Upload Slip to Proceed" : "Place Order"))}
