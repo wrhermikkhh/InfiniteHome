@@ -461,7 +461,7 @@ export default function AdminPanel() {
       </tr>
     `).join('');
 
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(selectedOrder.orderNumber)}`;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(selectedOrder.orderNumber)}`;
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -471,88 +471,210 @@ export default function AdminPanel() {
           <title>Shipping Label - ${selectedOrder.orderNumber}</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: 'Arial', sans-serif; background: white; color: #000; }
-            .label-page { width: 8.5in; height: 5.5in; margin: 0 auto; padding: 0.3in; border: 1px solid #333; background: white; position: relative; }
+            html, body { width: 100%; height: 100%; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: white; color: #000; }
+            .label-page { 
+              width: 8.5in; 
+              height: 5.5in; 
+              padding: 0.25in; 
+              background: white; 
+              position: relative;
+              display: flex;
+              flex-direction: column;
+              gap: 0.2in;
+            }
             
-            .header-section { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.15in; border-bottom: 3px solid #000; padding-bottom: 0.1in; }
-            .company-info { flex: 1; }
-            .company-name { font-size: 18pt; font-weight: bold; letter-spacing: 2px; }
-            .company-location { font-size: 8pt; margin-top: 2px; }
-            .qr-section { text-align: center; }
-            .qr-code { width: 120px; height: 120px; }
-            .order-number-large { font-size: 14pt; font-weight: bold; margin-top: 4px; font-family: 'Courier New', monospace; letter-spacing: 1px; }
+            .header { 
+              display: flex; 
+              justify-content: space-between; 
+              align-items: center;
+              border-bottom: 2px solid #000;
+              padding-bottom: 0.15in;
+            }
             
-            .main-content { display: flex; gap: 0.2in; height: 4in; }
-            .left-panel { flex: 1; display: flex; flex-direction: column; border-right: 2px solid #000; padding-right: 0.15in; }
-            .right-panel { flex: 0 0 1.3in; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+            .company-branding { flex: 1; }
+            .company-name { font-size: 22pt; font-weight: 900; letter-spacing: 1px; }
+            .company-location { font-size: 7pt; color: #333; margin-top: 2px; }
             
-            .section-label { font-size: 7pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #555; margin-bottom: 0.05in; margin-top: 0.1in; }
-            .ship-to { font-size: 13pt; font-weight: bold; line-height: 1.3; margin-bottom: 0.1in; }
-            .address-line { font-size: 10pt; line-height: 1.4; }
-            .phone { font-size: 9pt; margin-top: 0.05in; }
+            .qr-barcode-section {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 0.05in;
+            }
             
-            .items-section { flex: 1; border-top: 1px solid #ccc; margin-top: 0.1in; padding-top: 0.05in; overflow: hidden; }
-            .items-table { width: 100%; font-size: 9pt; border-collapse: collapse; }
-            .items-table td { padding: 3px 0; border-bottom: 1px solid #ddd; }
+            .qr-code { 
+              width: 160px; 
+              height: 160px;
+              border: 1px solid #000;
+              image-rendering: pixelated;
+            }
             
-            .barcode-section { text-align: center; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
-            .barcode-label { font-size: 6pt; font-weight: bold; margin-bottom: 3px; }
-            .barcode { font-size: 12pt; font-weight: bold; font-family: 'Courier New', monospace; letter-spacing: 2px; }
+            .order-number { 
+              font-size: 13pt; 
+              font-weight: bold;
+              font-family: 'Courier New', monospace;
+              letter-spacing: 1px;
+            }
             
-            .footer-info { font-size: 7pt; color: #666; margin-top: 0.05in; line-height: 1.2; }
-            .date-time { margin-top: 0.05in; }
+            .content {
+              display: flex;
+              gap: 0.15in;
+              flex: 1;
+            }
+            
+            .shipping-panel {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              gap: 0.1in;
+            }
+            
+            .address-block {
+              border: 2px solid #000;
+              padding: 0.1in;
+            }
+            
+            .ship-to-label { 
+              font-size: 7pt; 
+              font-weight: bold; 
+              text-transform: uppercase;
+              color: #666;
+            }
+            
+            .ship-to-name { 
+              font-size: 14pt; 
+              font-weight: bold;
+              margin: 0.05in 0;
+            }
+            
+            .address-line { 
+              font-size: 10pt; 
+              line-height: 1.3;
+            }
+            
+            .contact-info {
+              font-size: 8pt;
+              margin-top: 0.05in;
+            }
+            
+            .items-box {
+              flex: 1;
+              border: 1px solid #ccc;
+              padding: 0.05in;
+              overflow: hidden;
+            }
+            
+            .items-header {
+              font-size: 7pt;
+              font-weight: bold;
+              text-transform: uppercase;
+              color: #666;
+              margin-bottom: 0.03in;
+            }
+            
+            .items-table { 
+              width: 100%; 
+              font-size: 8pt; 
+              border-collapse: collapse;
+            }
+            
+            .items-table td { 
+              padding: 2px 3px;
+              border-bottom: 1px solid #eee;
+            }
+            
+            .footer-info {
+              font-size: 7pt;
+              display: flex;
+              justify-content: space-between;
+              padding-top: 0.05in;
+            }
+            
+            .right-panel {
+              flex: 0 0 1.5in;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: space-between;
+              padding: 0.1in;
+              border-left: 2px solid #000;
+            }
+            
+            .barcode-visual {
+              text-align: center;
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+            }
+            
+            .barcode-label { 
+              font-size: 6pt; 
+              font-weight: bold; 
+              text-transform: uppercase;
+              margin-bottom: 0.08in;
+            }
+            
+            .barcode-number { 
+              font-size: 16pt; 
+              font-weight: bold; 
+              font-family: 'Courier New', monospace;
+              letter-spacing: 1px;
+              line-height: 1.2;
+              word-break: break-all;
+            }
             
             @media print {
               body { margin: 0; padding: 0; }
-              .label-page { margin: 0; border: none; page-break-after: avoid; }
+              .label-page { margin: 0; }
             }
           </style>
         </head>
         <body>
           <div class="label-page">
-            <!-- Header Section -->
-            <div class="header-section">
-              <div class="company-info">
+            <!-- Header -->
+            <div class="header">
+              <div class="company-branding">
                 <div class="company-name">INFINITE HOME</div>
                 <div class="company-location">Malé, Maldives</div>
               </div>
-              <div class="qr-section">
-                <img src="${qrCodeUrl}" alt="QR Code" class="qr-code">
-                <div class="order-number-large">${selectedOrder.orderNumber}</div>
+              <div class="qr-barcode-section">
+                <img src="${qrCodeUrl}" alt="QR Code" class="qr-code" onerror="this.style.border='2px solid red'">
+                <div class="order-number">${selectedOrder.orderNumber}</div>
               </div>
             </div>
             
             <!-- Main Content -->
-            <div class="main-content">
-              <!-- Left Panel: Shipping Details -->
-              <div class="left-panel">
-                <div>
-                  <div class="section-label">Ship To</div>
-                  <div class="ship-to">${selectedOrder.customerName}</div>
+            <div class="content">
+              <!-- Shipping Panel -->
+              <div class="shipping-panel">
+                <div class="address-block">
+                  <div class="ship-to-label">Ship To</div>
+                  <div class="ship-to-name">${selectedOrder.customerName}</div>
                   <div class="address-line">${selectedOrder.shippingAddress}</div>
-                  <div class="phone">Tel: ${selectedOrder.customerPhone}</div>
+                  <div class="contact-info">Tel: ${selectedOrder.customerPhone}</div>
                 </div>
                 
-                <!-- Items Section -->
-                <div class="items-section">
-                  <div class="section-label">Package Contents</div>
+                <div class="items-box">
+                  <div class="items-header">Package Contents</div>
                   <table class="items-table">
                     ${itemsHtml}
                   </table>
                 </div>
                 
-                <!-- Footer Info -->
                 <div class="footer-info">
-                  <div><strong>Payment:</strong> ${selectedOrder.paymentMethod === 'cod' ? 'CASH ON DELIVERY' : 'BANK TRANSFER'}</div>
-                  <div class="date-time"><strong>Date:</strong> ${selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) : 'N/A'}</div>
+                  <span><strong>Payment:</strong> ${selectedOrder.paymentMethod === 'cod' ? 'COD' : 'TRANSFER'}</span>
+                  <span><strong>Date:</strong> ${selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }) : 'N/A'}</span>
                 </div>
               </div>
               
               <!-- Right Panel: Barcode -->
               <div class="right-panel">
-                <div class="barcode-section">
+                <div class="barcode-visual">
                   <div class="barcode-label">TRACKING</div>
-                  <div class="barcode">${selectedOrder.orderNumber}</div>
+                  <div class="barcode-number">${selectedOrder.orderNumber}</div>
                 </div>
               </div>
             </div>
@@ -562,7 +684,7 @@ export default function AdminPanel() {
             setTimeout(() => {
               window.print();
               window.close();
-            }, 800);
+            }, 1000);
           </script>
         </body>
       </html>
