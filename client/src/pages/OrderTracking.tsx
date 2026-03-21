@@ -197,7 +197,7 @@ export default function OrderTracking() {
 
   useEffect(() => {
     const params = new URLSearchParams(search);
-    const id = params.get("id");
+    const id = params.get("order") || params.get("id");
     if (id) {
       setOrderNumber(id);
       fetchOrder(id);
