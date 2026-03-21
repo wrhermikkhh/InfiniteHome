@@ -137,17 +137,8 @@ export default function Checkout() {
 
   const discount = eligibleDiscount;
   
-  const expressEligibleCities = ["male", "male'", "hulhumale", "hulhumale'", "hulhulmale"];
-  const isExpressEligible = expressEligibleCities.some(city => 
-    formData.city.toLowerCase().trim().includes(city)
-  );
-  
-  const expressCharge = deliveryType === "express" && isExpressEligible
-    ? inStockItems.reduce((sum, item) => sum + (item.expressCharge || 0) * (item.quantity || 0), 0)
-    : 0;
-  
   const shipping = 0;
-  const total = Math.max(0, subtotal - discount + shipping + expressCharge);
+  const total = Math.max(0, subtotal - discount + shipping);
 
   const handleApplyCoupon = async () => {
     try {
@@ -586,15 +577,9 @@ export default function Checkout() {
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Standard Shipping</span>
+                  <span className="text-muted-foreground">Shipping</span>
                   <span className="text-green-600">FREE</span>
                 </div>
-                {deliveryType === "express" && expressCharge > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Express Delivery</span>
-                    <span>+{formatCurrency(expressCharge)}</span>
-                  </div>
-                )}
                 <div className="flex justify-between text-lg font-bold pt-2">
                   <span>Total</span>
                   <span data-testid="text-total">{formatCurrency(total)}</span>
