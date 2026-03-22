@@ -186,7 +186,7 @@ export default function Checkout() {
     }
 
     // Additional validation for boat deliveries
-    if (deliveryLocation === "boat" && (!formData.boatName || !formData.boatNumber || !formData.boatLocation || !formData.boatAtollIsland || !formData.customerAtollIsland)) {
+    if (deliveryLocation === "boat" && (!formData.boatName || !formData.boatNumber || !formData.boatLocation || !formData.customerAtollIsland)) {
       return;
     }
 
@@ -400,18 +400,18 @@ export default function Checkout() {
                       data-testid="input-boat-address"
                     />
                     <Input
+                      placeholder="Atoll & Island *"
+                      className="rounded-none h-12"
+                      value={formData.customerAtollIsland}
+                      onChange={(e) => setFormData({...formData, customerAtollIsland: e.target.value})}
+                      data-testid="input-boat-customer-atoll-island"
+                    />
+                    <Input
                       placeholder="Phone Number *"
                       className="rounded-none h-12"
                       value={formData.customerPhone}
                       onChange={(e) => setFormData({...formData, customerPhone: e.target.value})}
                       data-testid="input-boat-phone"
-                    />
-                    <Input
-                      placeholder="Customer Atoll & Island *"
-                      className="rounded-none h-12"
-                      value={formData.customerAtollIsland}
-                      onChange={(e) => setFormData({...formData, customerAtollIsland: e.target.value})}
-                      data-testid="input-boat-customer-atoll-island"
                     />
                     <Input
                       placeholder="Boat Name *"
@@ -433,13 +433,6 @@ export default function Checkout() {
                       value={formData.boatLocation}
                       onChange={(e) => setFormData({...formData, boatLocation: e.target.value})}
                       data-testid="input-boat-location"
-                    />
-                    <Input
-                      placeholder="Atoll and Island *"
-                      className="rounded-none h-12"
-                      value={formData.boatAtollIsland}
-                      onChange={(e) => setFormData({...formData, boatAtollIsland: e.target.value})}
-                      data-testid="input-boat-atoll-island"
                     />
                     <textarea
                       placeholder="Additional Notes (Optional)"
