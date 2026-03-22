@@ -2993,6 +2993,17 @@ export default function AdminPanel() {
                                       <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Shipping Address</p>
                                       <p className="text-sm">{selectedOrder.shippingAddress}</p>
                                     </div>
+                                    {selectedOrder.deliveryType === "boat" && (
+                                      <div>
+                                        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Boat Delivery Details</p>
+                                        <div className="text-sm space-y-0.5">
+                                          {selectedOrder.boatName && <p><span className="text-muted-foreground">Boat:</span> {selectedOrder.boatName}</p>}
+                                          {selectedOrder.boatNumber && <p><span className="text-muted-foreground">Contact:</span> {selectedOrder.boatNumber}</p>}
+                                          {selectedOrder.boatLocation && <p><span className="text-muted-foreground">Mooring:</span> {selectedOrder.boatLocation}</p>}
+                                          {selectedOrder.boatAtollIsland && <p><span className="text-muted-foreground">Atoll & Island:</span> {selectedOrder.boatAtollIsland}</p>}
+                                        </div>
+                                      </div>
+                                    )}
                                     <div>
                                       <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Payment Method</p>
                                       <p className="font-medium">{selectedOrder.paymentMethod === "cod" ? "Cash on Delivery" : "Bank Transfer"}</p>

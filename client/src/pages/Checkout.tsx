@@ -49,6 +49,7 @@ export default function Checkout() {
     boatName: "",
     boatNumber: "",
     boatLocation: "",
+    boatAtollIsland: "",
     notes: ""
   });
 
@@ -184,7 +185,7 @@ export default function Checkout() {
     }
 
     // Additional validation for boat deliveries
-    if (deliveryLocation === "boat" && (!formData.boatName || !formData.boatNumber || !formData.boatLocation)) {
+    if (deliveryLocation === "boat" && (!formData.boatName || !formData.boatNumber || !formData.boatLocation || !formData.boatAtollIsland)) {
       return;
     }
 
@@ -231,6 +232,7 @@ export default function Checkout() {
         orderData.boatName = formData.boatName;
         orderData.boatNumber = formData.boatNumber;
         orderData.boatLocation = formData.boatLocation;
+        orderData.boatAtollIsland = formData.boatAtollIsland;
       }
 
       const order = await api.createOrder(orderData);
@@ -422,6 +424,13 @@ export default function Checkout() {
                       value={formData.boatLocation}
                       onChange={(e) => setFormData({...formData, boatLocation: e.target.value})}
                       data-testid="input-boat-location"
+                    />
+                    <Input
+                      placeholder="Atoll and Island *"
+                      className="rounded-none h-12"
+                      value={formData.boatAtollIsland}
+                      onChange={(e) => setFormData({...formData, boatAtollIsland: e.target.value})}
+                      data-testid="input-boat-atoll-island"
                     />
                     <textarea
                       placeholder="Additional Notes (Optional)"
@@ -647,7 +656,7 @@ export default function Checkout() {
                   !formData.customerPhone || 
                   !formData.customerEmail || 
                   (paymentMethod === "bank" && !paymentSlipPath) ||
-                  (deliveryLocation === "boat" && (!formData.boatName || !formData.boatNumber || !formData.boatLocation))
+                  (deliveryLocation === "boat" && (!formData.boatName || !formData.boatNumber || !formData.boatLocation || !formData.boatAtollIsland))
                 }
                 data-testid="button-place-order"
               >

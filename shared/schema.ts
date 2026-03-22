@@ -180,6 +180,7 @@ export const orders = pgTable("orders", {
   boatName: text("boat_name"), // Only for boat deliveries
   boatNumber: text("boat_number"), // Only for boat deliveries
   boatLocation: text("boat_location"), // Only for boat deliveries
+  boatAtollIsland: text("boat_atoll_island"), // Atoll and island for boat deliveries
   notes: text("notes"), // Optional notes
   items: jsonb("items").$type<{ productId?: string; name: string; qty: number; price: number; color?: string; size?: string; isPreOrder?: boolean; preOrderTotalPrice?: number; preOrderEta?: string }[]>().notNull(),
   subtotal: real("subtotal").notNull(),

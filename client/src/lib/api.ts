@@ -38,6 +38,12 @@ export interface Order {
   customerEmail: string;
   customerPhone: string;
   shippingAddress: string;
+  deliveryType?: string;
+  boatName?: string;
+  boatNumber?: string;
+  boatLocation?: string;
+  boatAtollIsland?: string;
+  notes?: string;
   items: OrderItem[];
   subtotal: number;
   discount: number;
