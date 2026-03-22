@@ -1321,6 +1321,9 @@ app.post("/api/orders", async (req, res) => {
             else if (colorMatch) availableStock = variantStock[colorMatch];
           }
         }
+      } else {
+        // Fallback to product's general stock if variantStock is empty
+        availableStock = product.stock || 0;
       }
       
       if (availableStock <= 0) {
