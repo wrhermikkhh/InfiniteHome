@@ -43,6 +43,7 @@ export interface Order {
   boatNumber?: string;
   boatLocation?: string;
   boatAtollIsland?: string;
+  customerAtollIsland?: string;
   notes?: string;
   items: OrderItem[];
   subtotal: number;

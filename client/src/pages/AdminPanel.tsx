@@ -3060,6 +3060,9 @@ export default function AdminPanel() {
                                     <div>
                                       <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Shipping Address</p>
                                       <p className="text-sm">{selectedOrder.shippingAddress}</p>
+                                      {selectedOrder.customerAtollIsland && (
+                                        <p className="text-sm text-muted-foreground mt-0.5"><span className="text-muted-foreground">Atoll & Island:</span> {selectedOrder.customerAtollIsland}</p>
+                                      )}
                                     </div>
                                     {selectedOrder.deliveryType === "boat" && (
                                       <div>

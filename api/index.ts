@@ -170,6 +170,7 @@ const orders = pgTable("orders", {
   boatNumber: text("boat_number"),
   boatLocation: text("boat_location"),
   boatAtollIsland: text("boat_atoll_island"),
+  customerAtollIsland: text("customer_atoll_island"),
   notes: text("notes"),
   items: jsonb("items").$type<{ productId?: string; name: string; qty: number; price: number; color?: string; size?: string; isPreOrder?: boolean; preOrderTotalPrice?: number; preOrderEta?: string }[]>().notNull(),
   subtotal: real("subtotal").notNull(),
