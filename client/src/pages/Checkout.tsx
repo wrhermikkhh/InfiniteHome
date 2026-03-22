@@ -658,7 +658,7 @@ export default function Checkout() {
                   !formData.customerPhone || 
                   !formData.customerEmail || 
                   (paymentMethod === "bank" && !paymentSlipPath) ||
-                  (deliveryLocation === "boat" && (!formData.boatName || !formData.boatNumber || !formData.boatLocation || !formData.boatAtollIsland))
+                  (deliveryLocation === "boat" && (!formData.boatName || !formData.boatNumber || !formData.boatLocation || !formData.customerAtollIsland))
                 }
                 data-testid="button-place-order"
               >
