@@ -860,11 +860,16 @@ export default function AdminPanel() {
   const handleLogin = async () => {
     setIsLoading(true);
     setError("");
-    const success = await login(email, password);
-    if (!success) {
-      setError("Invalid credentials");
+    try {
+      const success = await login(email, password);
+      if (!success) {
+        setError("Invalid credentials");
+      }
+    } catch (err) {
+      setError("Unable to connect. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleSaveProduct = async () => {

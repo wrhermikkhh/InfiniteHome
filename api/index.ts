@@ -1011,12 +1011,17 @@ app.post("/api/customers/:customerId/addresses/:addressId/default", async (req, 
 
 // Admin Auth
 app.post("/api/admin/login", async (req, res) => {
-  const { email, password } = req.body;
-  const admin = await storage.getAdminByEmail(email);
-  if (admin && await comparePasswords(password, admin.password)) {
-    res.json({ success: true, admin: { id: admin.id, name: admin.name, email: admin.email, isSuperAdmin: admin.isSuperAdmin, permissions: admin.permissions } });
-  } else {
-    res.status(401).json({ success: false, message: "Invalid credentials" });
+  try {
+    const { email, password } = req.body;
+    const admin = await storage.getAdminByEmail(email);
+    if (admin && await comparePasswords(password, admin.password)) {
+      res.json({ success: true, admin: { id: admin.id, name: admin.name, email: admin.email, isSuperAdmin: admin.isSuperAdmin, permissions: admin.permissions } });
+    } else {
+      res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
+  } catch (err) {
+    console.error("Admin login error:", err);
+    res.status(500).json({ success: false, message: "Server error during login" });
   }
 });
 
