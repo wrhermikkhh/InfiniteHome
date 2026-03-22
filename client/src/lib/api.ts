@@ -61,6 +61,14 @@ export interface Admin {
   id: string;
   name: string;
   email: string;
+  isSuperAdmin?: boolean;
+  permissions?: {
+    canManageProducts: boolean;
+    canManageStock: boolean;
+    canManageOrders: boolean;
+    canManageCoupons: boolean;
+    canAccessPOS: boolean;
+  };
 }
 
 export interface Customer {
@@ -251,7 +259,7 @@ export const api = {
     return res.json();
   },
 
-  async createAdmin(admin: { name: string; email: string; password: string }): Promise<Admin> {
+  async createAdmin(admin: { name: string; email: string; password: string; permissions?: Record<string, boolean> }): Promise<Admin> {
     const res = await fetch(`${API_BASE}/admins`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

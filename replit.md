@@ -41,7 +41,7 @@ Preferred communication style: Simple, everyday language.
 - Product Management: Supports pre-orders, variant-level stock, multiple images, certifications, and sale pricing.
 - Order Management: Comprehensive order status flow, order tracking, and payment slip viewing for admins.
 - Customer Accounts: Secure registration, login, profile management, order history, and address book.
-- Admin Panel: Secure access with separate authentication, managing products, orders, coupons, and categories.
+- Admin Panel: Secure access with separate authentication. Super Admin role can manage other admins, set granular permissions (products, stock, orders, coupons, POS), and change any admin's password. Non-super admins see only the tabs they're permitted to access.
 - Search: Debounced product search functionality.
 - Email Notifications: Automated email notifications for order status changes.
 - Image Specifications: Recommended 1080x1080px or 1440x1440px (1:1 aspect ratio) for products. Category grids use original layout. Displayed using `object-contain`.

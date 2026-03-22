@@ -44,6 +44,14 @@ export const admins = pgTable("admins", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
+  isSuperAdmin: boolean("is_super_admin").default(false),
+  permissions: jsonb("permissions").$type<{
+    canManageProducts: boolean;
+    canManageStock: boolean;
+    canManageOrders: boolean;
+    canManageCoupons: boolean;
+    canAccessPOS: boolean;
+  }>().default({ canManageProducts: true, canManageStock: true, canManageOrders: true, canManageCoupons: true, canAccessPOS: true }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useAdminAuth } from "@/lib/auth";
+import { useAdminAuth, AdminPermissions, DEFAULT_PERMISSIONS } from "@/lib/auth";
 import { useUpload } from "@/hooks/use-upload";
 import { useLocation } from "wouter";
 import { api, Coupon, Order, Admin, Category } from "@/lib/api";
@@ -62,6 +62,7 @@ import {
   FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -336,6 +337,11 @@ export default function AdminPanel() {
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [newAdminName, setNewAdminName] = useState("");
+  const [newAdminPermissions, setNewAdminPermissions] = useState<AdminPermissions>({ ...DEFAULT_PERMISSIONS });
+  const [editingAdminPermissions, setEditingAdminPermissions] = useState<{ [adminId: string]: AdminPermissions }>({});
+  const [adminPasswordInputs, setAdminPasswordInputs] = useState<{ [adminId: string]: string }>({});
+  const [savingPermissions, setSavingPermissions] = useState<{ [adminId: string]: boolean }>({});
+  const [savingPassword, setSavingPassword] = useState<{ [adminId: string]: boolean }>({});
 
   // Search states for filtering
   const [inventorySearch, setInventorySearch] = useState("");
@@ -1094,12 +1100,14 @@ export default function AdminPanel() {
       await api.createAdmin({
         name: newAdminName,
         email: newAdminEmail,
-        password: newAdminPassword
+        password: newAdminPassword,
+        permissions: newAdminPermissions,
       });
       await loadData();
       setNewAdminEmail("");
       setNewAdminPassword("");
       setNewAdminName("");
+      setNewAdminPermissions({ ...DEFAULT_PERMISSIONS });
       toast({ title: "Admin added", description: `${newAdminName} can now access the panel` });
     } catch (error) {
       console.error("Failed to add admin:", error);
@@ -1107,14 +1115,69 @@ export default function AdminPanel() {
     }
   };
 
+  const handleUpdatePermissions = async (adminId: string) => {
+    const perms = editingAdminPermissions[adminId];
+    if (!perms) return;
+    setSavingPermissions(p => ({ ...p, [adminId]: true }));
+    try {
+      await fetch(`/api/admins/${adminId}/permissions`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(perms),
+      });
+      await loadData();
+      toast({ title: "Permissions updated", description: "Admin permissions saved." });
+    } catch {
+      toast({ title: "Error", description: "Failed to update permissions", variant: "destructive" });
+    } finally {
+      setSavingPermissions(p => ({ ...p, [adminId]: false }));
+    }
+  };
+
+  const handleChangeAdminPassword = async (adminId: string) => {
+    const pw = adminPasswordInputs[adminId];
+    if (!pw || pw.length < 6) {
+      toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
+      return;
+    }
+    setSavingPassword(p => ({ ...p, [adminId]: true }));
+    try {
+      await fetch(`/api/admins/${adminId}/password`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pw }),
+      });
+      setAdminPasswordInputs(p => ({ ...p, [adminId]: "" }));
+      toast({ title: "Password changed", description: "Admin password updated successfully." });
+    } catch {
+      toast({ title: "Error", description: "Failed to change password", variant: "destructive" });
+    } finally {
+      setSavingPassword(p => ({ ...p, [adminId]: false }));
+    }
+  };
+
+  const handleDeleteAdminUser = async (adminId: string, adminName: string) => {
+    if (!confirm(`Remove ${adminName} from admin access? This cannot be undone.`)) return;
+    try {
+      await fetch(`/api/admins/${adminId}`, { method: "DELETE" });
+      await loadData();
+      toast({ title: "Admin removed", description: `${adminName} has been removed.` });
+    } catch {
+      toast({ title: "Error", description: "Failed to remove admin", variant: "destructive" });
+    }
+  };
+
+  const isSuperAdmin = user?.isSuperAdmin === true;
+  const perms = user?.permissions ?? DEFAULT_PERMISSIONS;
+
   const menuItems = [
     { icon: LayoutDashboard, label: "Overview" },
-    { icon: ShoppingBag, label: "Products" },
-    { icon: Warehouse, label: "Inventory" },
-    { icon: CreditCard, label: "POS" },
-    { icon: Package, label: "Orders" },
-    { icon: Tag, label: "Coupons" },
-    { icon: Settings, label: "Admin Management" },
+    ...(isSuperAdmin || perms.canManageProducts ? [{ icon: ShoppingBag, label: "Products" }] : []),
+    ...(isSuperAdmin || perms.canManageStock ? [{ icon: Warehouse, label: "Inventory" }] : []),
+    ...(isSuperAdmin || perms.canAccessPOS ? [{ icon: CreditCard, label: "POS" }] : []),
+    ...(isSuperAdmin || perms.canManageOrders ? [{ icon: Package, label: "Orders" }] : []),
+    ...(isSuperAdmin || perms.canManageCoupons ? [{ icon: Tag, label: "Coupons" }] : []),
+    ...(isSuperAdmin ? [{ icon: Settings, label: "Admin Management" }] : []),
   ];
 
   // Dashboard Analytics Calculations - must be before conditional returns
@@ -3274,61 +3337,129 @@ export default function AdminPanel() {
             </div>
           )}
 
-          {activeTab === "Admin Management" && (
+          {activeTab === "Admin Management" && isSuperAdmin && (
             <div className="animate-in fade-in duration-500">
               <div className="mb-8">
                 <h1 className="text-3xl font-serif">Admin Management</h1>
-                <p className="text-muted-foreground">Manage administrative users</p>
+                <p className="text-muted-foreground">Add admins and control their access permissions</p>
               </div>
 
+              {/* Add New Admin */}
               <Card className="rounded-none border-border shadow-none mb-8">
                 <CardContent className="p-6">
                   <h3 className="font-bold mb-4 uppercase tracking-widest text-xs">Add New Admin</h3>
-                  <div className="flex flex-wrap gap-4">
-                    <Input 
-                      placeholder="Name" 
-                      value={newAdminName}
-                      onChange={(e) => setNewAdminName(e.target.value)}
-                      className="rounded-none flex-1 min-w-[150px]"
-                    />
-                    <Input 
-                      type="email"
-                      placeholder="Email" 
-                      value={newAdminEmail}
-                      onChange={(e) => setNewAdminEmail(e.target.value)}
-                      className="rounded-none flex-1 min-w-[200px]"
-                    />
-                    <Input 
-                      type="password"
-                      placeholder="Password" 
-                      value={newAdminPassword}
-                      onChange={(e) => setNewAdminPassword(e.target.value)}
-                      className="rounded-none flex-1 min-w-[150px]"
-                    />
-                    <Button onClick={handleAddAdmin} className="rounded-none">
-                      <Plus size={14} className="mr-2" /> Add Admin
-                    </Button>
+                  <div className="flex flex-wrap gap-4 mb-4">
+                    <Input placeholder="Name" value={newAdminName} onChange={(e) => setNewAdminName(e.target.value)} className="rounded-none flex-1 min-w-[150px]" data-testid="input-new-admin-name" />
+                    <Input type="email" placeholder="Email" value={newAdminEmail} onChange={(e) => setNewAdminEmail(e.target.value)} className="rounded-none flex-1 min-w-[200px]" data-testid="input-new-admin-email" />
+                    <Input type="password" placeholder="Password (min 6 chars)" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} className="rounded-none flex-1 min-w-[180px]" data-testid="input-new-admin-password" />
                   </div>
+                  <div className="mb-4">
+                    <p className="text-xs uppercase tracking-widest font-bold mb-3">Access Permissions</p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {([ 
+                        { key: "canManageProducts", label: "Manage Products" },
+                        { key: "canManageStock", label: "Manage Inventory" },
+                        { key: "canManageOrders", label: "Manage Orders" },
+                        { key: "canManageCoupons", label: "Manage Coupons" },
+                        { key: "canAccessPOS", label: "Access POS" },
+                      ] as { key: keyof AdminPermissions; label: string }[]).map(({ key, label }) => (
+                        <div key={key} className="flex items-center gap-2">
+                          <Switch
+                            checked={newAdminPermissions[key]}
+                            onCheckedChange={(v) => setNewAdminPermissions(p => ({ ...p, [key]: v }))}
+                          />
+                          <span className="text-sm">{label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <Button onClick={handleAddAdmin} className="rounded-none" data-testid="button-add-admin">
+                    <Plus size={14} className="mr-2" /> Add Admin
+                  </Button>
                 </CardContent>
               </Card>
 
-              <Card className="rounded-none border-border shadow-none">
-                <CardContent className="p-0">
-                  <div className="divide-y divide-border">
-                    {admins.map((admin) => (
-                      <div key={admin.id} className="p-4 flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{admin.name}</p>
-                          <p className="text-sm text-muted-foreground">{admin.email}</p>
+              {/* Existing Admins */}
+              <div className="space-y-4">
+                {admins.map((admin) => {
+                  const adminPerms: AdminPermissions = editingAdminPermissions[admin.id] ?? ((admin as any).permissions ?? DEFAULT_PERMISSIONS);
+                  const isThisAdminSuper = (admin as any).isSuperAdmin === true;
+                  const isMe = admin.id === user?.id;
+                  return (
+                    <Card key={admin.id} className="rounded-none border-border shadow-none">
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold">{admin.name}</p>
+                              {isThisAdminSuper && <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 uppercase tracking-widest">Super Admin</span>}
+                              {isMe && <span className="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 uppercase tracking-widest">You</span>}
+                            </div>
+                            <p className="text-sm text-muted-foreground">{admin.email}</p>
+                          </div>
+                          {!isThisAdminSuper && !isMe && (
+                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive rounded-none text-xs" onClick={() => handleDeleteAdminUser(admin.id, admin.name)} data-testid={`button-delete-admin-${admin.id}`}>
+                              <Trash2 size={14} className="mr-1" /> Remove
+                            </Button>
+                          )}
                         </div>
-                      </div>
-                    ))}
-                    {admins.length === 0 && (
-                      <div className="p-8 text-center text-muted-foreground">No admins found.</div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+
+                        {/* Permission Toggles — not for super admins */}
+                        {!isThisAdminSuper && (
+                          <>
+                            <p className="text-xs uppercase tracking-widest font-bold mb-3">Access Permissions</p>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                              {([
+                                { key: "canManageProducts", label: "Manage Products" },
+                                { key: "canManageStock", label: "Manage Inventory" },
+                                { key: "canManageOrders", label: "Manage Orders" },
+                                { key: "canManageCoupons", label: "Manage Coupons" },
+                                { key: "canAccessPOS", label: "Access POS" },
+                              ] as { key: keyof AdminPermissions; label: string }[]).map(({ key, label }) => (
+                                <div key={key} className="flex items-center gap-2">
+                                  <Switch
+                                    checked={adminPerms[key]}
+                                    onCheckedChange={(v) => setEditingAdminPermissions(ep => ({
+                                      ...ep,
+                                      [admin.id]: { ...(ep[admin.id] ?? adminPerms), [key]: v }
+                                    }))}
+                                    data-testid={`switch-${key}-${admin.id}`}
+                                  />
+                                  <span className="text-sm">{label}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <Button size="sm" variant="outline" className="rounded-none text-xs uppercase tracking-widest mb-4" onClick={() => handleUpdatePermissions(admin.id)} disabled={savingPermissions[admin.id]} data-testid={`button-save-permissions-${admin.id}`}>
+                              {savingPermissions[admin.id] ? "Saving..." : "Save Permissions"}
+                            </Button>
+                          </>
+                        )}
+
+                        {/* Change Password */}
+                        <div className="border-t border-border pt-4 mt-2">
+                          <p className="text-xs uppercase tracking-widest font-bold mb-3">Change Password</p>
+                          <div className="flex gap-3">
+                            <Input
+                              type="password"
+                              placeholder="New password (min 6 chars)"
+                              value={adminPasswordInputs[admin.id] ?? ""}
+                              onChange={(e) => setAdminPasswordInputs(p => ({ ...p, [admin.id]: e.target.value }))}
+                              className="rounded-none flex-1 max-w-xs"
+                              data-testid={`input-admin-password-${admin.id}`}
+                            />
+                            <Button size="sm" variant="outline" className="rounded-none text-xs uppercase tracking-widest" onClick={() => handleChangeAdminPassword(admin.id)} disabled={savingPassword[admin.id]} data-testid={`button-change-password-${admin.id}`}>
+                              {savingPassword[admin.id] ? "Saving..." : "Update Password"}
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                {admins.length === 0 && (
+                  <div className="p-8 text-center text-muted-foreground">No admins found.</div>
+                )}
+              </div>
             </div>
           )}
         </main>

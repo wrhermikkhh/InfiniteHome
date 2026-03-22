@@ -83,8 +83,24 @@ export const useAuth = create<AuthStore>()(
 );
 
 // Separate admin auth for admin panel only
+export interface AdminPermissions {
+  canManageProducts: boolean;
+  canManageStock: boolean;
+  canManageOrders: boolean;
+  canManageCoupons: boolean;
+  canAccessPOS: boolean;
+}
+
+export const DEFAULT_PERMISSIONS: AdminPermissions = {
+  canManageProducts: true,
+  canManageStock: true,
+  canManageOrders: true,
+  canManageCoupons: true,
+  canAccessPOS: true,
+};
+
 interface AdminAuthStore {
-  admin: { id: string; name: string; email: string } | null;
+  admin: { id: string; name: string; email: string; isSuperAdmin?: boolean; permissions?: AdminPermissions } | null;
   isAdminAuthenticated: boolean;
   adminLogin: (email: string, password: string) => Promise<boolean>;
   adminLogout: () => void;

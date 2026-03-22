@@ -69,6 +69,14 @@ const admins = pgTable("admins", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
+  isSuperAdmin: boolean("is_super_admin").default(false),
+  permissions: jsonb("permissions").$type<{
+    canManageProducts: boolean;
+    canManageStock: boolean;
+    canManageOrders: boolean;
+    canManageCoupons: boolean;
+    canAccessPOS: boolean;
+  }>().default({ canManageProducts: true, canManageStock: true, canManageOrders: true, canManageCoupons: true, canAccessPOS: true }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -438,6 +446,16 @@ class DatabaseStorage {
 
   async getAllAdmins(): Promise<Admin[]> {
     return await this.getDb().select().from(admins);
+  }
+
+  async updateAdmin(id: string, data: Partial<InsertAdmin>): Promise<Admin | undefined> {
+    const [updated] = await this.getDb().update(admins).set(data).where(eq(admins.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteAdmin(id: string): Promise<boolean> {
+    await this.getDb().delete(admins).where(eq(admins.id, id));
+    return true;
   }
 
   async getAllCategories(): Promise<Category[]> {
@@ -996,7 +1014,7 @@ app.post("/api/admin/login", async (req, res) => {
   const { email, password } = req.body;
   const admin = await storage.getAdminByEmail(email);
   if (admin && await comparePasswords(password, admin.password)) {
-    res.json({ success: true, admin: { id: admin.id, name: admin.name, email: admin.email } });
+    res.json({ success: true, admin: { id: admin.id, name: admin.name, email: admin.email, isSuperAdmin: admin.isSuperAdmin, permissions: admin.permissions } });
   } else {
     res.status(401).json({ success: false, message: "Invalid credentials" });
   }
@@ -1004,7 +1022,7 @@ app.post("/api/admin/login", async (req, res) => {
 
 app.get("/api/admins", async (req, res) => {
   const allAdmins = await storage.getAllAdmins();
-  res.json(allAdmins.map(a => ({ id: a.id, name: a.name, email: a.email })));
+  res.json(allAdmins.map(a => ({ id: a.id, name: a.name, email: a.email, isSuperAdmin: a.isSuperAdmin, permissions: a.permissions })));
 });
 
 app.post("/api/admins", async (req, res) => {
@@ -1012,7 +1030,39 @@ app.post("/api/admins", async (req, res) => {
     const data = insertAdminSchema.parse(req.body);
     const hashedPassword = await hashPassword(data.password);
     const admin = await storage.createAdmin({ ...data, password: hashedPassword });
-    res.json({ id: admin.id, name: admin.name, email: admin.email });
+    res.json({ id: admin.id, name: admin.name, email: admin.email, isSuperAdmin: admin.isSuperAdmin, permissions: admin.permissions });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.patch("/api/admins/:id/permissions", async (req, res) => {
+  try {
+    const updated = await storage.updateAdmin(req.params.id, { permissions: req.body });
+    if (!updated) return res.status(404).json({ message: "Admin not found" });
+    res.json({ id: updated.id, name: updated.name, email: updated.email, isSuperAdmin: updated.isSuperAdmin, permissions: updated.permissions });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.patch("/api/admins/:id/password", async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
+    const hashedPassword = await hashPassword(password);
+    const updated = await storage.updateAdmin(req.params.id, { password: hashedPassword });
+    if (!updated) return res.status(404).json({ message: "Admin not found" });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.delete("/api/admins/:id", async (req, res) => {
+  try {
+    await storage.deleteAdmin(req.params.id);
+    res.json({ success: true });
   } catch (error: any) {
     res.status(400).json({ message: error.message });
   }
