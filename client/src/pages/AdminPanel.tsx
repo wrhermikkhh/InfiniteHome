@@ -759,6 +759,7 @@ export default function AdminPanel() {
                 <div class="ship-to-details">
                   <div class="ship-to-name">${escHtml(selectedOrder.customerName)}</div>
                   <div class="ship-to-addr">${escHtml(selectedOrder.shippingAddress)}</div>
+                  ${selectedOrder.customerAtollIsland ? `<div class="ship-to-addr">${escHtml(selectedOrder.customerAtollIsland)}</div>` : ''}
                   <div class="ship-to-phone">Tel: ${escHtml(selectedOrder.customerPhone)}</div>
                 </div>
               </div>

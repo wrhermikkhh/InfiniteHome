@@ -186,7 +186,7 @@ export default function Checkout() {
     }
 
     // Additional validation for boat deliveries
-    if (deliveryLocation === "boat" && (!formData.boatName || !formData.boatNumber || !formData.boatLocation || !formData.boatAtollIsland)) {
+    if (deliveryLocation === "boat" && (!formData.boatName || !formData.boatNumber || !formData.boatLocation || !formData.boatAtollIsland || !formData.customerAtollIsland)) {
       return;
     }
 
@@ -363,13 +363,6 @@ export default function Checkout() {
                       onChange={(e) => setFormData({...formData, customerPhone: e.target.value})}
                       data-testid="input-delivery-phone"
                     />
-                    <Input
-                      placeholder="Customer Atoll & Island (Optional)"
-                      className="rounded-none h-12"
-                      value={formData.customerAtollIsland}
-                      onChange={(e) => setFormData({...formData, customerAtollIsland: e.target.value})}
-                      data-testid="input-customer-atoll-island"
-                    />
                     <textarea
                       placeholder="Additional Notes (Optional)"
                       className="w-full p-3 border border-border rounded-none bg-background text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-ring text-sm min-h-[80px]"
@@ -414,7 +407,7 @@ export default function Checkout() {
                       data-testid="input-boat-phone"
                     />
                     <Input
-                      placeholder="Customer Atoll & Island (Optional)"
+                      placeholder="Customer Atoll & Island *"
                       className="rounded-none h-12"
                       value={formData.customerAtollIsland}
                       onChange={(e) => setFormData({...formData, customerAtollIsland: e.target.value})}
