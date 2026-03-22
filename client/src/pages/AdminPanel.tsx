@@ -758,8 +758,7 @@ export default function AdminPanel() {
                 <div class="ship-to-label-col">SHIP<br>TO:</div>
                 <div class="ship-to-details">
                   <div class="ship-to-name">${escHtml(selectedOrder.customerName)}</div>
-                  <div class="ship-to-addr">${escHtml(selectedOrder.shippingAddress)}</div>
-                  ${selectedOrder.customerAtollIsland ? `<div class="ship-to-addr">${escHtml(selectedOrder.customerAtollIsland)}</div>` : ''}
+                  <div class="ship-to-addr">${escHtml(selectedOrder.shippingAddress)}${selectedOrder.customerAtollIsland ? `, ${escHtml(selectedOrder.customerAtollIsland)}` : ''}</div>
                   <div class="ship-to-phone">Tel: ${escHtml(selectedOrder.customerPhone)}</div>
                 </div>
               </div>
@@ -3074,6 +3073,12 @@ export default function AdminPanel() {
                                           {selectedOrder.boatLocation && <p><span className="text-muted-foreground">Mooring:</span> {selectedOrder.boatLocation}</p>}
                                           {selectedOrder.boatAtollIsland && <p><span className="text-muted-foreground">Atoll & Island:</span> {selectedOrder.boatAtollIsland}</p>}
                                         </div>
+                                      </div>
+                                    )}
+                                    {selectedOrder.notes && (
+                                      <div className="p-3 bg-amber-50 border border-amber-200 rounded">
+                                        <p className="text-xs uppercase tracking-widest text-amber-700 font-semibold mb-1">Customer Notes</p>
+                                        <p className="text-sm text-amber-900">{selectedOrder.notes}</p>
                                       </div>
                                     )}
                                     <div>
