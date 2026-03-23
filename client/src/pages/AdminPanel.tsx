@@ -2660,7 +2660,12 @@ export default function AdminPanel() {
                     className="rounded-none"
                     onClick={() => {
                       setPosViewMode("history");
-                      api.getAllPosTransactions().then(setPosTransactions);
+                      api.getAllPosTransactions()
+                        .then(data => {
+                          if (Array.isArray(data)) setPosTransactions(data);
+                          else setPosTransactions([]);
+                        })
+                        .catch(() => setPosTransactions([]));
                     }}
                   >
                     <FileText size={16} className="mr-2" /> Transaction History
