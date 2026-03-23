@@ -291,9 +291,7 @@ export class DatabaseStorage implements IStorage {
 
   async getNextInvoiceNumber(): Promise<string> {
     const rows = await db.execute(
-      sql`SELECT invoice_number FROM orders WHERE invoice_number IS NOT NULL
-          UNION ALL
-          SELECT invoice_number FROM pos_transactions WHERE invoice_number IS NOT NULL`
+      sql`SELECT invoice_number FROM orders WHERE invoice_number IS NOT NULL`
     );
     let maxSeq = 10000;
     for (const row of rows.rows as any[]) {

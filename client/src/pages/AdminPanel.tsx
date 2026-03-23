@@ -3528,7 +3528,7 @@ export default function AdminPanel() {
             <div className="animate-in fade-in duration-500">
               <div className="mb-8">
                 <h1 className="text-3xl font-serif">Transactions</h1>
-                <p className="text-muted-foreground">Invoiced storefront orders — auto-created on payment verification</p>
+                <p className="text-muted-foreground">Invoiced storefront orders — auto-created when order is confirmed</p>
               </div>
 
               {(() => {
@@ -3547,7 +3547,7 @@ export default function AdminPanel() {
                       <CardContent className="p-12 text-center">
                         <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                         <p className="text-muted-foreground">No transactions yet.</p>
-                        <p className="text-sm text-muted-foreground mt-1">Invoices are created automatically when an order is set to <strong>Payment Verified</strong> or <strong>Order Verified</strong>.</p>
+                        <p className="text-sm text-muted-foreground mt-1">Invoices are created automatically when an order is set to <strong>Confirmed</strong>.</p>
                       </CardContent>
                     </Card>
                   );
