@@ -405,9 +405,13 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/pos/track/:transactionNumber", async (req, res) => {
+  app.get("/api/pos/track/:number", async (req, res) => {
     try {
-      const transaction = await storage.getPosTransactionByNumber(req.params.transactionNumber);
+      const num = req.params.number;
+      let transaction = await storage.getPosTransactionByNumber(num);
+      if (!transaction) {
+        transaction = await storage.getPosTransactionByTrackingNumber(num);
+      }
       if (transaction) {
         res.json(transaction);
       } else {
@@ -699,9 +703,14 @@ export async function registerRoutes(
       const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
       const transactionNumber = `POS-${dateStr}-${timeStr}-${randomSuffix}`;
 
+      // Generate clean tracking number: IH + 8 uppercase alphanumeric chars
+      const trackingChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      const trackingNumber = 'IH' + Array.from({ length: 8 }, () => trackingChars[Math.floor(Math.random() * trackingChars.length)]).join('');
+
       // Manually construct the transaction data to avoid drizzle-zod pattern issues
       const data = {
         transactionNumber,
+        trackingNumber,
         items: req.body.items,
         subtotal: Number(req.body.subtotal) || 0,
         discount: Number(req.body.discount) || 0,

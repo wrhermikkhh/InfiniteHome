@@ -76,6 +76,7 @@ export interface IStorage {
   getAllPosTransactions(): Promise<PosTransaction[]>;
   getPosTransaction(id: string): Promise<PosTransaction | undefined>;
   getPosTransactionByNumber(transactionNumber: string): Promise<PosTransaction | undefined>;
+  getPosTransactionByTrackingNumber(trackingNumber: string): Promise<PosTransaction | undefined>;
   createPosTransaction(transaction: InsertPosTransaction): Promise<PosTransaction>;
   updatePosTransaction(id: string, data: Partial<InsertPosTransaction>): Promise<PosTransaction | undefined>;
   getTodayPosTransactions(): Promise<PosTransaction[]>;
@@ -372,6 +373,11 @@ export class DatabaseStorage implements IStorage {
 
   async getPosTransactionByNumber(transactionNumber: string): Promise<PosTransaction | undefined> {
     const [transaction] = await db.select().from(posTransactions).where(eq(posTransactions.transactionNumber, transactionNumber));
+    return transaction || undefined;
+  }
+
+  async getPosTransactionByTrackingNumber(trackingNumber: string): Promise<PosTransaction | undefined> {
+    const [transaction] = await db.select().from(posTransactions).where(eq(posTransactions.trackingNumber, trackingNumber));
     return transaction || undefined;
   }
 

@@ -193,6 +193,7 @@ type Order = typeof orders.$inferSelect;
 const posTransactions = pgTable("pos_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   transactionNumber: text("transaction_number").notNull().unique(),
+  trackingNumber: text("tracking_number").unique(),
   items: jsonb("items").$type<{ productId: string; name: string; qty: number; price: number; color?: string; size?: string }[]>().notNull(),
   subtotal: real("subtotal").notNull(),
   discount: real("discount").default(0),
@@ -619,6 +620,11 @@ class DatabaseStorage {
 
   async getPosTransactionByNumber(transactionNumber: string): Promise<PosTransaction | undefined> {
     const [transaction] = await this.getDb().select().from(posTransactions).where(eq(posTransactions.transactionNumber, transactionNumber));
+    return transaction || undefined;
+  }
+
+  async getPosTransactionByTrackingNumber(trackingNumber: string): Promise<PosTransaction | undefined> {
+    const [transaction] = await this.getDb().select().from(posTransactions).where(eq(posTransactions.trackingNumber, trackingNumber));
     return transaction || undefined;
   }
 
@@ -1316,9 +1322,13 @@ app.get("/api/orders/track/:orderNumber", async (req, res) => {
   }
 });
 
-app.get("/api/pos/track/:transactionNumber", async (req, res) => {
+app.get("/api/pos/track/:number", async (req, res) => {
   try {
-    const transaction = await storage.getPosTransactionByNumber(req.params.transactionNumber);
+    const num = req.params.number;
+    let transaction = await storage.getPosTransactionByNumber(num);
+    if (!transaction) {
+      transaction = await storage.getPosTransactionByTrackingNumber(num);
+    }
     if (transaction) {
       res.json(transaction);
     } else {
@@ -1795,9 +1805,14 @@ app.post("/api/pos/transactions", async (req, res) => {
     const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     const transactionNumber = `POS-${dateStr}-${timeStr}-${randomSuffix}`;
 
+    // Generate clean tracking number: IH + 8 uppercase alphanumeric chars
+    const trackingChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const trackingNumber = 'IH' + Array.from({ length: 8 }, () => trackingChars[Math.floor(Math.random() * trackingChars.length)]).join('');
+
     // Manually construct the transaction data
     const data = {
       transactionNumber,
+      trackingNumber,
       items: req.body.items,
       subtotal: Number(req.body.subtotal) || 0,
       discount: Number(req.body.discount) || 0,

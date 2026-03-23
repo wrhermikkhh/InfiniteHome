@@ -114,6 +114,7 @@ export const products = pgTable("products", {
 export const posTransactions = pgTable("pos_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   transactionNumber: text("transaction_number").notNull().unique(),
+  trackingNumber: text("tracking_number").unique(),
   items: jsonb("items").$type<{ productId: string; name: string; qty: number; price: number; color?: string; size?: string }[]>().notNull(),
   subtotal: real("subtotal").notNull(),
   discount: real("discount").default(0),
@@ -138,6 +139,7 @@ export const insertPosTransactionSchema = createInsertSchema(posTransactions).om
   cashierId: z.string().min(1),
   cashierName: z.string().min(1),
   transactionNumber: z.string().min(1),
+  trackingNumber: z.string().optional().nullable(),
   items: z.array(z.object({
     productId: z.string(),
     name: z.string(),

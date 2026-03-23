@@ -894,14 +894,15 @@ export default function AdminPanel() {
       ? new Date(selectedTransaction.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
       : '';
 
-    const safeRef = escJs(selectedTransaction.transactionNumber);
+    const cleanTrackingNumber = selectedTransaction.trackingNumber || selectedTransaction.transactionNumber;
+    const safeRef = escJs(cleanTrackingNumber);
     const fullAddress = posLabelForm.atollIsland
       ? `${posLabelForm.streetAddress}, ${posLabelForm.atollIsland}`
       : posLabelForm.streetAddress;
 
     let qrCodeBase64 = '';
     try {
-      const trackingUrl = `${window.location.origin}/track?order=${selectedTransaction.transactionNumber}`;
+      const trackingUrl = `${window.location.origin}/track?order=${cleanTrackingNumber}`;
       const response = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(trackingUrl)}`);
       const blob = await response.blob();
       qrCodeBase64 = await new Promise<string>((resolve) => {
@@ -965,7 +966,7 @@ export default function AdminPanel() {
               </div>
               <div class="top-right">
                 ${qrCodeBase64 ? `<img src="${qrCodeBase64}" alt="QR" class="qr-img">` : ''}
-                <div class="order-ref">${escHtml(selectedTransaction.transactionNumber)}</div>
+                <div class="order-ref">${escHtml(cleanTrackingNumber)}</div>
                 <div class="order-date">${escHtml(txDate)}</div>
               </div>
             </div>
@@ -993,9 +994,9 @@ export default function AdminPanel() {
             <div class="payment-info">Payment: ${escHtml(selectedTransaction.paymentMethod)}</div>
           </div>
           <div class="tracking-section">
-            <div class="tracking-label">Reference #</div>
+            <div class="tracking-label">Tracking #</div>
             <div class="barcode-container"><svg id="barcode"></svg></div>
-            <div class="tracking-number">${escHtml(selectedTransaction.transactionNumber)}</div>
+            <div class="tracking-number">${escHtml(cleanTrackingNumber)}</div>
           </div>
         </div>
         <script>
@@ -3010,7 +3011,12 @@ export default function AdminPanel() {
                           ) : (
                             posTransactions.map((tx: any) => (
                               <tr key={tx.id} className="hover:bg-secondary/10">
-                                <td className="p-4 font-mono text-sm">{tx.transactionNumber}</td>
+                                <td className="p-4 font-mono text-sm">
+                                  {tx.trackingNumber && (
+                                    <span className="block font-bold text-primary">{tx.trackingNumber}</span>
+                                  )}
+                                  <span className="text-xs text-muted-foreground">{tx.transactionNumber}</span>
+                                </td>
                                 <td className="p-4 text-sm">
                                   {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : "-"}
                                   <br />
