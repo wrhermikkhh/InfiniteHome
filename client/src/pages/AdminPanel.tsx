@@ -497,6 +497,56 @@ export default function AdminPanel() {
     setSavingPosNote(false);
   };
 
+  const handlePrintOrderInvoice = (order: typeof orders[0]) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    const esc = (s: string) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const items = (order.items as any[]) || [];
+    const subtotal = items.reduce((s: number, i: any) => s + (i.price || 0) * (i.qty || 1), 0);
+    const invoiceDate = order.invoicedAt ? new Date(order.invoicedAt) : new Date(order.createdAt || '');
+    const dateStr = invoiceDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const rowsHtml = items.map((item: any) => `
+      <tr>
+        <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;">${esc(item.name)}${item.size && item.size !== 'Standard' ? ` <span style="color:#78716c;font-size:12px;">(${esc(item.size)})</span>` : ''}${item.color && item.color !== 'Default' ? ` <span style="color:#78716c;font-size:12px;">– ${esc(item.color)}</span>` : ''}</td>
+        <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;text-align:center;">${item.qty}</td>
+        <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;text-align:right;">MVR ${Number(item.price || 0).toLocaleString()}</td>
+        <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;text-align:right;">MVR ${(Number(item.price || 0) * Number(item.qty || 1)).toLocaleString()}</td>
+      </tr>`).join('');
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Invoice ${esc(order.invoiceNumber || '')}</title>
+      <style>@page{size:A4;margin:20mm 15mm;}*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1c1917;font-size:14px;line-height:1.5;}</style>
+    </head><body>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1c1917;padding-bottom:20px;margin-bottom:28px;">
+        <div><div style="font-size:24px;font-weight:300;letter-spacing:4px;">INFINITE HOME</div><div style="font-size:11px;color:#78716c;letter-spacing:2px;margin-top:4px;">PREMIUM LIVING</div></div>
+        <div style="text-align:right;"><div style="font-size:22px;font-weight:300;letter-spacing:3px;">INVOICE</div><div style="font-family:monospace;font-size:14px;font-weight:700;margin-top:4px;">${esc(order.invoiceNumber || '')}</div><div style="font-size:12px;color:#78716c;margin-top:2px;">${dateStr}</div></div>
+      </div>
+      <div style="display:flex;gap:40px;margin-bottom:28px;">
+        <div style="flex:1;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#78716c;margin-bottom:6px;">Bill To</div><div style="font-weight:600;">${esc(order.customerName)}</div><div style="color:#57534e;">${esc(order.customerEmail || '')}</div><div style="color:#57534e;">${esc(order.customerPhone || '')}</div></div>
+        <div><div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#78716c;margin-bottom:6px;">Order Details</div><div><span style="color:#78716c;">Order #</span> <span style="font-family:monospace;font-weight:600;">${esc(order.orderNumber)}</span></div><div style="margin-top:2px;"><span style="color:#78716c;">Payment</span> <span style="font-weight:500;">${esc(order.paymentMethod || '')}</span></div></div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+        <thead><tr style="background:#f5f5f4;">
+          <th style="padding:10px 8px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Item</th>
+          <th style="padding:10px 8px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Qty</th>
+          <th style="padding:10px 8px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Price</th>
+          <th style="padding:10px 8px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Total</th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:40px;">
+        <div style="width:240px;">
+          <div style="display:flex;justify-content:space-between;padding:6px 0;color:#57534e;"><span>Subtotal</span><span>MVR ${subtotal.toLocaleString()}</span></div>
+          ${order.discount ? `<div style="display:flex;justify-content:space-between;padding:6px 0;color:#16a34a;"><span>Discount</span><span>-MVR ${Number(order.discount).toLocaleString()}</span></div>` : ''}
+          ${order.shipping ? `<div style="display:flex;justify-content:space-between;padding:6px 0;color:#57534e;"><span>Shipping</span><span>MVR ${Number(order.shipping).toLocaleString()}</span></div>` : ''}
+          <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid #1c1917;margin-top:6px;font-weight:700;font-size:16px;"><span>Total</span><span>MVR ${Number(order.total).toLocaleString()}</span></div>
+        </div>
+      </div>
+      <div style="border-top:1px solid #e7e5e4;padding-top:16px;text-align:center;color:#78716c;font-size:11px;letter-spacing:1px;">THANK YOU FOR SHOPPING WITH INFINITE HOME</div>
+    </body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+  };
+
   const handlePrintLabel = async () => {
     if (!selectedOrder) return;
     const printWindow = window.open('', '_blank');
@@ -3594,32 +3644,15 @@ export default function AdminPanel() {
                               {/* Total */}
                               <div className="text-sm font-semibold">MVR {order.total.toLocaleString()}</div>
 
-                              {/* Delivery status */}
+                              {/* Delivery status — read only, change from Orders tab */}
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-muted-foreground uppercase tracking-wide">Delivery:</span>
                                 {order.deliveryStatus ? (
-                                  <select
-                                    data-testid={`select-delivery-status-${order.id}`}
-                                    className={`text-xs font-semibold px-2 py-1.5 border rounded-none outline-none cursor-pointer ${deliveryStatusColors[order.deliveryStatus] || "bg-secondary/20 text-foreground border-border"}`}
-                                    value={order.deliveryStatus}
-                                    onChange={async (e) => {
-                                      const newStatus = e.target.value;
-                                      try {
-                                        const updated = await api.updateOrderDeliveryStatus(order.id, newStatus);
-                                        setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
-                                      } catch {
-                                        toast({ title: "Error", description: "Failed to update delivery status", variant: "destructive" });
-                                      }
-                                    }}
-                                  >
-                                    <option value="label_created">Label Created</option>
-                                    <option value="processing">Processing</option>
-                                    <option value="out_for_delivery">Out for Delivery</option>
-                                    <option value="delivered">Delivered</option>
-                                    <option value="failed">Failed</option>
-                                  </select>
+                                  <span className={`text-xs font-semibold px-2 py-1 border ${deliveryStatusColors[order.deliveryStatus] || "bg-secondary/20 text-foreground border-border"}`}>
+                                    {order.deliveryStatus.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                                  </span>
                                 ) : (
-                                  <span className="text-xs text-muted-foreground italic">No label yet — print label to begin</span>
+                                  <span className="text-xs text-muted-foreground italic">No label yet</span>
                                 )}
                               </div>
                             </div>
@@ -3635,6 +3668,16 @@ export default function AdminPanel() {
                               >
                                 <Printer className="h-3.5 w-3.5 mr-1.5" />
                                 Label
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-none text-xs uppercase tracking-widest"
+                                data-testid={`button-print-invoice-${order.id}`}
+                                onClick={() => handlePrintOrderInvoice(order)}
+                              >
+                                <Printer className="h-3.5 w-3.5 mr-1.5" />
+                                Invoice
                               </Button>
                               <Button
                                 variant="default"
