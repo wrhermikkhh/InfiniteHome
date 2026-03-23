@@ -190,6 +190,7 @@ function getStatusBadge(status: OrderStatus): { bg: string; text: string } {
 export default function OrderTracking() {
   const [orderNumber, setOrderNumber] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
+  const [posTransaction, setPosTransaction] = useState<any | null>(null);
   const [trackingSteps, setTrackingSteps] = useState<TrackingStep[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -206,28 +207,33 @@ export default function OrderTracking() {
 
   const fetchOrder = async (num: string) => {
     if (!num.trim()) return;
-    
     setLoading(true);
     setError("");
-    
+    setOrder(null);
+    setPosTransaction(null);
+    setTrackingSteps(null);
+
     try {
       const res = await fetch(`/api/orders/track/${num}`);
-      if (!res.ok) {
-        setError("Order not found. Please check your order number and try again.");
-        setOrder(null);
-        setTrackingSteps(null);
-      } else {
+      if (res.ok) {
         const orderData = await res.json();
         setOrder(orderData);
         setTrackingSteps(getTrackingSteps(orderData.status, orderData.statusHistory, orderData.createdAt));
+        return;
       }
-    } catch (err) {
-      setError("Unable to fetch order details. Please try again later.");
-      setOrder(null);
-      setTrackingSteps(null);
-    } finally {
-      setLoading(false);
-    }
+    } catch {}
+
+    try {
+      const posRes = await fetch(`/api/pos/track/${num}`);
+      if (posRes.ok) {
+        const txData = await posRes.json();
+        setPosTransaction(txData);
+        return;
+      }
+    } catch {}
+
+    setError("Order not found. Please check your order number and try again.");
+    setLoading(false);
   };
 
   const handleTrack = () => {
@@ -451,7 +457,64 @@ export default function OrderTracking() {
           </div>
         )}
 
-        {!order && !loading && !error && (
+        {posTransaction && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+            <div className="bg-white border border-border shadow-lg rounded-sm overflow-hidden">
+              <div className="bg-gradient-to-r from-primary/5 to-primary/10 p-6 border-b border-border">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Reference Number</p>
+                    <p className="text-2xl font-serif font-semibold">{posTransaction.transactionNumber}</p>
+                  </div>
+                  <div className="px-4 py-2 rounded-full font-semibold text-sm uppercase tracking-wide bg-green-100 text-green-800">
+                    {posTransaction.status || "Completed"}
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="flex items-start gap-4">
+                  <div className="bg-primary/10 p-3 rounded-full shrink-0">
+                    <Package className="text-primary" size={22} />
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Items</p>
+                    <p className="font-medium">{posTransaction.items?.length || 0} item{(posTransaction.items?.length || 0) !== 1 ? 's' : ''}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="bg-primary/10 p-3 rounded-full shrink-0">
+                    <Clock className="text-primary" size={22} />
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Transaction Date</p>
+                    <p className="font-medium">{posTransaction.createdAt ? formatGMT5(posTransaction.createdAt) : ""}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="bg-primary/10 p-3 rounded-full shrink-0">
+                    <CreditCard className="text-primary" size={22} />
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Payment</p>
+                    <p className="font-medium capitalize">{posTransaction.paymentMethod}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="px-6 pb-6">
+                <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-3">Items Purchased</p>
+                <div className="space-y-2">
+                  {posTransaction.items?.map((item: any, i: number) => (
+                    <div key={i} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
+                      <span>{item.qty}x {item.name}{item.size && item.size !== 'Standard' ? ` (${item.size})` : ''}{item.color && item.color !== 'Default' ? ` — ${item.color}` : ''}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!order && !posTransaction && !loading && !error && (
           <div className="text-center py-16">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-muted rounded-full mb-6">
               <Package className="text-muted-foreground" size={40} />

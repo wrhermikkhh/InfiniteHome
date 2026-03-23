@@ -617,6 +617,11 @@ class DatabaseStorage {
     return transaction || undefined;
   }
 
+  async getPosTransactionByNumber(transactionNumber: string): Promise<PosTransaction | undefined> {
+    const [transaction] = await this.getDb().select().from(posTransactions).where(eq(posTransactions.transactionNumber, transactionNumber));
+    return transaction || undefined;
+  }
+
   async getTodayPosTransactions(): Promise<PosTransaction[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1308,6 +1313,19 @@ app.get("/api/orders/track/:orderNumber", async (req, res) => {
     res.json(order);
   } else {
     res.status(404).json({ message: "Order not found" });
+  }
+});
+
+app.get("/api/pos/track/:transactionNumber", async (req, res) => {
+  try {
+    const transaction = await storage.getPosTransactionByNumber(req.params.transactionNumber);
+    if (transaction) {
+      res.json(transaction);
+    } else {
+      res.status(404).json({ message: "Transaction not found" });
+    }
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
 });
 

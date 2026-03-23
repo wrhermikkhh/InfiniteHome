@@ -405,6 +405,19 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/pos/track/:transactionNumber", async (req, res) => {
+    try {
+      const transaction = await storage.getPosTransactionByNumber(req.params.transactionNumber);
+      if (transaction) {
+        res.json(transaction);
+      } else {
+        res.status(404).json({ message: "Transaction not found" });
+      }
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   app.post("/api/orders", async (req, res) => {
     try {
       const items = req.body.items as { productId?: string; name: string; qty: number; price: number; color?: string; size?: string }[];

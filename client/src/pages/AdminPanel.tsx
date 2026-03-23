@@ -901,7 +901,8 @@ export default function AdminPanel() {
 
     let qrCodeBase64 = '';
     try {
-      const response = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(selectedTransaction.transactionNumber)}`);
+      const trackingUrl = `${window.location.origin}/track?order=${selectedTransaction.transactionNumber}`;
+      const response = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(trackingUrl)}`);
       const blob = await response.blob();
       qrCodeBase64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
