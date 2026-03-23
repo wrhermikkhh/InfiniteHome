@@ -121,6 +121,7 @@ export const posTransactions = pgTable("pos_transactions", {
   labelPhone: text("label_phone"),
   labelDeliveryType: text("label_delivery_type"),
   deliveryStatus: text("delivery_status"),
+  deliveryStatusHistory: jsonb("delivery_status_history").$type<{ status: string; timestamp: string }[]>().default([]), // tracks delivery status changes with timestamps
   adminNote: text("admin_note"), // Optional note shown on tracking page
   items: jsonb("items").$type<{ productId: string; name: string; qty: number; price: number; color?: string; size?: string }[]>().notNull(),
   subtotal: real("subtotal").notNull(),
@@ -210,8 +211,9 @@ export const orders = pgTable("orders", {
   statusHistory: jsonb("status_history").$type<{ status: string; timestamp: string }[]>().default([]), // tracks all status changes with timestamps
   trackingNumber: text("tracking_number").unique(),
   deliveryStatus: text("delivery_status"), // label_created, processing, out_for_delivery, delivered, failed
+  deliveryStatusHistory: jsonb("delivery_status_history").$type<{ status: string; timestamp: string }[]>().default([]), // tracks delivery status changes with timestamps
   adminNote: text("admin_note"), // Optional admin note shown on tracking page
-  invoiceNumber: text("invoice_number").unique(), // auto-generated on payment_verified/order_verified
+  invoiceNumber: text("invoice_number").unique(), // auto-generated on confirmation
   invoicedAt: timestamp("invoiced_at"), // timestamp when invoice was created
   couponCode: text("coupon_code"),
   createdAt: timestamp("created_at").defaultNow(),

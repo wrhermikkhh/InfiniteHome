@@ -63,6 +63,7 @@ export interface IStorage {
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
   updateOrderDeliveryStatus(id: string, deliveryStatus: string): Promise<Order | undefined>;
   invoiceOrder(id: string, invoiceNumber: string): Promise<Order | undefined>;
+  getNextInvoiceNumber(): Promise<string>;
   updateOrderAdminNote(id: string, adminNote: string | null): Promise<Order | undefined>;
   getOrderByTrackingNumber(trackingNumber: string): Promise<Order | undefined>;
   
@@ -273,13 +274,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateOrderDeliveryStatus(id: string, deliveryStatus: string): Promise<Order | undefined> {
-    const [updated] = await db.update(orders).set({ deliveryStatus }).where(eq(orders.id, id)).returning();
+    const existing = await this.getOrder(id);
+    const history: { status: string; timestamp: string }[] = existing?.deliveryStatusHistory as any || [];
+    const newEntry = { status: deliveryStatus, timestamp: new Date().toISOString() };
+    const [updated] = await db.update(orders)
+      .set({ deliveryStatus, deliveryStatusHistory: [...history, newEntry] })
+      .where(eq(orders.id, id))
+      .returning();
     return updated || undefined;
   }
 
   async invoiceOrder(id: string, invoiceNumber: string): Promise<Order | undefined> {
     const [updated] = await db.update(orders).set({ invoiceNumber, invoicedAt: new Date() }).where(eq(orders.id, id)).returning();
     return updated || undefined;
+  }
+
+  async getNextInvoiceNumber(): Promise<string> {
+    const rows = await db.execute(
+      sql`SELECT invoice_number FROM orders WHERE invoice_number IS NOT NULL
+          UNION ALL
+          SELECT invoice_number FROM pos_transactions WHERE invoice_number IS NOT NULL`
+    );
+    let maxSeq = 10000;
+    for (const row of rows.rows as any[]) {
+      const inv: string = row.invoice_number || "";
+      const match = inv.match(/INV-\d{8}-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxSeq) maxSeq = num;
+      }
+    }
+    const now = new Date();
+    const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    return `INV-${date}-${maxSeq + 1}`;
   }
 
   async updateOrderAdminNote(id: string, adminNote: string | null): Promise<Order | undefined> {
@@ -420,7 +447,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePosTransaction(id: string, data: Partial<InsertPosTransaction>): Promise<PosTransaction | undefined> {
-    const [updated] = await db.update(posTransactions).set(data).where(eq(posTransactions.id, id)).returning();
+    let finalData: any = { ...data };
+    if (data.deliveryStatus !== undefined) {
+      const existing = await this.getPosTransaction(id);
+      const history: { status: string; timestamp: string }[] = (existing as any)?.deliveryStatusHistory || [];
+      finalData.deliveryStatusHistory = [...history, { status: data.deliveryStatus, timestamp: new Date().toISOString() }];
+    }
+    const [updated] = await db.update(posTransactions).set(finalData).where(eq(posTransactions.id, id)).returning();
     return updated || undefined;
   }
 

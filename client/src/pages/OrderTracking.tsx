@@ -148,7 +148,8 @@ function buildOrderTimeline(
   rawStatus: string,
   statusHistory?: { status: string; timestamp: string }[],
   createdAt?: string,
-  deliveryStatus?: string | null
+  deliveryStatus?: string | null,
+  deliveryStatusHistory?: { status: string; timestamp: string }[]
 ): TrackingStep[] {
   const history = statusHistory || [];
   const steps: TrackingStep[] = [];
@@ -189,9 +190,11 @@ function buildOrderTimeline(
   if (deliveryStatus) {
     const isFailed = deliveryStatus === "failed";
     const currentDeliveryIdx = isFailed ? -1 : DELIVERY_ORDER.indexOf(deliveryStatus);
+    const dHistory = deliveryStatusHistory || [];
 
     DELIVERY_ORDER.forEach((key, idx) => {
       const cfg = deliveryStepConfig[key];
+      const histEntry = dHistory.find(h => h.status === key);
       steps.push({
         status: key,
         label: cfg.label,
@@ -200,13 +203,14 @@ function buildOrderTimeline(
         isCompleted: !isFailed && idx < currentDeliveryIdx,
         isCurrent: !isFailed && idx === currentDeliveryIdx,
         isException: false,
-        timestamp: undefined,
+        timestamp: histEntry?.timestamp,
         isDeliveryStep: true,
       });
     });
 
     if (isFailed) {
       const cfg = deliveryStepConfig.failed;
+      const histEntry = dHistory.find(h => h.status === "failed");
       steps.push({
         status: "failed",
         label: cfg.label,
@@ -215,7 +219,7 @@ function buildOrderTimeline(
         isCompleted: false,
         isCurrent: true,
         isException: true,
-        timestamp: undefined,
+        timestamp: histEntry?.timestamp,
         isDeliveryStep: true,
       });
     }
@@ -224,13 +228,15 @@ function buildOrderTimeline(
   return steps;
 }
 
-function buildPosTimeline(deliveryStatus?: string | null): TrackingStep[] {
+function buildPosTimeline(deliveryStatus?: string | null, deliveryStatusHistory?: { status: string; timestamp: string }[]): TrackingStep[] {
   if (!deliveryStatus) return [];
   const isFailed = deliveryStatus === "failed";
   const currentDeliveryIdx = isFailed ? -1 : DELIVERY_ORDER.indexOf(deliveryStatus);
+  const dHistory = deliveryStatusHistory || [];
 
   const steps: TrackingStep[] = DELIVERY_ORDER.map((key, idx) => {
     const cfg = deliveryStepConfig[key];
+    const histEntry = dHistory.find(h => h.status === key);
     return {
       status: key,
       label: cfg.label,
@@ -239,13 +245,14 @@ function buildPosTimeline(deliveryStatus?: string | null): TrackingStep[] {
       isCompleted: !isFailed && idx < currentDeliveryIdx,
       isCurrent: !isFailed && idx === currentDeliveryIdx,
       isException: false,
-      timestamp: undefined,
+      timestamp: histEntry?.timestamp,
       isDeliveryStep: true,
     };
   });
 
   if (isFailed) {
     const cfg = deliveryStepConfig.failed;
+    const histEntry = dHistory.find(h => h.status === "failed");
     steps.push({
       status: "failed",
       label: cfg.label,
@@ -254,7 +261,7 @@ function buildPosTimeline(deliveryStatus?: string | null): TrackingStep[] {
       isCompleted: false,
       isCurrent: true,
       isException: true,
-      timestamp: undefined,
+      timestamp: histEntry?.timestamp,
       isDeliveryStep: true,
     });
   }
@@ -439,7 +446,7 @@ export default function OrderTracking() {
 
         {/* ── Storefront order ── */}
         {order && (() => {
-          const steps = buildOrderTimeline(order.status, (order as any).statusHistory, (order as any).createdAt, (order as any).deliveryStatus);
+          const steps = buildOrderTimeline(order.status, (order as any).statusHistory, (order as any).createdAt, (order as any).deliveryStatus, (order as any).deliveryStatusHistory);
           const adminNote = (order as any).adminNote;
           return (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
@@ -535,7 +542,7 @@ export default function OrderTracking() {
         {/* ── POS delivery order ── */}
         {posTransaction && (() => {
           const deliveryStatus = posTransaction.deliveryStatus || "label_created";
-          const steps = buildPosTimeline(deliveryStatus);
+          const steps = buildPosTimeline(deliveryStatus, posTransaction.deliveryStatusHistory);
           const trackingNum = posTransaction.trackingNumber || posTransaction.transactionNumber.replace(/^POS-/, "").replace(/-/g, "");
           const adminNote = posTransaction.adminNote;
           const deliveryStatusLabel: Record<string, string> = {
