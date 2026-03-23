@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema, insertPosTransactionSchema } from "@shared/schema";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { sendOrderConfirmationEmail, sendOrderStatusEmail, sendPosLabelEmail } from "./lib/email";
+import { sendOrderConfirmationEmail, sendOrderStatusEmail, sendOrderLabelEmail, sendPosLabelEmail } from "./lib/email";
 import { hashPassword, comparePasswords } from "./auth";
 
 export async function registerRoutes(
@@ -607,8 +607,13 @@ export async function registerRoutes(
   app.patch("/api/orders/:id/delivery-status", async (req, res) => {
     try {
       const { deliveryStatus } = req.body;
+      const prevOrder = await storage.getOrder(req.params.id);
       const order = await storage.updateOrderDeliveryStatus(req.params.id, deliveryStatus);
       if (order) {
+        // Send label email to customer the first time a shipping label is created
+        if (deliveryStatus === 'label_created' && prevOrder?.deliveryStatus !== 'label_created') {
+          sendOrderLabelEmail(order).catch(err => console.error('Order label email failed:', err));
+        }
         res.json(order);
       } else {
         res.status(404).json({ message: "Order not found" });
