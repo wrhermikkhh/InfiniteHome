@@ -1930,6 +1930,49 @@ function injectOg(html: string, og: { title: string; description: string; image:
     .replace(/<meta name="twitter:image"[^>]*\/?>/, `<meta name="twitter:image" content="${e(og.image)}" />`);
 }
 
+app.get("/track", async (req, res) => {
+  const baseHtml = getBaseHtml();
+  if (!baseHtml) return res.redirect(302, "/");
+
+  const orderNum = (req.query.order as string) || "";
+  let og = {
+    title: "Order Tracking - INFINITE HOME",
+    description: "Track your INFINITE HOME order or delivery in real time.",
+    image: "https://infinitehome.mv/opengraph.jpg",
+    url: `https://infinitehome.mv/track${orderNum ? `?order=${orderNum}` : ""}`,
+  };
+
+  if (orderNum) {
+    // Try regular order first
+    try {
+      const order = await storage.getOrderByNumber(orderNum);
+      if (order) {
+        og.title = `Order #${orderNum} - INFINITE HOME`;
+        og.description = `Track your order of ${order.items?.length || 1} item(s). Current status: ${(order.status || "").replace(/_/g, " ")}.`;
+      }
+    } catch {}
+
+    // Try POS transaction
+    if (og.title === "Order Tracking - INFINITE HOME") {
+      try {
+        let tx = await storage.getPosTransactionByNumber(orderNum);
+        if (!tx) tx = await storage.getPosTransactionByTrackingNumber(orderNum);
+        if (tx) {
+          const trackNum = (tx as any).trackingNumber || tx.transactionNumber.replace(/^POS-/, "").replace(/-/g, "");
+          const status = ((tx as any).deliveryStatus || "").replace(/_/g, " ") || "label created";
+          og.title = `Tracking #${trackNum} - INFINITE HOME`;
+          og.description = `Delivery status: ${status}. Track your INFINITE HOME delivery in real time.`;
+        }
+      } catch {}
+    }
+  }
+
+  const html = injectOg(baseHtml, og);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=30");
+  res.send(html);
+});
+
 app.get("/product/:id", async (req, res) => {
   const baseHtml = getBaseHtml();
   if (!baseHtml) {

@@ -18,6 +18,10 @@
       "destination": "/api/index"
     },
     {
+      "source": "/track",
+      "destination": "/api/index"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
