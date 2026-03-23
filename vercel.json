@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npx vite build",
+  "buildCommand": "npx vite build && cp dist/public/index.html api/template.html",
   "outputDirectory": "dist/public",
   "installCommand": "npm install",
   "framework": null,
@@ -11,6 +11,10 @@
     },
     {
       "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/product/:id",
       "destination": "/api/index"
     },
     {

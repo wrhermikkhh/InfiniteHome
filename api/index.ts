@@ -9,6 +9,8 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 // ============ PASSWORD HASHING ============
 const scryptAsync = promisify(scrypt);
@@ -1898,6 +1900,61 @@ app.get("/api/pos/stats/today", async (req, res) => {
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
+});
+
+// ============ PRODUCT PAGE OG TAG INJECTION ============
+
+// Template is copied to api/template.html during build (vercel.json buildCommand)
+let _baseHtml = "";
+function getBaseHtml(): string {
+  if (_baseHtml) return _baseHtml;
+  for (const p of [
+    join(process.cwd(), "api", "template.html"),
+    join(process.cwd(), "dist", "public", "index.html"),
+  ]) {
+    try { _baseHtml = readFileSync(p, "utf-8"); return _baseHtml; } catch {}
+  }
+  return "";
+}
+
+function injectOg(html: string, og: { title: string; description: string; image: string; url: string }): string {
+  const e = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return html
+    .replace(/<title>[^<]*<\/title>/, `<title>${e(og.title)}</title>`)
+    .replace(/<meta property="og:title"[^>]*\/?>/, `<meta property="og:title" content="${e(og.title)}" />`)
+    .replace(/<meta property="og:description"[^>]*\/?>/, `<meta property="og:description" content="${e(og.description)}" />`)
+    .replace(/<meta property="og:image"[^>]*\/?>/, `<meta property="og:image" content="${e(og.image)}" />`)
+    .replace(/<meta property="og:url"[^>]*\/?>/, `<meta property="og:url" content="${e(og.url)}" />`)
+    .replace(/<meta name="twitter:title"[^>]*\/?>/, `<meta name="twitter:title" content="${e(og.title)}" />`)
+    .replace(/<meta name="twitter:description"[^>]*\/?>/, `<meta name="twitter:description" content="${e(og.description)}" />`)
+    .replace(/<meta name="twitter:image"[^>]*\/?>/, `<meta name="twitter:image" content="${e(og.image)}" />`);
+}
+
+app.get("/product/:id", async (req, res) => {
+  const baseHtml = getBaseHtml();
+  if (!baseHtml) {
+    // Template not available — serve home page (safe fallback, never loops)
+    return res.redirect(302, "/");
+  }
+  const og = {
+    title: "INFINITE HOME - Premium Bedding, Furniture & Home Appliances",
+    description: "Shop premium bedding, luxury furniture, and home appliances at INFINITE HOME. Free delivery across Maldives.",
+    image: "https://infinitehome.mv/opengraph.jpg",
+    url: `https://infinitehome.mv/product/${req.params.id}`,
+  };
+  try {
+    const product = await storage.getProduct(req.params.id);
+    if (product) {
+      const images = Array.isArray(product.images) ? product.images as string[] : [];
+      og.title = `${product.name} - INFINITE HOME`;
+      og.description = ((product.description as string) || og.description).replace(/<[^>]+>/g, "").slice(0, 200);
+      if (images.length > 0) og.image = images[0];
+    }
+  } catch {}
+  const html = injectOg(baseHtml, og);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
+  res.send(html);
 });
 
 // ============ VERCEL HANDLER ============
