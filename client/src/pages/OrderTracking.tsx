@@ -58,6 +58,11 @@ const statusConfig: Record<string, { label: string; description: string; icon: R
     description: "Your order has been confirmed and payment verified.",
     icon: <CheckCircle2 size={20} />,
   },
+  label_generated: {
+    label: "Label Generated",
+    description: "A shipping label has been generated for your order and it is being prepared for dispatch.",
+    icon: <Tag size={20} />,
+  },
   processing: {
     label: "Processing",
     description: "Your items are being carefully packed and prepared for shipment.",

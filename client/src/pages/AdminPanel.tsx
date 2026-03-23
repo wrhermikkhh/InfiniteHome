@@ -417,6 +417,7 @@ export default function AdminPanel() {
   const orderStatuses = [
     "pending",
     "confirmed",
+    "label_generated",
     "payment_verification",
     "processing",
     "shipped",
@@ -3251,6 +3252,7 @@ export default function AdminPanel() {
                               order.status === "in_transit" ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
                               order.status === "out_for_delivery" ? "bg-blue-100 text-blue-700 border-blue-200" :
                               order.status === "shipped" ? "bg-cyan-100 text-cyan-700 border-cyan-200" :
+                              order.status === "label_generated" ? "bg-violet-100 text-violet-700 border-violet-200" :
                               order.status === "confirmed" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
                               order.status === "pending" ? "bg-gray-100 text-gray-700 border-gray-200" :
                               "bg-blue-100 text-blue-700 border-blue-200"
