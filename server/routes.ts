@@ -772,6 +772,9 @@ export async function registerRoutes(
               }
             }
           }
+        } else {
+          // No variantStock defined — fall back to product's general stock
+          availableStock = product.stock || 0;
         }
         
         if (availableStock < item.qty) {

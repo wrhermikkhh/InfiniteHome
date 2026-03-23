@@ -1943,6 +1943,9 @@ app.post("/api/pos/transactions", async (req, res) => {
             }
           }
         }
+      } else {
+        // No variantStock defined — fall back to product's general stock
+        availableStock = product.stock || 0;
       }
       
       if (availableStock < item.qty) {
