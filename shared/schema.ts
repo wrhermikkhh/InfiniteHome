@@ -116,6 +116,7 @@ export const posTransactions = pgTable("pos_transactions", {
   transactionNumber: text("transaction_number").notNull().unique(),
   trackingNumber: text("tracking_number").unique(),
   labelRecipientName: text("label_recipient_name"),
+  labelRecipientEmail: text("label_recipient_email"),
   labelAddress: text("label_address"),
   labelPhone: text("label_phone"),
   labelDeliveryType: text("label_delivery_type"),

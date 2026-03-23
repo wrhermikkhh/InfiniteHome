@@ -364,7 +364,7 @@ export default function AdminPanel() {
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPosLabelModal, setShowPosLabelModal] = useState(false);
-  const [posLabelForm, setPosLabelForm] = useState({ recipientName: "", streetAddress: "", atollIsland: "", phone: "", deliveryType: "standard" });
+  const [posLabelForm, setPosLabelForm] = useState({ recipientName: "", recipientEmail: "", streetAddress: "", atollIsland: "", phone: "", deliveryType: "standard" });
   const [posDeliveries, setPosDeliveries] = useState<any[]>([]);
   const [showPosVariantModal, setShowPosVariantModal] = useState(false);
   const [selectedPosProduct, setSelectedPosProduct] = useState<any>(null);
@@ -1040,6 +1040,7 @@ export default function AdminPanel() {
     try {
       const updated = await api.updatePosTransaction(selectedTransaction.id, {
         labelRecipientName: posLabelForm.recipientName,
+        labelRecipientEmail: posLabelForm.recipientEmail || null,
         labelAddress: fullAddress,
         labelPhone: posLabelForm.phone,
         labelDeliveryType: posLabelForm.deliveryType,
@@ -4069,6 +4070,16 @@ export default function AdminPanel() {
               />
             </div>
             <div>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground block mb-1">Customer Email <span className="normal-case text-muted-foreground">(for shipping notification)</span></label>
+              <Input
+                className="rounded-none"
+                type="email"
+                placeholder="customer@email.com"
+                value={posLabelForm.recipientEmail}
+                onChange={(e) => setPosLabelForm(f => ({ ...f, recipientEmail: e.target.value }))}
+              />
+            </div>
+            <div>
               <label className="text-xs uppercase tracking-widest text-muted-foreground block mb-1">Street Address *</label>
               <Input
                 className="rounded-none"
@@ -4295,7 +4306,7 @@ export default function AdminPanel() {
               variant="outline"
               className="rounded-none"
               onClick={() => {
-                setPosLabelForm({ recipientName: selectedTransaction?.customerName || "", streetAddress: "", atollIsland: "", phone: selectedTransaction?.customerPhone || "" });
+                setPosLabelForm({ recipientName: selectedTransaction?.customerName || "", recipientEmail: "", streetAddress: "", atollIsland: "", phone: selectedTransaction?.customerPhone || "", deliveryType: "standard" });
                 setShowPosLabelModal(true);
               }}
             >

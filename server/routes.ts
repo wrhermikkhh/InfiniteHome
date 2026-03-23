@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema, insertPosTransactionSchema } from "@shared/schema";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { sendOrderConfirmationEmail, sendOrderStatusEmail } from "./lib/email";
+import { sendOrderConfirmationEmail, sendOrderStatusEmail, sendPosLabelEmail } from "./lib/email";
 import { hashPassword, comparePasswords } from "./auth";
 
 export async function registerRoutes(
@@ -784,8 +784,16 @@ export async function registerRoutes(
 
   app.patch("/api/pos/transactions/:id", async (req, res) => {
     try {
+      const prevTransaction = await storage.getPosTransaction(req.params.id);
       const transaction = await storage.updatePosTransaction(req.params.id, req.body);
       if (transaction) {
+        // Send email when label is first created (deliveryStatus changes to label_created)
+        if (
+          req.body.deliveryStatus === 'label_created' &&
+          prevTransaction?.deliveryStatus !== 'label_created'
+        ) {
+          sendPosLabelEmail(transaction).catch(err => console.error('POS label email failed:', err));
+        }
         res.json(transaction);
       } else {
         res.status(404).json({ message: "Transaction not found" });

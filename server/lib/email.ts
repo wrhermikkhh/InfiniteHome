@@ -204,6 +204,115 @@ export async function sendOrderConfirmationEmail(order: any) {
   }
 }
 
+export async function sendPosLabelEmail(transaction: any) {
+  try {
+    const email = transaction.labelRecipientEmail;
+    if (!email) return;
+
+    const { apiKey, fromEmail } = await getCredentials();
+    const resend = new Resend(apiKey);
+    const baseUrl = 'https://infinitehome.mv';
+
+    // Tracking number: numeric-only digits derived from transaction number
+    const trackingNumber = transaction.trackingNumber ||
+      transaction.transactionNumber.replace(/^POS-/, '').replace(/-/g, '');
+    const orderNumber = transaction.transactionNumber;
+    const trackingUrl = `${baseUrl}/track?order=${trackingNumber}`;
+
+    const itemsHtml = (transaction.items || []).map((item: any) => `
+      <tr>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #eee;">
+          <div style="font-weight: bold; color: #1a1a1a;">${item.name}</div>
+          <div style="font-size: 12px; color: #666; margin-top: 3px;">
+            ${item.color && item.color !== 'Default' ? `<span style="margin-right: 8px;">Color: ${item.color}</span>` : ''}
+            ${item.size && item.size !== 'Standard' ? `<span>Size: ${item.size}</span>` : ''}
+          </div>
+        </td>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #eee; text-align: center; vertical-align: top;">${item.qty}</td>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #eee; text-align: right; vertical-align: top; font-weight: bold;">MVR ${(item.price * item.qty).toLocaleString()}</td>
+      </tr>
+    `).join('');
+
+    const recipientName = transaction.labelRecipientName || transaction.customerName || 'Valued Customer';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"></head>
+      <body style="margin: 0; padding: 0; background-color: #fcfaf7; font-family: 'Helvetica Neue', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #f0e6d2;">
+          <div style="padding: 40px 20px; text-align: center; background-color: #1a1a1a; color: #ffffff;">
+            <h1 style="font-family: serif; margin: 0; font-size: 28px; letter-spacing: 2px;">INFINITE HOME</h1>
+            <p style="margin: 10px 0 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.8;">Premium Home & Lifestyle</p>
+          </div>
+          <div style="padding: 40px 30px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <div style="font-size: 48px; margin-bottom: 10px;">🚚</div>
+              <h2 style="color: #1a1a1a; font-size: 24px; margin: 0; font-family: serif;">Your Order Is On Its Way!</h2>
+            </div>
+            <p style="color: #333; line-height: 1.6;">Dear ${recipientName},</p>
+            <p style="color: #333; line-height: 1.6;">Great news! Your order has been packed and a shipping label has been generated. Your items will be on their way to you shortly.</p>
+
+            <div style="margin: 30px 0; padding: 25px; background-color: #fcfaf7; border: 1px solid #f0e6d2; border-radius: 4px;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding-bottom: 12px; font-size: 14px; color: #666;">Order Number:</td>
+                  <td style="padding-bottom: 12px; font-size: 14px; font-weight: 700; color: #1a1a1a; text-align: right; font-family: monospace;">${orderNumber}</td>
+                </tr>
+                <tr>
+                  <td style="padding-bottom: 12px; font-size: 14px; color: #666;">Tracking Number:</td>
+                  <td style="padding-bottom: 12px; font-size: 14px; font-weight: 700; color: #1a1a1a; text-align: right; font-family: monospace;">${trackingNumber}</td>
+                </tr>
+                <tr>
+                  <td style="padding-top: 12px; border-top: 1px solid #f0e6d2; font-size: 14px; color: #666;">Delivery Address:</td>
+                  <td style="padding-top: 12px; border-top: 1px solid #f0e6d2; font-size: 14px; color: #1a1a1a; text-align: right;">${transaction.labelAddress || '—'}</td>
+                </tr>
+              </table>
+              <div style="margin-top: 20px; text-align: center;">
+                <a href="${trackingUrl}" style="display: inline-block; padding: 12px 28px; background-color: #1a1a1a; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">Track Your Order</a>
+              </div>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+              <thead>
+                <tr style="border-bottom: 2px solid #1a1a1a;">
+                  <th style="padding: 10px 8px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Item</th>
+                  <th style="padding: 10px 8px; text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Qty</th>
+                  <th style="padding: 10px 8px; text-align: right; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Price</th>
+                </tr>
+              </thead>
+              <tbody>${itemsHtml}</tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="2" style="padding: 14px 8px; text-align: right; font-size: 16px; font-weight: bold; color: #1a1a1a; border-top: 1px solid #1a1a1a;">Total</td>
+                  <td style="padding: 14px 8px; text-align: right; font-size: 16px; font-weight: bold; color: #1a1a1a; border-top: 1px solid #1a1a1a;">MVR ${(transaction.total || 0).toLocaleString()}</td>
+                </tr>
+              </tfoot>
+            </table>
+
+            <p style="color: #666; font-size: 14px; line-height: 1.6;">If you have any questions, contact us at <a href="mailto:support@infinitehome.mv" style="color: #1a1a1a;">support@infinitehome.mv</a> or call <strong>7840001</strong>.</p>
+          </div>
+          <div style="padding: 30px 20px; background-color: #f8f8f8; text-align: center; border-top: 1px solid #eee;">
+            <p style="margin: 0; font-size: 11px; color: #999;">&copy; 2026 INFINITE LOOP PVT LTD. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await resend.emails.send({
+      from: `INFINITE HOME <${fromEmail}>`,
+      to: email,
+      subject: `Your Order Is Being Shipped — ${trackingNumber}`,
+      html,
+    });
+
+    console.log(`POS label email sent to ${email} for order ${orderNumber} (tracking: ${trackingNumber})`);
+  } catch (error) {
+    console.error('Error sending POS label email:', error);
+  }
+}
+
 export async function sendOrderStatusEmail(order: any, newStatus: string) {
   try {
     const { apiKey, fromEmail } = await getCredentials();
