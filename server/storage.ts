@@ -260,16 +260,18 @@ export class DatabaseStorage implements IStorage {
     return newOrder;
   }
 
-  async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
+  async updateOrderStatus(id: string, status: string, location?: string): Promise<Order | undefined> {
     const existing = await db.select().from(orders).where(eq(orders.id, id));
     if (!existing[0]) return undefined;
     // Build status history: backfill from createdAt if history is empty (old orders)
-    let currentHistory = (existing[0].statusHistory as { status: string; timestamp: string }[]) || [];
+    let currentHistory = (existing[0].statusHistory as { status: string; timestamp: string; location?: string }[]) || [];
     if (currentHistory.length === 0 && existing[0].createdAt) {
       currentHistory = [{ status: existing[0].status, timestamp: existing[0].createdAt.toISOString() }];
     }
-    // Append the new status with current timestamp
-    const newHistory = [...currentHistory, { status, timestamp: new Date().toISOString() }];
+    // Append the new status with current timestamp and optional location
+    const newEntry: { status: string; timestamp: string; location?: string } = { status, timestamp: new Date().toISOString() };
+    if (location) newEntry.location = location;
+    const newHistory = [...currentHistory, newEntry];
     const [updated] = await db.update(orders).set({ status, statusHistory: newHistory }).where(eq(orders.id, id)).returning();
     return updated || undefined;
   }

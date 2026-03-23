@@ -240,11 +240,11 @@ export const api = {
     return res.json();
   },
 
-  async updateOrderStatus(id: string, status: string): Promise<Order> {
+  async updateOrderStatus(id: string, status: string, location?: string): Promise<Order> {
     const res = await fetch(`${API_BASE}/orders/${id}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, ...(location ? { location } : {}) }),
     });
     return res.json();
   },

@@ -1306,9 +1306,9 @@ export default function AdminPanel() {
     }
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+  const updateOrderStatus = async (orderId: string, newStatus: string, location?: string) => {
     try {
-      const updated = await api.updateOrderStatus(orderId, newStatus);
+      const updated = await api.updateOrderStatus(orderId, newStatus, location);
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus, statusHistory: (updated as any).statusHistory ?? o.statusHistory } : o));
       setSelectedOrder(prev => prev && prev.id === orderId ? { ...prev, status: newStatus } : prev);
       toast({ title: "Order updated", description: `Status changed to ${newStatus.replace(/_/g, ' ')}` });
@@ -3368,11 +3368,10 @@ export default function AdminPanel() {
                   </DialogHeader>
                   {selectedOrder && (
                     <div className="space-y-6">
-                      {/* All Status Controls */}
+                      {/* Status + Location */}
                       <div className="space-y-3 pb-3 border-b border-border">
-                        {/* Order Status */}
                         <div className="flex flex-wrap items-center gap-3">
-                          <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground w-20 shrink-0">Order</p>
+                          <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground w-20 shrink-0">Status</p>
                           <select
                             className="border border-border rounded-none px-2 py-1.5 text-sm bg-background outline-none focus:ring-1 focus:ring-primary"
                             value={selectedOrder.status || ""}
@@ -3381,7 +3380,7 @@ export default function AdminPanel() {
                               const newStatus = e.target.value;
                               if (!newStatus) return;
                               try {
-                                await updateOrderStatus(selectedOrder.id, newStatus);
+                                await updateOrderStatus(selectedOrder.id, newStatus, deliveryLocation);
                               } catch {
                                 toast({ title: "Error", description: "Failed to update order status", variant: "destructive" });
                               }
@@ -3392,32 +3391,8 @@ export default function AdminPanel() {
                             ))}
                           </select>
                         </div>
-                        {/* Delivery Status + Location */}
                         <div className="flex flex-wrap items-center gap-3">
-                          <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground w-20 shrink-0">Delivery</p>
-                          <select
-                            className="border border-border rounded-none px-2 py-1.5 text-sm bg-background outline-none focus:ring-1 focus:ring-primary"
-                            value={selectedOrder.deliveryStatus || ""}
-                            data-testid="select-order-delivery-status"
-                            onChange={async (e) => {
-                              const newStatus = e.target.value;
-                              if (!newStatus) return;
-                              try {
-                                const updated = await api.updateOrderDeliveryStatus(selectedOrder.id, newStatus, deliveryLocation);
-                                setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
-                                setSelectedOrder(updated);
-                              } catch {
-                                toast({ title: "Error", description: "Failed to update delivery status", variant: "destructive" });
-                              }
-                            }}
-                          >
-                            <option value="">— None —</option>
-                            <option value="label_created">Label Created</option>
-                            <option value="processing">Processing</option>
-                            <option value="out_for_delivery">Out for Delivery</option>
-                            <option value="delivered">Delivered</option>
-                            <option value="failed">Failed</option>
-                          </select>
+                          <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground w-20 shrink-0">Location</p>
                           <select
                             className="border border-border rounded-none px-2 py-1.5 text-sm bg-background outline-none focus:ring-1 focus:ring-primary"
                             value={deliveryLocation}

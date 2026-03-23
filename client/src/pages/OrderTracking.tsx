@@ -152,7 +152,7 @@ function formatGMT5(isoString: string): { date: string; time: string } {
 
 function buildOrderTimeline(
   rawStatus: string,
-  statusHistory?: { status: string; timestamp: string }[],
+  statusHistory?: { status: string; timestamp: string; location?: string }[],
   createdAt?: string,
   deliveryStatus?: string | null,
   deliveryStatusHistory?: { status: string; timestamp: string; location?: string }[]
@@ -189,6 +189,7 @@ function buildOrderTimeline(
         isException: st === "delivery_exception",
         timestamp: h.timestamp,
         isDeliveryStep: false,
+        location: (h as any).location,
       });
     });
   }

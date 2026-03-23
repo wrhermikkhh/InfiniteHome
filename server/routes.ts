@@ -551,7 +551,7 @@ export async function registerRoutes(
 
   app.patch("/api/orders/:id/status", async (req, res) => {
     try {
-      const { status } = req.body;
+      const { status, location } = req.body;
       
       // Get the current order to check previous status and items
       const currentOrder = await storage.getOrder(req.params.id);
@@ -560,7 +560,7 @@ export async function registerRoutes(
       }
       
       const previousStatus = currentOrder.status;
-      let order = await storage.updateOrderStatus(req.params.id, status);
+      let order = await storage.updateOrderStatus(req.params.id, status, location);
       
       // Auto-create invoice when order is confirmed (only if not already invoiced)
       if (order && status === 'confirmed' && previousStatus !== 'confirmed' && !order.invoiceNumber) {
