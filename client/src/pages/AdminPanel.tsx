@@ -1123,7 +1123,6 @@ export default function AdminPanel() {
         labelAddress: fullAddress,
         labelPhone: posLabelForm.phone,
         labelDeliveryType: posLabelForm.deliveryType,
-        deliveryStatus: "label_created",
       });
       setPosDeliveries(prev => {
         const exists = prev.find(d => d.id === updated.id);
