@@ -285,7 +285,8 @@ function getStatusBadge(status: string): { bg: string; text: string } {
 }
 
 function Timeline({ steps }: { steps: TrackingStep[] }) {
-  const visible = steps.filter(s => s.isCompleted || s.isCurrent || s.isException);
+  const hasAnyDeliveryStep = steps.some(s => s.isDeliveryStep && s.isCompleted);
+  const visible = steps.filter(s => s.isCompleted || s.isCurrent || s.isException || (s.isDeliveryStep && hasAnyDeliveryStep));
   if (visible.length === 0) return null;
   return (
     <div className="space-y-0">
