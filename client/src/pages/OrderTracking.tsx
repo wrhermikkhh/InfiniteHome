@@ -195,13 +195,15 @@ function buildOrderTimeline(
     DELIVERY_ORDER.forEach((key, idx) => {
       const cfg = deliveryStepConfig[key];
       const histEntry = dHistory.find(h => h.status === key);
+      const isAtCurrent = !isFailed && idx === currentDeliveryIdx;
+      const isPastEvent = key === 'label_created'; // label creation is an instant past event
       steps.push({
         status: key,
         label: cfg.label,
         description: cfg.description,
         icon: cfg.icon,
-        isCompleted: !isFailed && idx < currentDeliveryIdx,
-        isCurrent: !isFailed && idx === currentDeliveryIdx,
+        isCompleted: !isFailed && (idx < currentDeliveryIdx || (isAtCurrent && isPastEvent)),
+        isCurrent: isAtCurrent && !isPastEvent,
         isException: false,
         timestamp: histEntry?.timestamp,
         isDeliveryStep: true,
@@ -237,13 +239,15 @@ function buildPosTimeline(deliveryStatus?: string | null, deliveryStatusHistory?
   const steps: TrackingStep[] = DELIVERY_ORDER.map((key, idx) => {
     const cfg = deliveryStepConfig[key];
     const histEntry = dHistory.find(h => h.status === key);
+    const isAtCurrent = !isFailed && idx === currentDeliveryIdx;
+    const isPastEvent = key === 'label_created';
     return {
       status: key,
       label: cfg.label,
       description: cfg.description,
       icon: cfg.icon,
-      isCompleted: !isFailed && idx < currentDeliveryIdx,
-      isCurrent: !isFailed && idx === currentDeliveryIdx,
+      isCompleted: !isFailed && (idx < currentDeliveryIdx || (isAtCurrent && isPastEvent)),
+      isCurrent: isAtCurrent && !isPastEvent,
       isException: false,
       timestamp: histEntry?.timestamp,
       isDeliveryStep: true,
