@@ -3287,207 +3287,15 @@ export default function AdminPanel() {
                             </DropdownMenuContent>
                           </DropdownMenu>
 
-                          <Dialog open={selectedOrder !== null} onOpenChange={(open) => { if (!open) setSelectedOrder(null); }}>
-                            <DialogTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="rounded-none text-xs gap-2"
-                                onClick={() => setSelectedOrder(order)}
-                              >
-                                <Eye size={14} /> Details
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent 
-                              className="max-w-2xl rounded-none [&>button]:hidden max-h-[90vh] overflow-y-auto"
-                              onPointerDownOutside={(e) => {
-                                e.preventDefault();
-                                setSelectedOrder(null);
-                              }}
-                              onEscapeKeyDown={(e) => {
-                                e.preventDefault();
-                                setSelectedOrder(null);
-                              }}
-                            >
-                              <DialogHeader className="relative pr-8">
-                                <DialogTitle className="font-serif text-2xl">Order: {selectedOrder?.orderNumber}</DialogTitle>
-                                <DialogDescription asChild>
-                                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                                    <span className="uppercase tracking-widest text-[10px] font-bold">Status: {selectedOrder?.status.replace(/_/g, " ")}</span>
-                                    {selectedOrder?.trackingNumber && <span className="text-[10px] font-mono text-muted-foreground">· TRK: {selectedOrder.trackingNumber}</span>}
-                                    {selectedOrder?.invoiceNumber && <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 font-bold">{selectedOrder.invoiceNumber}</span>}
-                                    {selectedOrder?.deliveryStatus && <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 font-bold capitalize">{selectedOrder.deliveryStatus.replace(/_/g, " ")}</span>}
-                                  </div>
-                                </DialogDescription>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="absolute -right-2 -top-2 h-10 w-10 rounded-none hover:bg-secondary transition-colors"
-                                  onClick={() => setSelectedOrder(null)}
-                                  data-testid="button-close-dialog-top"
-                                >
-                                  <X size={24} />
-                                  <span className="sr-only">Close</span>
-                                </Button>
-                              </DialogHeader>
-                              {selectedOrder && (
-                                <div className="space-y-6">
-                                  {/* Delivery Status */}
-                                  <div className="flex items-center gap-4 pb-2 border-b border-border">
-                                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground shrink-0">Delivery Status</p>
-                                    <select
-                                      className="border border-border rounded-none px-2 py-1.5 text-sm bg-background outline-none focus:ring-1 focus:ring-primary"
-                                      value={selectedOrder.deliveryStatus || ""}
-                                      data-testid="select-order-delivery-status"
-                                      onChange={async (e) => {
-                                        const newStatus = e.target.value;
-                                        if (!newStatus) return;
-                                        try {
-                                          const updated = await api.updateOrderDeliveryStatus(selectedOrder.id, newStatus);
-                                          setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
-                                          setSelectedOrder(updated);
-                                        } catch {
-                                          toast({ title: "Error", description: "Failed to update delivery status", variant: "destructive" });
-                                        }
-                                      }}
-                                    >
-                                      <option value="">— Not set —</option>
-                                      <option value="label_created">Label Created</option>
-                                      <option value="processing">Processing</option>
-                                      <option value="out_for_delivery">Out for Delivery</option>
-                                      <option value="delivered">Delivered</option>
-                                      <option value="failed">Failed</option>
-                                    </select>
-                                  </div>
-                                  <div className="grid md:grid-cols-2 gap-8 py-4">
-                                    <div className="space-y-4">
-                                    <div>
-                                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Customer</p>
-                                      <p className="font-medium">{selectedOrder.customerName}</p>
-                                      <p className="text-sm text-muted-foreground">{selectedOrder.customerEmail}</p>
-                                      <p className="text-sm text-muted-foreground">{selectedOrder.customerPhone}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Shipping Address</p>
-                                      <p className="text-sm">{selectedOrder.shippingAddress}</p>
-                                      {selectedOrder.customerAtollIsland && (
-                                        <p className="text-sm text-muted-foreground mt-0.5"><span className="text-muted-foreground">Atoll & Island:</span> {selectedOrder.customerAtollIsland}</p>
-                                      )}
-                                    </div>
-                                    {selectedOrder.deliveryType === "boat" && (
-                                      <div>
-                                        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Boat Delivery Details</p>
-                                        <div className="text-sm space-y-0.5">
-                                          {selectedOrder.boatName && <p><span className="text-muted-foreground">Boat:</span> {selectedOrder.boatName}</p>}
-                                          {selectedOrder.boatNumber && <p><span className="text-muted-foreground">Contact:</span> {selectedOrder.boatNumber}</p>}
-                                          {selectedOrder.boatLocation && <p><span className="text-muted-foreground">Mooring:</span> {selectedOrder.boatLocation}</p>}
-                                          {selectedOrder.boatAtollIsland && <p><span className="text-muted-foreground">Atoll & Island:</span> {selectedOrder.boatAtollIsland}</p>}
-                                        </div>
-                                      </div>
-                                    )}
-                                    {selectedOrder.notes && (
-                                      <div className="p-3 bg-amber-50 border border-amber-200 rounded">
-                                        <p className="text-xs uppercase tracking-widest text-amber-700 font-semibold mb-1">Customer Notes</p>
-                                        <p className="text-sm text-amber-900">{selectedOrder.notes}</p>
-                                      </div>
-                                    )}
-                                    <div>
-                                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Payment Method</p>
-                                      <p className="font-medium">{selectedOrder.paymentMethod === "cod" ? "Cash on Delivery" : "Bank Transfer"}</p>
-                                    </div>
-                                    {selectedOrder.paymentMethod === "bank" && selectedOrder.paymentSlip && (
-                                      <div>
-                                        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Payment Slip</p>
-                                        <PaymentSlipViewer paymentSlip={selectedOrder.paymentSlip} />
-                                      </div>
-                                    )}
-                                    {selectedOrder.paymentMethod === "bank" && !selectedOrder.paymentSlip && (
-                                      <div>
-                                        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Payment Slip</p>
-                                        <p className="text-sm text-amber-600">No payment slip uploaded</p>
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="space-y-4">
-                                    <div>
-                                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Items</p>
-                                      <div className="space-y-2">
-                                        {selectedOrder.items.map((item: any, i: number) => (
-                                          <div key={i} className="flex justify-between text-sm">
-                                            <span>{item.name} x {item.qty}</span>
-                                            <span>{formatCurrency(item.price * item.qty)}</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                    <div className="border-t pt-4 space-y-1">
-                                      <div className="flex justify-between text-sm">
-                                        <span>Subtotal</span>
-                                        <span>{formatCurrency(selectedOrder.subtotal)}</span>
-                                      </div>
-                                      {selectedOrder.discount > 0 && (
-                                        <div className="flex justify-between text-sm text-green-600">
-                                          <span>Discount</span>
-                                          <span>-{formatCurrency(selectedOrder.discount)}</span>
-                                        </div>
-                                      )}
-                                      <div className="flex justify-between text-sm">
-                                        <span>Shipping</span>
-                                        <span>{selectedOrder.shipping === 0 ? "FREE" : formatCurrency(selectedOrder.shipping)}</span>
-                                      </div>
-                                      <div className="flex justify-between font-bold pt-2">
-                                        <span>Total</span>
-                                        <span>{formatCurrency(selectedOrder.total)}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                {/* Admin Note */}
-                                <div className="mt-4 pt-4 border-t border-border">
-                                  <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-2">Admin Note <span className="normal-case font-normal">(visible to customer on tracking page)</span></p>
-                                  <textarea
-                                    className="w-full border border-border rounded-none p-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary bg-secondary/20"
-                                    rows={3}
-                                    placeholder="Leave a note for the customer (optional)…"
-                                    value={orderNoteText}
-                                    onChange={e => setOrderNoteText(e.target.value)}
-                                    data-testid="textarea-order-admin-note"
-                                  />
-                                  <div className="flex justify-end mt-2">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="rounded-none uppercase tracking-widest text-xs font-bold px-5 h-9 gap-2"
-                                      onClick={handleSaveOrderNote}
-                                      disabled={savingOrderNote}
-                                      data-testid="button-save-order-note"
-                                    >
-                                      {savingOrderNote ? <><span className="animate-spin">⟳</span> Saving…</> : "Save Note"}
-                                    </Button>
-                                  </div>
-                                </div>
-                                <div className="flex justify-end pt-4 border-t border-border mt-4 gap-4">
-                                  <Button 
-                                    variant="outline" 
-                                    className="rounded-none uppercase tracking-widest text-xs font-bold px-8 h-10 gap-2"
-                                    onClick={() => handlePrintLabel()}
-                                    data-testid="button-print-label"
-                                  >
-                                    <Printer size={16} /> Print Label
-                                  </Button>
-                                  <Button 
-                                    variant="outline" 
-                                    className="rounded-none uppercase tracking-widest text-xs font-bold px-8 h-10"
-                                    onClick={() => setSelectedOrder(null)}
-                                    data-testid="button-close-dialog-bottom"
-                                  >
-                                    Close
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-                          </DialogContent>
-                          </Dialog>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-none text-xs gap-2"
+                            onClick={() => setSelectedOrder(order)}
+                            data-testid={`button-order-details-${order.id}`}
+                          >
+                            <Eye size={14} /> Details
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -3506,6 +3314,193 @@ export default function AdminPanel() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Order detail dialog — single instance outside the map */}
+              <Dialog open={selectedOrder !== null} onOpenChange={(open) => { if (!open) setSelectedOrder(null); }}>
+                <DialogContent
+                  className="max-w-2xl rounded-none [&>button]:hidden max-h-[90vh] overflow-y-auto"
+                  onPointerDownOutside={(e) => { e.preventDefault(); setSelectedOrder(null); }}
+                  onEscapeKeyDown={(e) => { e.preventDefault(); setSelectedOrder(null); }}
+                >
+                  <DialogHeader className="relative pr-8">
+                    <DialogTitle className="font-serif text-2xl">Order: {selectedOrder?.orderNumber}</DialogTitle>
+                    <DialogDescription asChild>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className="uppercase tracking-widest text-[10px] font-bold">Status: {selectedOrder?.status?.replace(/_/g, " ")}</span>
+                        {selectedOrder?.trackingNumber && <span className="text-[10px] font-mono text-muted-foreground">· TRK: {selectedOrder.trackingNumber}</span>}
+                        {selectedOrder?.invoiceNumber && <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 font-bold">{selectedOrder.invoiceNumber}</span>}
+                        {selectedOrder?.deliveryStatus && <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 font-bold capitalize">{selectedOrder.deliveryStatus.replace(/_/g, " ")}</span>}
+                      </div>
+                    </DialogDescription>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute -right-2 -top-2 h-10 w-10 rounded-none hover:bg-secondary transition-colors"
+                      onClick={() => setSelectedOrder(null)}
+                      data-testid="button-close-dialog-top"
+                    >
+                      <X size={24} />
+                      <span className="sr-only">Close</span>
+                    </Button>
+                  </DialogHeader>
+                  {selectedOrder && (
+                    <div className="space-y-6">
+                      {/* Delivery Status */}
+                      <div className="flex items-center gap-4 pb-2 border-b border-border">
+                        <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground shrink-0">Delivery Status</p>
+                        <select
+                          className="border border-border rounded-none px-2 py-1.5 text-sm bg-background outline-none focus:ring-1 focus:ring-primary"
+                          value={selectedOrder.deliveryStatus || ""}
+                          data-testid="select-order-delivery-status"
+                          onChange={async (e) => {
+                            const newStatus = e.target.value;
+                            if (!newStatus) return;
+                            try {
+                              const updated = await api.updateOrderDeliveryStatus(selectedOrder.id, newStatus);
+                              setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
+                              setSelectedOrder(updated);
+                            } catch {
+                              toast({ title: "Error", description: "Failed to update delivery status", variant: "destructive" });
+                            }
+                          }}
+                        >
+                          <option value="">— Not set —</option>
+                          <option value="label_created">Label Created</option>
+                          <option value="processing">Processing</option>
+                          <option value="out_for_delivery">Out for Delivery</option>
+                          <option value="delivered">Delivered</option>
+                          <option value="failed">Failed</option>
+                        </select>
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-8 py-4">
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Customer</p>
+                            <p className="font-medium">{selectedOrder.customerName}</p>
+                            <p className="text-sm text-muted-foreground">{selectedOrder.customerEmail}</p>
+                            <p className="text-sm text-muted-foreground">{selectedOrder.customerPhone}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Shipping Address</p>
+                            <p className="text-sm">{selectedOrder.shippingAddress}</p>
+                            {selectedOrder.customerAtollIsland && (
+                              <p className="text-sm text-muted-foreground mt-0.5"><span className="text-muted-foreground">Atoll & Island:</span> {selectedOrder.customerAtollIsland}</p>
+                            )}
+                          </div>
+                          {selectedOrder.deliveryType === "boat" && (
+                            <div>
+                              <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Boat Delivery Details</p>
+                              <div className="text-sm space-y-0.5">
+                                {selectedOrder.boatName && <p><span className="text-muted-foreground">Boat:</span> {selectedOrder.boatName}</p>}
+                                {selectedOrder.boatNumber && <p><span className="text-muted-foreground">Contact:</span> {selectedOrder.boatNumber}</p>}
+                                {selectedOrder.boatLocation && <p><span className="text-muted-foreground">Mooring:</span> {selectedOrder.boatLocation}</p>}
+                                {selectedOrder.boatAtollIsland && <p><span className="text-muted-foreground">Atoll & Island:</span> {selectedOrder.boatAtollIsland}</p>}
+                              </div>
+                            </div>
+                          )}
+                          {selectedOrder.notes && (
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded">
+                              <p className="text-xs uppercase tracking-widest text-amber-700 font-semibold mb-1">Customer Notes</p>
+                              <p className="text-sm text-amber-900">{selectedOrder.notes}</p>
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Payment Method</p>
+                            <p className="font-medium">{selectedOrder.paymentMethod === "cod" ? "Cash on Delivery" : "Bank Transfer"}</p>
+                          </div>
+                          {selectedOrder.paymentMethod === "bank" && selectedOrder.paymentSlip && (
+                            <div>
+                              <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Payment Slip</p>
+                              <PaymentSlipViewer paymentSlip={selectedOrder.paymentSlip} />
+                            </div>
+                          )}
+                          {selectedOrder.paymentMethod === "bank" && !selectedOrder.paymentSlip && (
+                            <div>
+                              <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Payment Slip</p>
+                              <p className="text-sm text-amber-600">No payment slip uploaded</p>
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Items</p>
+                            <div className="space-y-2">
+                              {selectedOrder.items.map((item: any, i: number) => (
+                                <div key={i} className="flex justify-between text-sm">
+                                  <span>{item.name} x {item.qty}</span>
+                                  <span>{formatCurrency(item.price * item.qty)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="border-t pt-4 space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span>Subtotal</span>
+                              <span>{formatCurrency(selectedOrder.subtotal)}</span>
+                            </div>
+                            {selectedOrder.discount > 0 && (
+                              <div className="flex justify-between text-sm text-green-600">
+                                <span>Discount</span>
+                                <span>-{formatCurrency(selectedOrder.discount)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between text-sm">
+                              <span>Shipping</span>
+                              <span>{selectedOrder.shipping === 0 ? "FREE" : formatCurrency(selectedOrder.shipping)}</span>
+                            </div>
+                            <div className="flex justify-between font-bold pt-2">
+                              <span>Total</span>
+                              <span>{formatCurrency(selectedOrder.total)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Admin Note */}
+                      <div className="mt-4 pt-4 border-t border-border">
+                        <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-2">Admin Note <span className="normal-case font-normal">(visible to customer on tracking page)</span></p>
+                        <textarea
+                          className="w-full border border-border rounded-none p-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary bg-secondary/20"
+                          rows={3}
+                          placeholder="Leave a note for the customer (optional)…"
+                          value={orderNoteText}
+                          onChange={e => setOrderNoteText(e.target.value)}
+                          data-testid="textarea-order-admin-note"
+                        />
+                        <div className="flex justify-end mt-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-none uppercase tracking-widest text-xs font-bold px-5 h-9 gap-2"
+                            onClick={handleSaveOrderNote}
+                            disabled={savingOrderNote}
+                            data-testid="button-save-order-note"
+                          >
+                            {savingOrderNote ? <><span className="animate-spin">⟳</span> Saving…</> : "Save Note"}
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex justify-end pt-4 border-t border-border mt-4 gap-4">
+                        <Button
+                          variant="outline"
+                          className="rounded-none uppercase tracking-widest text-xs font-bold px-8 h-10 gap-2"
+                          onClick={() => handlePrintLabel()}
+                          data-testid="button-print-label"
+                        >
+                          <Printer size={16} /> Print Label
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="rounded-none uppercase tracking-widest text-xs font-bold px-8 h-10"
+                          onClick={() => setSelectedOrder(null)}
+                          data-testid="button-close-dialog-bottom"
+                        >
+                          Close
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
 
               {/* POS Deliveries */}
               {posDeliveries.length > 0 && (
