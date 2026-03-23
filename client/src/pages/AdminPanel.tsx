@@ -350,6 +350,7 @@ export default function AdminPanel() {
   // Search states for filtering
   const [inventorySearch, setInventorySearch] = useState("");
   const [orderFilter, setOrderFilter] = useState<"all" | "active" | "completed">("all");
+  const [orderSearch, setOrderSearch] = useState("");
 
   // POS State
   const [posCart, setPosCart] = useState<{ productId: string; name: string; qty: number; price: number; color?: string; size?: string; image?: string }[]>([]);
@@ -3228,14 +3229,43 @@ export default function AdminPanel() {
                 </Button>
               </div>
 
+              <div className="relative mb-6">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="rounded-none pl-9 h-10 text-sm"
+                  placeholder="Search by order #, customer name, phone, tracking number…"
+                  value={orderSearch}
+                  onChange={e => setOrderSearch(e.target.value)}
+                  data-testid="input-order-search"
+                />
+                {orderSearch && (
+                  <button
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setOrderSearch("")}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
               <Card className="rounded-none border-border shadow-none">
                 <CardContent className="p-0">
                   <div className="divide-y divide-border">
                     {orders.filter(order => {
                       if (orderFilter === "completed") {
-                        return order.status === "delivered" || order.status === "cancelled" || order.status === "refunded";
+                        if (!(order.status === "delivered" || order.status === "cancelled" || order.status === "refunded")) return false;
                       } else if (orderFilter === "active") {
-                        return order.status !== "delivered" && order.status !== "cancelled" && order.status !== "refunded";
+                        if (order.status === "delivered" || order.status === "cancelled" || order.status === "refunded") return false;
+                      }
+                      if (orderSearch.trim()) {
+                        const q = orderSearch.toLowerCase();
+                        return (
+                          order.orderNumber?.toLowerCase().includes(q) ||
+                          order.customerName?.toLowerCase().includes(q) ||
+                          order.customerPhone?.toLowerCase().includes(q) ||
+                          order.trackingNumber?.toLowerCase().includes(q) ||
+                          order.customerEmail?.toLowerCase().includes(q)
+                        );
                       }
                       return true;
                     }).map((order) => (
@@ -3302,14 +3332,24 @@ export default function AdminPanel() {
                     ))}
                     {orders.filter(order => {
                       if (orderFilter === "completed") {
-                        return order.status === "delivered" || order.status === "cancelled" || order.status === "refunded";
+                        if (!(order.status === "delivered" || order.status === "cancelled" || order.status === "refunded")) return false;
                       } else if (orderFilter === "active") {
-                        return order.status !== "delivered" && order.status !== "cancelled" && order.status !== "refunded";
+                        if (order.status === "delivered" || order.status === "cancelled" || order.status === "refunded") return false;
+                      }
+                      if (orderSearch.trim()) {
+                        const q = orderSearch.toLowerCase();
+                        return (
+                          order.orderNumber?.toLowerCase().includes(q) ||
+                          order.customerName?.toLowerCase().includes(q) ||
+                          order.customerPhone?.toLowerCase().includes(q) ||
+                          order.trackingNumber?.toLowerCase().includes(q) ||
+                          order.customerEmail?.toLowerCase().includes(q)
+                        );
                       }
                       return true;
                     }).length === 0 && (
                       <div className="p-8 text-center text-muted-foreground">
-                        {orderFilter === "completed" ? "No completed orders." : orderFilter === "active" ? "No active orders." : "No orders yet."}
+                        {orderSearch.trim() ? `No orders matching "${orderSearch}".` : orderFilter === "completed" ? "No completed orders." : orderFilter === "active" ? "No active orders." : "No orders yet."}
                       </div>
                     )}
                   </div>
@@ -3478,11 +3518,21 @@ export default function AdminPanel() {
 
               {/* POS Deliveries */}
               {(() => {
-                const filteredPosDeliveries = posDeliveries.filter((d: any) =>
-                  orderFilter === "active" ? !d.convertedToOrderId :
-                  orderFilter === "completed" ? !!d.convertedToOrderId :
-                  true
-                );
+                const filteredPosDeliveries = posDeliveries.filter((d: any) => {
+                  if (orderFilter === "active" && d.convertedToOrderId) return false;
+                  if (orderFilter === "completed" && !d.convertedToOrderId) return false;
+                  if (orderSearch.trim()) {
+                    const q = orderSearch.toLowerCase();
+                    return (
+                      d.transactionNumber?.toLowerCase().includes(q) ||
+                      d.trackingNumber?.toLowerCase().includes(q) ||
+                      d.labelRecipientName?.toLowerCase().includes(q) ||
+                      d.labelPhone?.toLowerCase().includes(q) ||
+                      d.labelAddress?.toLowerCase().includes(q)
+                    );
+                  }
+                  return true;
+                });
                 if (filteredPosDeliveries.length === 0) return null;
                 return (
                 <div className="mt-10">
