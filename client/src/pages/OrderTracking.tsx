@@ -274,10 +274,11 @@ function getStatusBadge(status: string): { bg: string; text: string } {
 }
 
 function Timeline({ steps }: { steps: TrackingStep[] }) {
-  if (steps.length === 0) return null;
+  const visible = steps.filter(s => s.isCompleted || s.isCurrent || s.isException);
+  if (visible.length === 0) return null;
   return (
     <div className="space-y-0">
-      {steps.map((step, idx) => (
+      {visible.map((step, idx) => (
         <div key={idx} className="relative flex gap-0">
           <div className="w-[130px] md:w-[160px] shrink-0 pr-4 pt-5 text-right">
             {step.timestamp ? (() => {
@@ -306,7 +307,7 @@ function Timeline({ steps }: { steps: TrackingStep[] }) {
             )}>
               {step.isCompleted && !step.isException ? <CheckCircle2 size={20} /> : step.icon}
             </div>
-            {idx !== steps.length - 1 && (
+            {idx !== visible.length - 1 && (
               <div className={cn(
                 "w-0.5 flex-1 min-h-[40px]",
                 step.isCompleted ? "bg-primary" : "bg-border"
