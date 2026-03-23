@@ -3477,7 +3477,14 @@ export default function AdminPanel() {
               </Dialog>
 
               {/* POS Deliveries */}
-              {posDeliveries.length > 0 && (
+              {(() => {
+                const filteredPosDeliveries = posDeliveries.filter((d: any) =>
+                  orderFilter === "active" ? !d.convertedToOrderId :
+                  orderFilter === "completed" ? !!d.convertedToOrderId :
+                  true
+                );
+                if (filteredPosDeliveries.length === 0) return null;
+                return (
                 <div className="mt-10">
                   <h2 className="text-xl font-serif mb-4">POS Deliveries</h2>
                   <Card className="rounded-none border-border shadow-none">
@@ -3495,7 +3502,7 @@ export default function AdminPanel() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border">
-                            {posDeliveries.map((delivery: any) => {
+                            {filteredPosDeliveries.map((delivery: any) => {
                               const cleanNum = delivery.trackingNumber || delivery.transactionNumber.replace(/^POS-/, '').replace(/-/g, '');
                               return (
                                 <tr key={delivery.id} className="hover:bg-secondary/10">
@@ -3550,7 +3557,8 @@ export default function AdminPanel() {
                     </CardContent>
                   </Card>
                 </div>
-              )}
+              );
+              })()}
             </div>
           )}
 
