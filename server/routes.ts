@@ -603,6 +603,18 @@ export async function registerRoutes(
     }
   });
 
+  // Update order admin note
+  app.patch("/api/orders/:id/admin-note", async (req, res) => {
+    try {
+      const { adminNote } = req.body;
+      const order = await storage.updateOrderAdminNote(req.params.id, adminNote ?? null);
+      if (order) res.json(order);
+      else res.status(404).json({ message: "Order not found" });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // Update order delivery status (label_created, processing, out_for_delivery, delivered, failed)
   app.patch("/api/orders/:id/delivery-status", async (req, res) => {
     try {

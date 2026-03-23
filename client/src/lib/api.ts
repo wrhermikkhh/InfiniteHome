@@ -258,6 +258,15 @@ export const api = {
     return res.json();
   },
 
+  async updateOrderAdminNote(id: string, adminNote: string | null): Promise<Order> {
+    const res = await fetch(`${API_BASE}/orders/${id}/admin-note`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminNote }),
+    });
+    return res.json();
+  },
+
   // Admin Auth
   async adminLogin(email: string, password: string): Promise<{ success: boolean; admin?: Admin; message?: string }> {
     const res = await fetch(`${API_BASE}/admin/login`, {

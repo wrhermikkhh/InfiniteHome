@@ -323,6 +323,10 @@ export default function AdminPanel() {
   const [newCategoryName, setNewCategoryName] = useState("");
   
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [orderNoteText, setOrderNoteText] = useState("");
+  const [savingOrderNote, setSavingOrderNote] = useState(false);
+  const [posNoteText, setPosNoteText] = useState("");
+  const [savingPosNote, setSavingPosNote] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
   
@@ -438,6 +442,16 @@ export default function AdminPanel() {
     }
   }, [isAdminAuthenticated]);
 
+  useEffect(() => {
+    if (selectedOrder) setOrderNoteText((selectedOrder as any).adminNote || "");
+    else setOrderNoteText("");
+  }, [(selectedOrder as any)?.id]);
+
+  useEffect(() => {
+    if (selectedTransaction) setPosNoteText((selectedTransaction as any).adminNote || "");
+    else setPosNoteText("");
+  }, [(selectedTransaction as any)?.id]);
+
   const loadData = async () => {
     try {
       const [productsData, ordersData, couponsData, adminsData, categoriesData, posDeliveriesData] = await Promise.all([
@@ -457,6 +471,30 @@ export default function AdminPanel() {
     } catch (error) {
       console.error("Failed to load data:", error);
     }
+  };
+
+  const handleSaveOrderNote = async () => {
+    if (!selectedOrder) return;
+    setSavingOrderNote(true);
+    try {
+      const updated = await api.updateOrderAdminNote(selectedOrder.id, orderNoteText.trim() || null);
+      setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
+      setSelectedOrder(updated);
+    } catch {}
+    setSavingOrderNote(false);
+  };
+
+  const handleSavePosNote = async () => {
+    if (!selectedTransaction) return;
+    setSavingPosNote(true);
+    try {
+      const updated = await api.updatePosTransaction(selectedTransaction.id, { adminNote: posNoteText.trim() || null } as any);
+      if (updated) {
+        setPosTransactions((prev: any[]) => prev.map((t: any) => t.id === updated.id ? updated : t));
+        setSelectedTransaction(updated);
+      }
+    } catch {}
+    setSavingPosNote(false);
   };
 
   const handlePrintLabel = async () => {
@@ -3337,6 +3375,30 @@ export default function AdminPanel() {
                                     </div>
                                   </div>
                                 </div>
+                                {/* Admin Note */}
+                                <div className="mt-4 pt-4 border-t border-border">
+                                  <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-2">Admin Note <span className="normal-case font-normal">(visible to customer on tracking page)</span></p>
+                                  <textarea
+                                    className="w-full border border-border rounded-none p-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary bg-secondary/20"
+                                    rows={3}
+                                    placeholder="Leave a note for the customer (optional)…"
+                                    value={orderNoteText}
+                                    onChange={e => setOrderNoteText(e.target.value)}
+                                    data-testid="textarea-order-admin-note"
+                                  />
+                                  <div className="flex justify-end mt-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="rounded-none uppercase tracking-widest text-xs font-bold px-5 h-9 gap-2"
+                                      onClick={handleSaveOrderNote}
+                                      disabled={savingOrderNote}
+                                      data-testid="button-save-order-note"
+                                    >
+                                      {savingOrderNote ? <><span className="animate-spin">⟳</span> Saving…</> : "Save Note"}
+                                    </Button>
+                                  </div>
+                                </div>
                                 <div className="flex justify-end pt-4 border-t border-border mt-4 gap-4">
                                   <Button 
                                     variant="outline" 
@@ -4298,6 +4360,30 @@ export default function AdminPanel() {
               </div>
             </div>
           )}
+          {/* Admin Note for POS */}
+          <div className="px-6 py-4 border-t bg-secondary/10">
+            <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-2">Admin Note <span className="normal-case font-normal">(visible to customer on tracking page)</span></p>
+            <textarea
+              className="w-full border border-border rounded-none p-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary bg-white"
+              rows={3}
+              placeholder="Leave a note for the customer (optional)…"
+              value={posNoteText}
+              onChange={e => setPosNoteText(e.target.value)}
+              data-testid="textarea-pos-admin-note"
+            />
+            <div className="flex justify-end mt-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-none uppercase tracking-widest text-xs font-bold px-5 h-9 gap-2"
+                onClick={handleSavePosNote}
+                disabled={savingPosNote}
+                data-testid="button-save-pos-note"
+              >
+                {savingPosNote ? <><span className="animate-spin">⟳</span> Saving…</> : "Save Note"}
+              </Button>
+            </div>
+          </div>
           <div className="flex justify-end gap-3 p-4 bg-white border-t">
             <Button variant="outline" className="rounded-none" onClick={() => setShowInvoiceModal(false)}>
               Close
