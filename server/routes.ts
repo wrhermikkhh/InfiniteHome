@@ -614,9 +614,9 @@ export async function registerRoutes(
   // Update order delivery status (label_created, processing, out_for_delivery, delivered, failed)
   app.patch("/api/orders/:id/delivery-status", async (req, res) => {
     try {
-      const { deliveryStatus } = req.body;
+      const { deliveryStatus, location } = req.body;
       const prevOrder = await storage.getOrder(req.params.id);
-      const order = await storage.updateOrderDeliveryStatus(req.params.id, deliveryStatus);
+      const order = await storage.updateOrderDeliveryStatus(req.params.id, deliveryStatus, location);
       if (order) {
         // Send email for every delivery status change (only once per status)
         if (prevOrder?.deliveryStatus !== deliveryStatus) {

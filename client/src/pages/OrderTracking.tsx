@@ -45,6 +45,7 @@ interface TrackingStep {
   isException?: boolean;
   timestamp?: string;
   isDeliveryStep?: boolean;
+  location?: string;
 }
 
 const statusConfig: Record<string, { label: string; description: string; icon: React.ReactNode }> = {
@@ -154,7 +155,7 @@ function buildOrderTimeline(
   statusHistory?: { status: string; timestamp: string }[],
   createdAt?: string,
   deliveryStatus?: string | null,
-  deliveryStatusHistory?: { status: string; timestamp: string }[]
+  deliveryStatusHistory?: { status: string; timestamp: string; location?: string }[]
 ): TrackingStep[] {
   const history = statusHistory || [];
   const steps: TrackingStep[] = [];
@@ -212,6 +213,7 @@ function buildOrderTimeline(
         isException: false,
         timestamp: histEntry?.timestamp,
         isDeliveryStep: true,
+        location: histEntry?.location,
       });
     });
 
@@ -228,6 +230,7 @@ function buildOrderTimeline(
         isException: true,
         timestamp: histEntry?.timestamp,
         isDeliveryStep: true,
+        location: histEntry?.location,
       });
     }
   }
@@ -235,7 +238,7 @@ function buildOrderTimeline(
   return steps;
 }
 
-function buildPosTimeline(deliveryStatus?: string | null, deliveryStatusHistory?: { status: string; timestamp: string }[]): TrackingStep[] {
+function buildPosTimeline(deliveryStatus?: string | null, deliveryStatusHistory?: { status: string; timestamp: string; location?: string }[]): TrackingStep[] {
   if (!deliveryStatus) return [];
   const isFailed = deliveryStatus === "failed";
   const currentDeliveryIdx = isFailed ? -1 : DELIVERY_ORDER.indexOf(deliveryStatus);
@@ -256,6 +259,7 @@ function buildPosTimeline(deliveryStatus?: string | null, deliveryStatusHistory?
       isException: false,
       timestamp: histEntry?.timestamp,
       isDeliveryStep: true,
+      location: histEntry?.location,
     };
   });
 
@@ -272,6 +276,7 @@ function buildPosTimeline(deliveryStatus?: string | null, deliveryStatusHistory?
       isException: true,
       timestamp: histEntry?.timestamp,
       isDeliveryStep: true,
+      location: histEntry?.location,
     });
   }
 
@@ -339,6 +344,11 @@ function Timeline({ steps }: { steps: TrackingStep[] }) {
               )}>
                 {step.label}
               </h3>
+              {step.location && (step.isCompleted || step.isCurrent || step.isException) && (
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200 tracking-wide">
+                  {step.location}
+                </span>
+              )}
               {step.isCurrent && !step.isException && (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                   <Clock size={10} /> Current

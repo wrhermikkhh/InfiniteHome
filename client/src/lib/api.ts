@@ -249,11 +249,11 @@ export const api = {
     return res.json();
   },
 
-  async updateOrderDeliveryStatus(id: string, deliveryStatus: string): Promise<Order> {
+  async updateOrderDeliveryStatus(id: string, deliveryStatus: string, location?: string): Promise<Order> {
     const res = await fetch(`${API_BASE}/orders/${id}/delivery-status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deliveryStatus }),
+      body: JSON.stringify({ deliveryStatus, location: location || "MLE" }),
     });
     return res.json();
   },

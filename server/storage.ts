@@ -61,7 +61,7 @@ export interface IStorage {
   getOrdersByEmail(email: string): Promise<Order[]>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
-  updateOrderDeliveryStatus(id: string, deliveryStatus: string): Promise<Order | undefined>;
+  updateOrderDeliveryStatus(id: string, deliveryStatus: string, location?: string): Promise<Order | undefined>;
   invoiceOrder(id: string, invoiceNumber: string): Promise<Order | undefined>;
   getNextInvoiceNumber(): Promise<string>;
   updateOrderAdminNote(id: string, adminNote: string | null): Promise<Order | undefined>;
@@ -274,10 +274,14 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
-  async updateOrderDeliveryStatus(id: string, deliveryStatus: string): Promise<Order | undefined> {
+  async updateOrderDeliveryStatus(id: string, deliveryStatus: string, location?: string): Promise<Order | undefined> {
     const existing = await this.getOrder(id);
-    const history: { status: string; timestamp: string }[] = existing?.deliveryStatusHistory as any || [];
-    const newEntry = { status: deliveryStatus, timestamp: new Date().toISOString() };
+    const history: { status: string; timestamp: string; location?: string }[] = existing?.deliveryStatusHistory as any || [];
+    const newEntry: { status: string; timestamp: string; location?: string } = {
+      status: deliveryStatus,
+      timestamp: new Date().toISOString(),
+      location: location || "MLE",
+    };
     const [updated] = await db.update(orders)
       .set({ deliveryStatus, deliveryStatusHistory: [...history, newEntry] })
       .where(eq(orders.id, id))
