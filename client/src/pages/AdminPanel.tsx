@@ -364,7 +364,7 @@ export default function AdminPanel() {
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPosLabelModal, setShowPosLabelModal] = useState(false);
-  const [posLabelForm, setPosLabelForm] = useState({ recipientName: "", streetAddress: "", atollIsland: "", phone: "" });
+  const [posLabelForm, setPosLabelForm] = useState({ recipientName: "", streetAddress: "", atollIsland: "", phone: "", deliveryType: "standard" });
   const [showPosVariantModal, setShowPosVariantModal] = useState(false);
   const [selectedPosProduct, setSelectedPosProduct] = useState<any>(null);
   const [selectedPosSize, setSelectedPosSize] = useState("");
@@ -894,7 +894,8 @@ export default function AdminPanel() {
       ? new Date(selectedTransaction.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
       : '';
 
-    const cleanTrackingNumber = selectedTransaction.trackingNumber || selectedTransaction.transactionNumber;
+    const cleanTrackingNumber = selectedTransaction.trackingNumber
+      || selectedTransaction.transactionNumber.replace(/^POS-/, '').replace(/-/g, '');
     const safeRef = escJs(cleanTrackingNumber);
     const fullAddress = posLabelForm.atollIsland
       ? `${posLabelForm.streetAddress}, ${posLabelForm.atollIsland}`
@@ -972,7 +973,7 @@ export default function AdminPanel() {
             </div>
             <div class="header-barcode-strip"><svg id="header-barcode"></svg></div>
           </div>
-          <div class="delivery-banner"><div class="delivery-banner-text">POS DELIVERY</div></div>
+          <div class="delivery-banner"><div class="delivery-banner-text">${posLabelForm.deliveryType === 'express' ? 'EXPRESS DELIVERY' : 'STANDARD DELIVERY'}</div></div>
           <div class="addresses">
             <div class="from-block">
               <div class="from-label">From:</div>
@@ -3017,9 +3018,9 @@ export default function AdminPanel() {
                             posTransactions.map((tx: any) => (
                               <tr key={tx.id} className="hover:bg-secondary/10">
                                 <td className="p-4 font-mono text-sm">
-                                  {tx.trackingNumber && (
-                                    <span className="block font-bold text-primary">{tx.trackingNumber}</span>
-                                  )}
+                                  <span className="block font-bold text-primary">
+                                    {tx.trackingNumber || tx.transactionNumber.replace(/^POS-/, '').replace(/-/g, '')}
+                                  </span>
                                   <span className="text-xs text-muted-foreground">{tx.transactionNumber}</span>
                                 </td>
                                 <td className="p-4 text-sm">
@@ -3836,6 +3837,25 @@ export default function AdminPanel() {
                 value={posLabelForm.phone}
                 onChange={(e) => setPosLabelForm(f => ({ ...f, phone: e.target.value }))}
               />
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground block mb-2">Delivery Type *</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPosLabelForm(f => ({ ...f, deliveryType: "standard" }))}
+                  className={`flex-1 py-2 px-3 border text-xs font-bold uppercase tracking-widest transition-colors ${posLabelForm.deliveryType === "standard" ? "bg-primary text-primary-foreground border-primary" : "bg-white text-foreground border-border hover:bg-secondary/20"}`}
+                >
+                  Standard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPosLabelForm(f => ({ ...f, deliveryType: "express" }))}
+                  className={`flex-1 py-2 px-3 border text-xs font-bold uppercase tracking-widest transition-colors ${posLabelForm.deliveryType === "express" ? "bg-primary text-primary-foreground border-primary" : "bg-white text-foreground border-border hover:bg-secondary/20"}`}
+                >
+                  Express
+                </button>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">

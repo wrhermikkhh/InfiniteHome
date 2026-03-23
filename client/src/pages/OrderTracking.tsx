@@ -463,19 +463,11 @@ export default function OrderTracking() {
               <div className="bg-gradient-to-r from-primary/5 to-primary/10 p-6 border-b border-border">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    {posTransaction.trackingNumber && (
-                      <>
-                        <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Tracking Number</p>
-                        <p className="text-2xl font-mono font-bold tracking-widest">{posTransaction.trackingNumber}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Ref: {posTransaction.transactionNumber}</p>
-                      </>
-                    )}
-                    {!posTransaction.trackingNumber && (
-                      <>
-                        <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Reference Number</p>
-                        <p className="text-2xl font-serif font-semibold">{posTransaction.transactionNumber}</p>
-                      </>
-                    )}
+                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Tracking Number</p>
+                    <p className="text-2xl font-mono font-bold tracking-widest">
+                      {posTransaction.trackingNumber || posTransaction.transactionNumber.replace(/^POS-/, '').replace(/-/g, '')}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Ref: {posTransaction.transactionNumber}</p>
                   </div>
                   <div className="px-4 py-2 rounded-full font-semibold text-sm uppercase tracking-wide bg-green-100 text-green-800">
                     {posTransaction.status || "Completed"}
