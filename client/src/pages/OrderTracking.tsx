@@ -545,7 +545,7 @@ export default function OrderTracking() {
 
         {/* ── POS delivery order ── */}
         {posTransaction && (() => {
-          const deliveryStatus = posTransaction.deliveryStatus || "label_created";
+          const deliveryStatus = posTransaction.deliveryStatus || null;
           const steps = buildPosTimeline(deliveryStatus, posTransaction.deliveryStatusHistory);
           const trackingNum = posTransaction.trackingNumber || posTransaction.transactionNumber.replace(/^POS-/, "").replace(/-/g, "");
           const adminNote = posTransaction.adminNote;
@@ -569,9 +569,11 @@ export default function OrderTracking() {
                       <p className="text-2xl font-mono font-bold tracking-widest">{trackingNum}</p>
                       <p className="text-xs text-muted-foreground mt-1">Ref: {posTransaction.transactionNumber}</p>
                     </div>
-                    <div className={cn("px-4 py-2 rounded-full font-semibold text-sm uppercase tracking-wide", deliveryStatusBadge[deliveryStatus] || "bg-secondary text-foreground")}>
-                      {deliveryStatusLabel[deliveryStatus] || deliveryStatus}
-                    </div>
+                    {deliveryStatus && (
+                      <div className={cn("px-4 py-2 rounded-full font-semibold text-sm uppercase tracking-wide", deliveryStatusBadge[deliveryStatus] || "bg-secondary text-foreground")}>
+                        {deliveryStatusLabel[deliveryStatus] || deliveryStatus}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -603,6 +605,7 @@ export default function OrderTracking() {
               </div>
 
               {/* Unified delivery timeline */}
+              {steps.length > 0 && (
               <div className="bg-white border border-border shadow-lg rounded-sm p-8 md:p-10">
                 <h2 className="text-2xl font-serif mb-8 flex items-center gap-3">
                   <CircleDot className="text-primary" size={24} />
@@ -619,6 +622,7 @@ export default function OrderTracking() {
                   </div>
                 )}
               </div>
+              )}
 
               {/* Items */}
               <div className="bg-white border border-border shadow-lg rounded-sm overflow-hidden">
