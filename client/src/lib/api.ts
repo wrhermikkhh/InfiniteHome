@@ -424,6 +424,18 @@ export const api = {
     return res.json();
   },
 
+  async convertPosToOrder(posTransactionId: string): Promise<{ order: any; transaction: PosTransaction }> {
+    const res = await fetch(`${API_BASE}/pos/transactions/${posTransactionId}/convert-to-order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || "Failed to convert");
+    }
+    return res.json();
+  },
+
   async getPosTransactionsWithLabels(): Promise<PosTransaction[]> {
     const res = await fetch(`${API_BASE}/pos/transactions`);
     const all = await res.json();

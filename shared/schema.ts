@@ -140,6 +140,7 @@ export const posTransactions = pgTable("pos_transactions", {
   cashierName: text("cashier_name").notNull(),
   notes: text("notes"),
   status: text("status").notNull().default("completed"),
+  convertedToOrderId: varchar("converted_to_order_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

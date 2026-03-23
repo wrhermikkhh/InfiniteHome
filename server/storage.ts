@@ -84,6 +84,7 @@ export interface IStorage {
   getPosTransactionByTrackingNumber(trackingNumber: string): Promise<PosTransaction | undefined>;
   createPosTransaction(transaction: InsertPosTransaction): Promise<PosTransaction>;
   updatePosTransaction(id: string, data: Partial<InsertPosTransaction>): Promise<PosTransaction | undefined>;
+  markPosTransactionConverted(id: string, orderId: string): Promise<PosTransaction | undefined>;
   getTodayPosTransactions(): Promise<PosTransaction[]>;
 }
 
@@ -452,6 +453,11 @@ export class DatabaseStorage implements IStorage {
       finalData.deliveryStatusHistory = [...history, { status: data.deliveryStatus, timestamp: new Date().toISOString() }];
     }
     const [updated] = await db.update(posTransactions).set(finalData).where(eq(posTransactions.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async markPosTransactionConverted(id: string, orderId: string): Promise<PosTransaction | undefined> {
+    const [updated] = await db.update(posTransactions).set({ convertedToOrderId: orderId }).where(eq(posTransactions.id, id)).returning();
     return updated || undefined;
   }
 

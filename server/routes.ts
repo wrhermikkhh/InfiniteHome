@@ -679,6 +679,46 @@ export async function registerRoutes(
     }
   });
 
+  // Convert a POS transaction into a regular order for unified delivery tracking
+  app.post("/api/pos/transactions/:id/convert-to-order", async (req, res) => {
+    try {
+      const tx = await storage.getPosTransaction(req.params.id);
+      if (!tx) return res.status(404).json({ message: "Transaction not found" });
+      if (tx.convertedToOrderId) return res.status(409).json({ message: "Already converted" });
+
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      const orderNumber = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+
+      const order = await storage.createOrder({
+        orderNumber,
+        trackingNumber: tx.trackingNumber || undefined,
+        customerId: tx.customerId || undefined,
+        customerName: tx.labelRecipientName || tx.customerName || "POS Customer",
+        customerEmail: (tx as any).labelRecipientEmail || "",
+        customerPhone: tx.labelPhone || tx.customerPhone || "",
+        shippingAddress: tx.labelAddress || "",
+        customerAtollIsland: undefined,
+        deliveryType: tx.labelDeliveryType === "express" ? "express" : "male",
+        items: tx.items as any,
+        subtotal: tx.subtotal,
+        discount: tx.discount ?? 0,
+        shipping: 0,
+        total: tx.total,
+        paymentMethod: tx.paymentMethod as any,
+        status: "confirmed",
+        deliveryStatus: tx.deliveryStatus || undefined,
+        statusHistory: [{ status: "confirmed", timestamp: new Date().toISOString() }],
+        notes: tx.notes || undefined,
+      } as any);
+
+      await storage.markPosTransactionConverted(tx.id, order.id);
+
+      res.json({ order, transaction: { ...tx, convertedToOrderId: order.id } });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   app.post("/api/pos/transactions", async (req, res) => {
     try {
       const items = req.body.items as { productId: string; name: string; qty: number; price: number; color?: string; size?: string }[];

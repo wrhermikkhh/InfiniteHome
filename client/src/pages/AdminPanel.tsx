@@ -3517,26 +3517,12 @@ export default function AdminPanel() {
                               <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Address</th>
                               <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Type</th>
                               <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Date</th>
-                              <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Delivery Status</th>
+                              <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Action</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border">
                             {posDeliveries.map((delivery: any) => {
                               const cleanNum = delivery.trackingNumber || delivery.transactionNumber.replace(/^POS-/, '').replace(/-/g, '');
-                              const statusOptions = [
-                                { value: "label_created", label: "Label Created" },
-                                { value: "processing", label: "Processing" },
-                                { value: "out_for_delivery", label: "Out for Delivery" },
-                                { value: "delivered", label: "Delivered" },
-                                { value: "failed", label: "Failed" },
-                              ];
-                              const statusColors: Record<string, string> = {
-                                label_created: "bg-blue-50 text-blue-700 border-blue-200",
-                                processing: "bg-yellow-50 text-yellow-700 border-yellow-200",
-                                out_for_delivery: "bg-purple-50 text-purple-700 border-purple-200",
-                                delivered: "bg-green-50 text-green-700 border-green-200",
-                                failed: "bg-red-50 text-red-700 border-red-200",
-                              };
                               return (
                                 <tr key={delivery.id} className="hover:bg-secondary/10">
                                   <td className="p-4 font-mono text-sm">
@@ -3557,21 +3543,29 @@ export default function AdminPanel() {
                                     {delivery.createdAt ? new Date(delivery.createdAt).toLocaleDateString() : "-"}
                                   </td>
                                   <td className="p-4">
-                                    <select
-                                      className={cn("text-xs font-semibold px-2 py-1.5 border rounded-none outline-none cursor-pointer", statusColors[delivery.deliveryStatus] || "bg-secondary/20 text-foreground border-border")}
-                                      value={delivery.deliveryStatus || "label_created"}
-                                      onChange={async (e) => {
-                                        const newStatus = e.target.value;
-                                        try {
-                                          const updated = await api.updatePosTransaction(delivery.id, { deliveryStatus: newStatus });
-                                          setPosDeliveries(prev => prev.map(d => d.id === updated.id ? updated : d));
-                                        } catch {}
-                                      }}
-                                    >
-                                      {statusOptions.map(opt => (
-                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                      ))}
-                                    </select>
+                                    {delivery.convertedToOrderId ? (
+                                      <span className="text-[10px] uppercase font-bold px-2 py-1 border bg-emerald-50 text-emerald-700 border-emerald-200">
+                                        In Orders
+                                      </span>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="rounded-none text-xs gap-1.5 h-8"
+                                        data-testid={`button-move-to-orders-${delivery.id}`}
+                                        onClick={async () => {
+                                          try {
+                                            const result = await api.convertPosToOrder(delivery.id);
+                                            setPosDeliveries(prev => prev.map(d => d.id === delivery.id ? result.transaction : d));
+                                            toast({ title: "Moved to Orders", description: `Order ${result.order.orderNumber} created. Track it from the Orders tab.` });
+                                          } catch (e: any) {
+                                            toast({ title: "Error", description: e.message, variant: "destructive" });
+                                          }
+                                        }}
+                                      >
+                                        Move to Orders
+                                      </Button>
+                                    )}
                                   </td>
                                 </tr>
                               );
