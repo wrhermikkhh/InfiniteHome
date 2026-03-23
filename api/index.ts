@@ -182,9 +182,11 @@ const orders = pgTable("orders", {
   paymentMethod: text("payment_method").notNull(),
   paymentSlip: text("payment_slip"),
   status: text("status").notNull().default("pending"),
-  statusHistory: jsonb("status_history").$type<{ status: string; timestamp: string }[]>().default([]),
+  statusHistory: jsonb("status_history").$type<{ status: string; timestamp: string; location?: string }[]>().default([]),
   trackingNumber: text("tracking_number").unique(),
   deliveryStatus: text("delivery_status"),
+  deliveryStatusHistory: jsonb("delivery_status_history").$type<{ status: string; timestamp: string; location?: string }[]>().default([]),
+  adminNote: text("admin_note"),
   invoiceNumber: text("invoice_number").unique(),
   invoicedAt: timestamp("invoiced_at"),
   couponCode: text("coupon_code"),
@@ -201,10 +203,13 @@ const posTransactions = pgTable("pos_transactions", {
   transactionNumber: text("transaction_number").notNull().unique(),
   trackingNumber: text("tracking_number").unique(),
   labelRecipientName: text("label_recipient_name"),
+  labelRecipientEmail: text("label_recipient_email"),
   labelAddress: text("label_address"),
   labelPhone: text("label_phone"),
   labelDeliveryType: text("label_delivery_type"),
   deliveryStatus: text("delivery_status"),
+  deliveryStatusHistory: jsonb("delivery_status_history").$type<{ status: string; timestamp: string }[]>().default([]),
+  adminNote: text("admin_note"),
   items: jsonb("items").$type<{ productId: string; name: string; qty: number; price: number; color?: string; size?: string }[]>().notNull(),
   subtotal: real("subtotal").notNull(),
   discount: real("discount").default(0),
@@ -222,6 +227,7 @@ const posTransactions = pgTable("pos_transactions", {
   cashierName: text("cashier_name").notNull(),
   notes: text("notes"),
   status: text("status").notNull().default("completed"),
+  convertedToOrderId: varchar("converted_to_order_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -571,25 +577,60 @@ class DatabaseStorage {
     return newOrder;
   }
 
-  async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
+  async updateOrderStatus(id: string, status: string, location?: string): Promise<Order | undefined> {
     const existing = await this.getDb().select().from(orders).where(eq(orders.id, id));
     if (!existing[0]) return undefined;
-    let currentHistory = (existing[0].statusHistory as { status: string; timestamp: string }[]) || [];
+    let currentHistory = (existing[0].statusHistory as { status: string; timestamp: string; location?: string }[]) || [];
     if (currentHistory.length === 0 && existing[0].createdAt) {
       currentHistory = [{ status: existing[0].status, timestamp: existing[0].createdAt.toISOString() }];
     }
-    const newHistory = [...currentHistory, { status, timestamp: new Date().toISOString() }];
+    const newEntry: { status: string; timestamp: string; location?: string } = { status, timestamp: new Date().toISOString() };
+    if (location) newEntry.location = location;
+    const newHistory = [...currentHistory, newEntry];
     const [updated] = await this.getDb().update(orders).set({ status, statusHistory: newHistory }).where(eq(orders.id, id)).returning();
     return updated || undefined;
   }
 
-  async updateOrderDeliveryStatus(id: string, deliveryStatus: string): Promise<Order | undefined> {
-    const [updated] = await this.getDb().update(orders).set({ deliveryStatus }).where(eq(orders.id, id)).returning();
+  async updateOrderDeliveryStatus(id: string, deliveryStatus: string, location?: string): Promise<Order | undefined> {
+    const existing = await this.getOrder(id);
+    const history: { status: string; timestamp: string; location?: string }[] = (existing?.deliveryStatusHistory as any) || [];
+    const newEntry: { status: string; timestamp: string; location?: string } = {
+      status: deliveryStatus,
+      timestamp: new Date().toISOString(),
+      location: location || "MLE",
+    };
+    const [updated] = await this.getDb().update(orders).set({ deliveryStatus, deliveryStatusHistory: [...history, newEntry] }).where(eq(orders.id, id)).returning();
     return updated || undefined;
   }
 
   async invoiceOrder(id: string, invoiceNumber: string): Promise<Order | undefined> {
     const [updated] = await this.getDb().update(orders).set({ invoiceNumber, invoicedAt: new Date() }).where(eq(orders.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async getNextInvoiceNumber(): Promise<string> {
+    const rows = await this.getDb().select({ invoiceNumber: orders.invoiceNumber }).from(orders).where(sql`${orders.invoiceNumber} IS NOT NULL`);
+    let maxSeq = 10000;
+    for (const row of rows) {
+      const inv: string = row.invoiceNumber || "";
+      const match = inv.match(/INV-\d{8}-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxSeq) maxSeq = num;
+      }
+    }
+    const now = new Date();
+    const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    return `INV-${date}-${maxSeq + 1}`;
+  }
+
+  async updateOrderAdminNote(id: string, adminNote: string | null): Promise<Order | undefined> {
+    const [updated] = await this.getDb().update(orders).set({ adminNote }).where(eq(orders.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async markPosTransactionConverted(id: string, orderId: string): Promise<PosTransaction | undefined> {
+    const [updated] = await this.getDb().update(posTransactions).set({ convertedToOrderId: orderId }).where(eq(posTransactions.id, id)).returning();
     return updated || undefined;
   }
 
@@ -1490,7 +1531,7 @@ app.post("/api/orders", async (req, res) => {
 
 app.patch("/api/orders/:id/status", async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, location } = req.body;
     
     const currentOrder = await storage.getOrder(req.params.id);
     if (!currentOrder) {
@@ -1498,15 +1539,11 @@ app.patch("/api/orders/:id/status", async (req, res) => {
     }
     
     const previousStatus = currentOrder.status;
-    let order = await storage.updateOrderStatus(req.params.id, status);
+    let order = await storage.updateOrderStatus(req.params.id, status, location);
 
-    // Auto-create invoice when payment is verified
-    const invoiceTriggers = ['payment_verified', 'order_verified'];
-    if (order && invoiceTriggers.includes(status) && !invoiceTriggers.includes(previousStatus) && !order.invoiceNumber) {
-      const invNow = new Date();
-      const invDate = `${invNow.getFullYear()}${String(invNow.getMonth()+1).padStart(2,'0')}${String(invNow.getDate()).padStart(2,'0')}`;
-      const invSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-      const invoiceNumber = `INV-${invDate}-${invSuffix}`;
+    // Auto-create invoice when order is confirmed (only if not already invoiced)
+    if (order && status === 'confirmed' && previousStatus !== 'confirmed' && !order.invoiceNumber) {
+      const invoiceNumber = await storage.getNextInvoiceNumber();
       order = await storage.invoiceOrder(req.params.id, invoiceNumber) || order;
     }
     
@@ -1538,11 +1575,23 @@ app.patch("/api/orders/:id/status", async (req, res) => {
   }
 });
 
+// Update order admin note
+app.patch("/api/orders/:id/admin-note", async (req, res) => {
+  try {
+    const { adminNote } = req.body;
+    const order = await storage.updateOrderAdminNote(req.params.id, adminNote ?? null);
+    if (order) res.json(order);
+    else res.status(404).json({ message: "Order not found" });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
 // Update order delivery status
 app.patch("/api/orders/:id/delivery-status", async (req, res) => {
   try {
-    const { deliveryStatus } = req.body;
-    const order = await storage.updateOrderDeliveryStatus(req.params.id, deliveryStatus);
+    const { deliveryStatus, location } = req.body;
+    const order = await storage.updateOrderDeliveryStatus(req.params.id, deliveryStatus, location);
     if (order) {
       res.json(order);
     } else {
@@ -1798,6 +1847,46 @@ app.get("/api/pos/transactions/:id", async (req, res) => {
     }
   } catch (error: any) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// Convert a POS transaction into a regular order for unified delivery tracking
+app.post("/api/pos/transactions/:id/convert-to-order", async (req, res) => {
+  try {
+    const tx = await storage.getPosTransaction(req.params.id);
+    if (!tx) return res.status(404).json({ message: "Transaction not found" });
+    if (tx.convertedToOrderId) return res.status(409).json({ message: "Already converted" });
+
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const orderNumber = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+
+    const order = await storage.createOrder({
+      orderNumber,
+      trackingNumber: tx.trackingNumber || undefined,
+      customerId: tx.customerId || undefined,
+      customerName: tx.labelRecipientName || tx.customerName || "POS Customer",
+      customerEmail: (tx as any).labelRecipientEmail || "",
+      customerPhone: tx.labelPhone || tx.customerPhone || "",
+      shippingAddress: tx.labelAddress || "",
+      customerAtollIsland: undefined,
+      deliveryType: tx.labelDeliveryType === "express" ? "express" : "male",
+      items: tx.items as any,
+      subtotal: tx.subtotal,
+      discount: tx.discount ?? 0,
+      shipping: 0,
+      total: tx.total,
+      paymentMethod: tx.paymentMethod as any,
+      status: "confirmed",
+      deliveryStatus: tx.deliveryStatus || undefined,
+      statusHistory: [{ status: "confirmed", timestamp: new Date().toISOString() }],
+      notes: tx.notes || undefined,
+    } as any);
+
+    await storage.markPosTransactionConverted(tx.id, order.id);
+
+    res.json({ order, transaction: { ...tx, convertedToOrderId: order.id } });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
   }
 });
 
