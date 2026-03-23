@@ -3644,17 +3644,6 @@ export default function AdminPanel() {
                               {/* Total */}
                               <div className="text-sm font-semibold">MVR {order.total.toLocaleString()}</div>
 
-                              {/* Delivery status — read only, change from Orders tab */}
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground uppercase tracking-wide">Delivery:</span>
-                                {order.deliveryStatus ? (
-                                  <span className={`text-xs font-semibold px-2 py-1 border ${deliveryStatusColors[order.deliveryStatus] || "bg-secondary/20 text-foreground border-border"}`}>
-                                    {order.deliveryStatus.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground italic">No label yet</span>
-                                )}
-                              </div>
                             </div>
 
                             {/* Actions */}
