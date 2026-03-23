@@ -1900,6 +1900,81 @@ app.get("/api/pos/stats/today", async (req, res) => {
   }
 });
 
+// ============ PAGE HTML WITH DYNAMIC OG TAGS ============
+
+const SITE_URL = "https://infinitehome.mv";
+const DEFAULT_OG = {
+  title: "INFINITE HOME - Premium Bedding, Furniture & Home Appliances",
+  description: "Shop premium bedding, luxury furniture, and home appliances at INFINITE HOME. Free delivery across Maldives.",
+  image: `${SITE_URL}/opengraph.jpg`,
+};
+
+const PAGE_OG: Record<string, { title: string; description: string }> = {
+  "/shop": { title: "Shop - INFINITE HOME", description: "Browse our full collection of premium bedding, furniture, and home appliances." },
+  "/consultation": { title: "Book a Consultation - INFINITE HOME", description: "Get personalised advice from our home decor experts." },
+  "/bamboo-bedding": { title: "Bamboo Bedding - INFINITE HOME", description: "Experience our luxurious bamboo bedding collection. Naturally soft, cooling, and sustainable." },
+  "/custom-mattress": { title: "Custom Mattress - INFINITE HOME", description: "Design your perfect mattress tailored to your comfort preferences." },
+  "/size-guide": { title: "Size Guide - INFINITE HOME", description: "Find the perfect fit with our comprehensive bedding size guide." },
+  "/contact": { title: "Contact Us - INFINITE HOME", description: "Get in touch with the INFINITE HOME team." },
+  "/track": { title: "Order Tracking - INFINITE HOME", description: "Track your INFINITE HOME order in real time." },
+};
+
+function buildOgHtml(rawHtml: string, og: { title: string; description: string; image: string; url: string }): string {
+  const esc = (s: string) => s.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return rawHtml
+    .replace(/<title>[^<]*<\/title>/, `<title>${esc(og.title)}</title>`)
+    .replace(/<meta property="og:title"[^>]*>/, `<meta property="og:title" content="${esc(og.title)}" />`)
+    .replace(/<meta property="og:description"[^>]*>/, `<meta property="og:description" content="${esc(og.description)}" />`)
+    .replace(/<meta property="og:image"[^>]*>/, `<meta property="og:image" content="${esc(og.image)}" />`)
+    .replace(/<meta property="og:url"[^>]*>/, `<meta property="og:url" content="${esc(og.url)}" />`)
+    .replace(/<meta name="twitter:title"[^>]*>/, `<meta name="twitter:title" content="${esc(og.title)}" />`)
+    .replace(/<meta name="twitter:description"[^>]*>/, `<meta name="twitter:description" content="${esc(og.description)}" />`)
+    .replace(/<meta name="twitter:image"[^>]*>/, `<meta name="twitter:image" content="${esc(og.image)}" />`);
+}
+
+app.get("*", async (req, res) => {
+  try {
+    const { readFileSync } = await import("fs");
+    const { join } = await import("path");
+
+    let baseHtml = "";
+    const pathsToTry = [
+      join(process.cwd(), "dist", "public", "index.html"),
+      join(process.cwd(), "client", "index.html"),
+    ];
+    for (const p of pathsToTry) {
+      try { baseHtml = readFileSync(p, "utf8"); break; } catch {}
+    }
+    if (!baseHtml) return res.status(404).send("Not found");
+
+    const urlPath = req.path;
+    let og = { ...DEFAULT_OG, url: `${SITE_URL}${urlPath}` };
+
+    // Product page: /product/:id
+    const productMatch = urlPath.match(/^\/product\/([^/]+)$/);
+    if (productMatch) {
+      try {
+        const product = await storage.getProduct(productMatch[1]);
+        if (product) {
+          const images = Array.isArray(product.images) ? product.images as string[] : [];
+          og.title = `${product.name} - INFINITE HOME`;
+          og.description = (product.description || DEFAULT_OG.description).slice(0, 200);
+          if (images.length > 0) og.image = images[0];
+        }
+      } catch {}
+    } else if (PAGE_OG[urlPath]) {
+      og = { ...og, ...PAGE_OG[urlPath] };
+    }
+
+    const html = buildOgHtml(baseHtml, og);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate");
+    res.send(html);
+  } catch (err) {
+    res.status(500).send("Server error");
+  }
+});
+
 // ============ VERCEL HANDLER ============
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
