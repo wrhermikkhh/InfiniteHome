@@ -703,9 +703,8 @@ export async function registerRoutes(
       const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
       const transactionNumber = `POS-${dateStr}-${timeStr}-${randomSuffix}`;
 
-      // Generate clean tracking number: IH + 8 uppercase alphanumeric chars
-      const trackingChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      const trackingNumber = 'IH' + Array.from({ length: 8 }, () => trackingChars[Math.floor(Math.random() * trackingChars.length)]).join('');
+      // Generate clean tracking number from transaction number digits only
+      const trackingNumber = transactionNumber.replace(/^POS-/, '').replace(/-/g, '');
 
       // Manually construct the transaction data to avoid drizzle-zod pattern issues
       const data = {
