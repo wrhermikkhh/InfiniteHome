@@ -457,65 +457,166 @@ export default function OrderTracking() {
           </div>
         )}
 
-        {posTransaction && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
-            <div className="bg-white border border-border shadow-lg rounded-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-primary/5 to-primary/10 p-6 border-b border-border">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Tracking Number</p>
-                    <p className="text-2xl font-mono font-bold tracking-widest">
-                      {posTransaction.trackingNumber || posTransaction.transactionNumber.replace(/^POS-/, '').replace(/-/g, '')}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">Ref: {posTransaction.transactionNumber}</p>
-                  </div>
-                  <div className="px-4 py-2 rounded-full font-semibold text-sm uppercase tracking-wide bg-green-100 text-green-800">
-                    {posTransaction.status || "Completed"}
-                  </div>
-                </div>
-              </div>
-              <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-full shrink-0">
-                    <Package className="text-primary" size={22} />
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Items</p>
-                    <p className="font-medium">{posTransaction.items?.length || 0} item{(posTransaction.items?.length || 0) !== 1 ? 's' : ''}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-full shrink-0">
-                    <Clock className="text-primary" size={22} />
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Transaction Date</p>
-                    <p className="font-medium">{posTransaction.createdAt ? formatGMT5(posTransaction.createdAt) : ""}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-full shrink-0">
-                    <CreditCard className="text-primary" size={22} />
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Payment</p>
-                    <p className="font-medium capitalize">{posTransaction.paymentMethod}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="px-6 pb-6">
-                <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-3">Items Purchased</p>
-                <div className="space-y-2">
-                  {posTransaction.items?.map((item: any, i: number) => (
-                    <div key={i} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
-                      <span>{item.qty}x {item.name}{item.size && item.size !== 'Standard' ? ` (${item.size})` : ''}{item.color && item.color !== 'Default' ? ` — ${item.color}` : ''}</span>
+        {posTransaction && (() => {
+          const deliveryStatus = posTransaction.deliveryStatus || "label_created";
+          const deliverySteps = [
+            { key: "label_created", label: "Label Created", description: "Shipping label has been printed and the package is being prepared.", icon: <Package size={18} /> },
+            { key: "processing", label: "Processing", description: "Your package is being processed and prepared for handover.", icon: <Clock size={18} /> },
+            { key: "out_for_delivery", label: "Out for Delivery", description: "Your package is on its way and will be delivered today.", icon: <Truck size={18} /> },
+            { key: "delivered", label: "Delivered", description: "Your package has been delivered successfully.", icon: <CheckCircle2 size={18} /> },
+          ];
+          const isFailed = deliveryStatus === "failed";
+          const currentIdx = isFailed ? -1 : deliverySteps.findIndex(s => s.key === deliveryStatus);
+
+          const statusBadge: Record<string, string> = {
+            label_created: "bg-blue-100 text-blue-800",
+            processing: "bg-yellow-100 text-yellow-800",
+            out_for_delivery: "bg-purple-100 text-purple-800",
+            delivered: "bg-green-100 text-green-800",
+            failed: "bg-red-100 text-red-800",
+          };
+          const statusLabel: Record<string, string> = {
+            label_created: "Label Created",
+            processing: "Processing",
+            out_for_delivery: "Out for Delivery",
+            delivered: "Delivered",
+            failed: "Delivery Failed",
+          };
+
+          return (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+              {/* Header card */}
+              <div className="bg-white border border-border shadow-lg rounded-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-primary/5 to-primary/10 p-6 border-b border-border">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Tracking Number</p>
+                      <p className="text-2xl font-mono font-bold tracking-widest">
+                        {posTransaction.trackingNumber || posTransaction.transactionNumber.replace(/^POS-/, '').replace(/-/g, '')}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">Ref: {posTransaction.transactionNumber}</p>
                     </div>
-                  ))}
+                    <div className={cn("px-4 py-2 rounded-full font-semibold text-sm uppercase tracking-wide", statusBadge[deliveryStatus] || "bg-secondary text-foreground")}>
+                      {statusLabel[deliveryStatus] || deliveryStatus}
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="flex items-start gap-4">
+                    <div className="bg-primary/10 p-3 rounded-full shrink-0">
+                      <Package className="text-primary" size={22} />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Items</p>
+                      <p className="font-medium">{posTransaction.items?.length || 0} item{(posTransaction.items?.length || 0) !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                  {posTransaction.labelRecipientName && (
+                    <div className="flex items-start gap-4">
+                      <div className="bg-primary/10 p-3 rounded-full shrink-0">
+                        <MapPin className="text-primary" size={22} />
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Recipient</p>
+                        <p className="font-medium">{posTransaction.labelRecipientName}</p>
+                        {posTransaction.labelAddress && <p className="text-sm text-muted-foreground">{posTransaction.labelAddress}</p>}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-start gap-4">
+                    <div className="bg-primary/10 p-3 rounded-full shrink-0">
+                      <Clock className="text-primary" size={22} />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Date</p>
+                      <p className="font-medium">{posTransaction.createdAt ? formatGMT5(posTransaction.createdAt) : ""}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery timeline */}
+              <div className="bg-white border border-border shadow-lg rounded-sm overflow-hidden">
+                <div className="p-6 border-b border-border">
+                  <h2 className="text-lg font-serif font-semibold">Delivery Status</h2>
+                </div>
+                <div className="p-6">
+                  {isFailed ? (
+                    <div className="bg-red-50 border-2 border-red-200 rounded-sm p-6 flex items-start gap-4">
+                      <div className="bg-red-100 p-3 rounded-full shrink-0">
+                        <AlertTriangle className="text-red-600" size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-serif font-semibold text-red-800 mb-2">Delivery Failed</h3>
+                        <p className="text-red-700 mb-4">We were unable to deliver your package. Please contact our team for assistance.</p>
+                        <p className="text-sm text-red-600">Contact us at <strong>support@infinitehome.mv</strong> or call <strong>7840001</strong></p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      {deliverySteps.map((step, idx) => {
+                        const isCompleted = idx < currentIdx;
+                        const isCurrent = idx === currentIdx;
+                        const isUpcoming = idx > currentIdx;
+                        return (
+                          <div key={step.key} className="flex gap-4">
+                            <div className="flex flex-col items-center">
+                              <div className={cn(
+                                "w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2 transition-colors",
+                                isCompleted ? "bg-primary border-primary text-primary-foreground" :
+                                isCurrent ? "bg-primary/10 border-primary text-primary" :
+                                "bg-background border-border text-muted-foreground"
+                              )}>
+                                {step.icon}
+                              </div>
+                              {idx < deliverySteps.length - 1 && (
+                                <div className={cn("w-0.5 flex-1 my-1 min-h-[2rem]", isCompleted ? "bg-primary" : "bg-border")} />
+                              )}
+                            </div>
+                            <div className="flex-1 pb-8 pt-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className={cn(
+                                  "text-base font-semibold",
+                                  isCurrent ? "text-primary" : isUpcoming ? "text-muted-foreground" : "text-foreground"
+                                )}>
+                                  {step.label}
+                                </h3>
+                                {isCurrent && (
+                                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                    <Clock size={10} /> Current
+                                  </span>
+                                )}
+                              </div>
+                              <p className={cn("text-sm mt-1 max-w-md", isUpcoming ? "text-muted-foreground/50" : "text-muted-foreground")}>
+                                {step.description}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Items */}
+              <div className="bg-white border border-border shadow-lg rounded-sm overflow-hidden">
+                <div className="p-6 border-b border-border">
+                  <h2 className="text-lg font-serif font-semibold">Items</h2>
+                </div>
+                <div className="px-6 pb-6 pt-4">
+                  <div className="space-y-2">
+                    {posTransaction.items?.map((item: any, i: number) => (
+                      <div key={i} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
+                        <span>{item.qty}x {item.name}{item.size && item.size !== 'Standard' ? ` (${item.size})` : ''}{item.color && item.color !== 'Default' ? ` — ${item.color}` : ''}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {!order && !posTransaction && !loading && !error && (
           <div className="text-center py-16">
