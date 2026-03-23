@@ -178,8 +178,8 @@ function buildOrderTimeline(
       steps.push({
         status: st,
         ...config,
-        isCompleted: !isLast || isDelivered,
-        isCurrent: isLast && !isDelivered,
+        isCompleted: !isLast || isDelivered || !!deliveryStatus,
+        isCurrent: isLast && !isDelivered && !deliveryStatus,
         isException: st === "delivery_exception",
         timestamp: h.timestamp,
         isDeliveryStep: false,
