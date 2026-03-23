@@ -431,9 +431,9 @@ export async function sendOrderStatusEmail(order: any, newStatus: string) {
         icon: '✓'
       },
       label_created: {
-        subject: `Shipping Label Created - ${order.orderNumber}`,
-        title: 'Label Created',
-        message: 'Your shipping label has been generated and your order is being prepared for dispatch. Use your tracking number to follow your package.',
+        subject: `Shipping Label Created — ${order.orderNumber}`,
+        title: 'Shipping Label Created',
+        message: 'Your shipping label has been created and your order is being prepared for dispatch. Use your tracking number below to follow your package.',
         icon: '🏷️'
       },
       processing: {
