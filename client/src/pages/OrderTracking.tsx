@@ -300,6 +300,9 @@ export default function OrderTracking() {
                   <div>
                     <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Order Number</p>
                     <p className="text-2xl font-serif font-semibold" data-testid="text-order-number">{order.orderNumber}</p>
+                    {order.trackingNumber && (
+                      <p className="text-sm text-muted-foreground mt-1 font-mono">Tracking: {order.trackingNumber}</p>
+                    )}
                   </div>
                   <div className={cn(
                     "px-4 py-2 rounded-full font-semibold text-sm uppercase tracking-wide",
@@ -436,6 +439,83 @@ export default function OrderTracking() {
                 </div>
               </div>
             </div>
+
+            {order.deliveryStatus && (
+              <div className="bg-white border border-border shadow-lg rounded-sm p-8 md:p-10">
+                <h2 className="text-2xl font-serif mb-6 flex items-center gap-3">
+                  <Truck className="text-primary" size={24} />
+                  Delivery Status
+                </h2>
+                {(() => {
+                  const ds = order.deliveryStatus!;
+                  const deliverySteps = [
+                    { key: "label_created", label: "Label Created", description: "Shipping label has been printed and the package is being prepared.", icon: <Package size={18} /> },
+                    { key: "processing", label: "Processing", description: "Your package is being processed and prepared for handover.", icon: <Clock size={18} /> },
+                    { key: "out_for_delivery", label: "Out for Delivery", description: "Your package is on its way and will be delivered today.", icon: <Truck size={18} /> },
+                    { key: "delivered", label: "Delivered", description: "Your package has been delivered successfully.", icon: <CheckCircle2 size={18} /> },
+                  ];
+                  const statusBadge: Record<string, string> = {
+                    label_created: "bg-blue-100 text-blue-800",
+                    processing: "bg-amber-100 text-amber-800",
+                    out_for_delivery: "bg-orange-100 text-orange-800",
+                    delivered: "bg-green-100 text-green-800",
+                    failed: "bg-red-100 text-red-800",
+                  };
+                  const statusLabel: Record<string, string> = {
+                    label_created: "Label Created",
+                    processing: "Processing",
+                    out_for_delivery: "Out for Delivery",
+                    delivered: "Delivered",
+                    failed: "Delivery Failed",
+                  };
+                  const isFailed = ds === "failed";
+                  const currentIdx = isFailed ? -1 : deliverySteps.findIndex(s => s.key === ds);
+                  return (
+                    <div>
+                      <div className="flex items-center gap-3 mb-6">
+                        <div>
+                          <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Tracking Number</p>
+                          <p className="text-xl font-mono font-bold">{order.trackingNumber || order.orderNumber}</p>
+                        </div>
+                        <div className={cn("ml-auto px-4 py-2 rounded-full font-semibold text-sm uppercase tracking-wide", statusBadge[ds] || "bg-secondary text-foreground")}>
+                          {statusLabel[ds] || ds}
+                        </div>
+                      </div>
+                      {isFailed ? (
+                        <div className="bg-red-50 border border-red-200 rounded-sm p-4 flex items-start gap-3">
+                          <AlertTriangle className="text-red-600 mt-0.5 shrink-0" size={20} />
+                          <div>
+                            <p className="font-semibold text-red-800 mb-1">Delivery Failed</p>
+                            <p className="text-sm text-red-700">We were unable to deliver your package. Please contact us at <strong>support@infinitehome.mv</strong> or WhatsApp <strong>9607840001</strong>.</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-0">
+                          {deliverySteps.map((step, idx) => {
+                            const isCompleted = idx < currentIdx;
+                            const isCurrent = idx === currentIdx;
+                            return (
+                              <div key={step.key} className="flex gap-4 relative">
+                                {idx < deliverySteps.length - 1 && (
+                                  <div className={cn("absolute left-5 top-10 bottom-0 w-0.5", isCompleted || isCurrent ? "bg-primary" : "bg-border")} />
+                                )}
+                                <div className={cn("relative z-10 flex items-center justify-center w-10 h-10 rounded-full shrink-0 border-2 mt-4", isCompleted ? "bg-primary border-primary text-primary-foreground" : isCurrent ? "bg-primary/10 border-primary text-primary" : "bg-background border-border text-muted-foreground")}>
+                                  {step.icon}
+                                </div>
+                                <div className={cn("flex-1 pb-6 pt-4", idx === deliverySteps.length - 1 ? "pb-0" : "")}>
+                                  <p className={cn("font-semibold", isCurrent ? "text-primary" : isCompleted ? "text-foreground" : "text-muted-foreground")}>{step.label}</p>
+                                  {isCurrent && <p className="text-sm text-muted-foreground mt-1">{step.description}</p>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
 
             {order.status === "delivery_exception" && (
               <div className="bg-red-50 border-2 border-red-200 rounded-sm p-6 flex items-start gap-4">

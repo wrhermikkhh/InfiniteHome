@@ -183,6 +183,10 @@ const orders = pgTable("orders", {
   paymentSlip: text("payment_slip"),
   status: text("status").notNull().default("pending"),
   statusHistory: jsonb("status_history").$type<{ status: string; timestamp: string }[]>().default([]),
+  trackingNumber: text("tracking_number").unique(),
+  deliveryStatus: text("delivery_status"),
+  invoiceNumber: text("invoice_number").unique(),
+  invoicedAt: timestamp("invoiced_at"),
   couponCode: text("coupon_code"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -553,6 +557,11 @@ class DatabaseStorage {
     return order || undefined;
   }
 
+  async getOrderByTrackingNumber(trackingNumber: string): Promise<Order | undefined> {
+    const [order] = await this.getDb().select().from(orders).where(eq(orders.trackingNumber, trackingNumber));
+    return order || undefined;
+  }
+
   async getOrdersByEmail(email: string): Promise<Order[]> {
     return await this.getDb().select().from(orders).where(eq(orders.customerEmail, email));
   }
@@ -571,6 +580,16 @@ class DatabaseStorage {
     }
     const newHistory = [...currentHistory, { status, timestamp: new Date().toISOString() }];
     const [updated] = await this.getDb().update(orders).set({ status, statusHistory: newHistory }).where(eq(orders.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async updateOrderDeliveryStatus(id: string, deliveryStatus: string): Promise<Order | undefined> {
+    const [updated] = await this.getDb().update(orders).set({ deliveryStatus }).where(eq(orders.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async invoiceOrder(id: string, invoiceNumber: string): Promise<Order | undefined> {
+    const [updated] = await this.getDb().update(orders).set({ invoiceNumber, invoicedAt: new Date() }).where(eq(orders.id, id)).returning();
     return updated || undefined;
   }
 
@@ -1330,7 +1349,9 @@ app.get("/api/orders/:id", async (req, res) => {
 });
 
 app.get("/api/orders/track/:orderNumber", async (req, res) => {
-  const order = await storage.getOrderByNumber(req.params.orderNumber);
+  const num = req.params.orderNumber;
+  let order = await storage.getOrderByNumber(num);
+  if (!order) order = await storage.getOrderByTrackingNumber(num);
   if (order) {
     res.json(order);
   } else {
@@ -1440,8 +1461,13 @@ app.post("/api/orders", async (req, res) => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     const randomId = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
     const orderNumber = randomId;
+    const trkNow = new Date();
+    const trkDate = `${trkNow.getFullYear()}${String(trkNow.getMonth()+1).padStart(2,'0')}${String(trkNow.getDate()).padStart(2,'0')}`;
+    const trkTime = `${String(trkNow.getHours()).padStart(2,'0')}${String(trkNow.getMinutes()).padStart(2,'0')}${String(trkNow.getSeconds()).padStart(2,'0')}`;
+    const trkSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const trackingNumber = `${trkDate}${trkTime}${trkSuffix}`;
     const initialStatus = req.body.status || "pending";
-    const data = insertOrderSchema.parse({ ...req.body, orderNumber, statusHistory: [{ status: initialStatus, timestamp: new Date().toISOString() }] });
+    const data = insertOrderSchema.parse({ ...req.body, orderNumber, trackingNumber, statusHistory: [{ status: initialStatus, timestamp: new Date().toISOString() }] });
     const order = await storage.createOrder(data);
     
     for (const item of items) {
@@ -1472,7 +1498,17 @@ app.patch("/api/orders/:id/status", async (req, res) => {
     }
     
     const previousStatus = currentOrder.status;
-    const order = await storage.updateOrderStatus(req.params.id, status);
+    let order = await storage.updateOrderStatus(req.params.id, status);
+
+    // Auto-create invoice when payment is verified
+    const invoiceTriggers = ['payment_verified', 'order_verified'];
+    if (order && invoiceTriggers.includes(status) && !invoiceTriggers.includes(previousStatus) && !order.invoiceNumber) {
+      const invNow = new Date();
+      const invDate = `${invNow.getFullYear()}${String(invNow.getMonth()+1).padStart(2,'0')}${String(invNow.getDate()).padStart(2,'0')}`;
+      const invSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+      const invoiceNumber = `INV-${invDate}-${invSuffix}`;
+      order = await storage.invoiceOrder(req.params.id, invoiceNumber) || order;
+    }
     
     if (order) {
       if (status === 'cancelled' && previousStatus !== 'cancelled') {
@@ -1493,6 +1529,21 @@ app.patch("/api/orders/:id/status", async (req, res) => {
         });
       }
       
+      res.json(order);
+    } else {
+      res.status(404).json({ message: "Order not found" });
+    }
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Update order delivery status
+app.patch("/api/orders/:id/delivery-status", async (req, res) => {
+  try {
+    const { deliveryStatus } = req.body;
+    const order = await storage.updateOrderDeliveryStatus(req.params.id, deliveryStatus);
+    if (order) {
       res.json(order);
     } else {
       res.status(404).json({ message: "Order not found" });

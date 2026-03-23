@@ -61,6 +61,9 @@ export interface IStorage {
   getOrdersByEmail(email: string): Promise<Order[]>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
+  updateOrderDeliveryStatus(id: string, deliveryStatus: string): Promise<Order | undefined>;
+  invoiceOrder(id: string, invoiceNumber: string): Promise<Order | undefined>;
+  getOrderByTrackingNumber(trackingNumber: string): Promise<Order | undefined>;
   
   // Stock Management
   deductStock(productId: string, size: string, color: string, quantity: number): Promise<void>;
@@ -266,6 +269,21 @@ export class DatabaseStorage implements IStorage {
     const newHistory = [...currentHistory, { status, timestamp: new Date().toISOString() }];
     const [updated] = await db.update(orders).set({ status, statusHistory: newHistory }).where(eq(orders.id, id)).returning();
     return updated || undefined;
+  }
+
+  async updateOrderDeliveryStatus(id: string, deliveryStatus: string): Promise<Order | undefined> {
+    const [updated] = await db.update(orders).set({ deliveryStatus }).where(eq(orders.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async invoiceOrder(id: string, invoiceNumber: string): Promise<Order | undefined> {
+    const [updated] = await db.update(orders).set({ invoiceNumber, invoicedAt: new Date() }).where(eq(orders.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async getOrderByTrackingNumber(trackingNumber: string): Promise<Order | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.trackingNumber, trackingNumber));
+    return order || undefined;
   }
 
   async getOrdersByEmail(email: string): Promise<Order[]> {

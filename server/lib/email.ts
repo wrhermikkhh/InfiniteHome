@@ -20,7 +20,8 @@ export async function sendOrderConfirmationEmail(order: any) {
     console.log('Sending email with Resend API Key:', apiKey.substring(0, 10) + '...');
 
     const baseUrl = 'https://infinitehome.mv';
-    const trackingUrl = `${baseUrl}/track?order=${order.orderNumber}`;
+    const trackingRef = order.trackingNumber || order.orderNumber;
+    const trackingUrl = `${baseUrl}/track?order=${trackingRef}`;
 
     const itemsHtml = order.items.map((item: any) => `
       <tr>
@@ -77,7 +78,7 @@ export async function sendOrderConfirmationEmail(order: any) {
                 <tr>
                   <td style="padding-top: 15px; border-top: 1px solid #f0e6d2; font-size: 14px; color: #666;">Tracking Number:</td>
                   <td style="padding-top: 15px; border-top: 1px solid #f0e6d2; font-size: 14px; text-align: right;">
-                    <a href="${trackingUrl}" style="color: #1a1a1a; font-weight: 700; text-decoration: underline;">${order.orderNumber}</a>
+                    <a href="${trackingUrl}" style="color: #1a1a1a; font-weight: 700; text-decoration: underline;">${trackingRef}</a>
                   </td>
                 </tr>
               </table>
@@ -208,7 +209,8 @@ export async function sendOrderStatusEmail(order: any, newStatus: string) {
     const { apiKey, fromEmail } = await getCredentials();
     const resend = new Resend(apiKey);
     const baseUrl = 'https://infinitehome.mv';
-    const trackingUrl = `${baseUrl}/track?order=${order.orderNumber}`;
+    const trackingRef2 = order.trackingNumber || order.orderNumber;
+    const trackingUrl = `${baseUrl}/track?order=${trackingRef2}`;
 
     const statusContent: { [key: string]: { subject: string; title: string; message: string; icon: string } } = {
       confirmed: {

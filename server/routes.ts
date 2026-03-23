@@ -397,7 +397,9 @@ export async function registerRoutes(
   });
 
   app.get("/api/orders/track/:orderNumber", async (req, res) => {
-    const order = await storage.getOrderByNumber(req.params.orderNumber);
+    const num = req.params.orderNumber;
+    let order = await storage.getOrderByNumber(num);
+    if (!order) order = await storage.getOrderByTrackingNumber(num);
     if (order) {
       res.json(order);
     } else {
@@ -514,9 +516,15 @@ export async function registerRoutes(
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       const randomId = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
       const orderNumber = randomId;
+      // Generate digits-only tracking number (same style as POS)
+      const now = new Date();
+      const trkDate = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+      const trkTime = `${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+      const trkSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const trackingNumber = `${trkDate}${trkTime}${trkSuffix}`;
       // Record initial status with timestamp in statusHistory
       const initialStatus = req.body.status || "pending";
-      const data = insertOrderSchema.parse({ ...req.body, orderNumber, statusHistory: [{ status: initialStatus, timestamp: new Date().toISOString() }] });
+      const data = insertOrderSchema.parse({ ...req.body, orderNumber, trackingNumber, statusHistory: [{ status: initialStatus, timestamp: new Date().toISOString() }] });
       const order = await storage.createOrder(data);
       console.log("Order created:", order.id, "Order Number:", order.orderNumber);
       
@@ -552,8 +560,19 @@ export async function registerRoutes(
       }
       
       const previousStatus = currentOrder.status;
-      const order = await storage.updateOrderStatus(req.params.id, status);
+      let order = await storage.updateOrderStatus(req.params.id, status);
       
+      // Auto-create invoice when payment is verified (only if not already invoiced)
+      const invoiceTriggers = ['payment_verified', 'order_verified'];
+      if (order && invoiceTriggers.includes(status) && !invoiceTriggers.includes(previousStatus) && !order.invoiceNumber) {
+        const invNow = new Date();
+        const invDate = `${invNow.getFullYear()}${String(invNow.getMonth()+1).padStart(2,'0')}${String(invNow.getDate()).padStart(2,'0')}`;
+        const invSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        const invoiceNumber = `INV-${invDate}-${invSuffix}`;
+        order = await storage.invoiceOrder(req.params.id, invoiceNumber) || order;
+        console.log(`Invoice created for order ${order.orderNumber}: ${invoiceNumber}`);
+      }
+
       if (order) {
         // Restore stock if order is being cancelled (and wasn't cancelled before)
         if (status === 'cancelled' && previousStatus !== 'cancelled') {
@@ -575,6 +594,21 @@ export async function registerRoutes(
           });
         }
         
+        res.json(order);
+      } else {
+        res.status(404).json({ message: "Order not found" });
+      }
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Update order delivery status (label_created, processing, out_for_delivery, delivered, failed)
+  app.patch("/api/orders/:id/delivery-status", async (req, res) => {
+    try {
+      const { deliveryStatus } = req.body;
+      const order = await storage.updateOrderDeliveryStatus(req.params.id, deliveryStatus);
+      if (order) {
         res.json(order);
       } else {
         res.status(404).json({ message: "Order not found" });

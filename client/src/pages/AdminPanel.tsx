@@ -489,12 +489,12 @@ export default function AdminPanel() {
       ? new Date(selectedOrder.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
       : '';
 
-    const safeOrderNum = escJs(selectedOrder.orderNumber);
-
     // Fetch QR code as base64 to ensure it loads
+    const trackingRef = selectedOrder.trackingNumber || selectedOrder.orderNumber;
+    const safeOrderNum = escJs(trackingRef);
     let qrCodeBase64 = '';
     try {
-      const trackingUrl = `${window.location.origin}/track?order=${selectedOrder.orderNumber}`;
+      const trackingUrl = `${window.location.origin}/track?order=${trackingRef}`;
       const response = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(trackingUrl)}`);
       const blob = await response.blob();
       qrCodeBase64 = await new Promise<string>((resolve) => {
@@ -782,7 +782,7 @@ export default function AdminPanel() {
               <div class="barcode-container">
                 <svg id="barcode"></svg>
               </div>
-              <div class="tracking-number">${escHtml(selectedOrder.orderNumber)}</div>
+              <div class="tracking-number">${escHtml(trackingRef)}</div>
             </div>
 
           </div>
@@ -844,6 +844,17 @@ export default function AdminPanel() {
       </html>
     `);
     printWindow.document.close();
+
+    // Set delivery status to label_created after printing
+    try {
+      const updated = await api.updateOrderDeliveryStatus(selectedOrder.id, 'label_created');
+      setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
+      if (selectedOrder && selectedOrder.id === updated.id) {
+        setSelectedOrder(updated);
+      }
+    } catch (e) {
+      console.error("Failed to set label_created status", e);
+    }
   };
 
   const handleCreateCategory = async () => {
@@ -1353,6 +1364,7 @@ export default function AdminPanel() {
     ...(isSuperAdmin || perms.canManageStock ? [{ icon: Warehouse, label: "Inventory" }] : []),
     ...(isSuperAdmin || perms.canAccessPOS ? [{ icon: CreditCard, label: "POS" }] : []),
     ...(isSuperAdmin || perms.canManageOrders ? [{ icon: Package, label: "Orders" }] : []),
+    ...(isSuperAdmin || perms.canManageOrders ? [{ icon: Receipt, label: "Transactions" }] : []),
     ...(isSuperAdmin || perms.canManageCoupons ? [{ icon: Tag, label: "Coupons" }] : []),
     ...(isSuperAdmin ? [{ icon: Settings, label: "Admin Management" }] : []),
   ];
@@ -3169,6 +3181,11 @@ export default function AdminPanel() {
                           </div>
                           <p className="text-sm text-muted-foreground">{order.customerName} — {order.customerPhone}</p>
                           <p className="text-sm font-medium">{formatCurrency(order.total)} via {order.paymentMethod.toUpperCase()}</p>
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            {order.trackingNumber && <span className="text-xs text-muted-foreground font-mono">TRK: {order.trackingNumber}</span>}
+                            {order.invoiceNumber && <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 font-medium">INV: {order.invoiceNumber}</span>}
+                            {order.deliveryStatus && <span className={cn("text-xs px-1.5 py-0.5 border font-medium", order.deliveryStatus === "delivered" ? "bg-green-50 text-green-700 border-green-200" : order.deliveryStatus === "failed" ? "bg-red-50 text-red-700 border-red-200" : order.deliveryStatus === "out_for_delivery" ? "bg-orange-50 text-orange-700 border-orange-200" : "bg-blue-50 text-blue-700 border-blue-200")}>{order.deliveryStatus.replace(/_/g, " ")}</span>}
+                          </div>
                         </div>
                         <div className="flex items-center gap-4">
                           <DropdownMenu>
@@ -3215,8 +3232,13 @@ export default function AdminPanel() {
                             >
                               <DialogHeader className="relative pr-8">
                                 <DialogTitle className="font-serif text-2xl">Order: {selectedOrder?.orderNumber}</DialogTitle>
-                                <DialogDescription className="uppercase tracking-widest text-[10px] font-bold">
-                                  Status: {selectedOrder?.status.replace("_", " ")}
+                                <DialogDescription asChild>
+                                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                                    <span className="uppercase tracking-widest text-[10px] font-bold">Status: {selectedOrder?.status.replace(/_/g, " ")}</span>
+                                    {selectedOrder?.trackingNumber && <span className="text-[10px] font-mono text-muted-foreground">· TRK: {selectedOrder.trackingNumber}</span>}
+                                    {selectedOrder?.invoiceNumber && <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 font-bold">{selectedOrder.invoiceNumber}</span>}
+                                    {selectedOrder?.deliveryStatus && <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 font-bold capitalize">{selectedOrder.deliveryStatus.replace(/_/g, " ")}</span>}
+                                  </div>
                                 </DialogDescription>
                                 <Button
                                   variant="ghost"
@@ -3436,6 +3458,138 @@ export default function AdminPanel() {
                   </Card>
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === "Transactions" && (
+            <div className="animate-in fade-in duration-500">
+              <div className="mb-8">
+                <h1 className="text-3xl font-serif">Transactions</h1>
+                <p className="text-muted-foreground">Invoiced storefront orders — auto-created on payment verification</p>
+              </div>
+
+              {(() => {
+                const invoicedOrders = orders.filter(o => o.invoiceNumber);
+                const deliveryStatusColors: Record<string, string> = {
+                  label_created: "bg-blue-50 text-blue-700 border-blue-200",
+                  processing: "bg-amber-50 text-amber-700 border-amber-200",
+                  out_for_delivery: "bg-orange-50 text-orange-700 border-orange-200",
+                  delivered: "bg-green-50 text-green-700 border-green-200",
+                  failed: "bg-red-50 text-red-700 border-red-200",
+                };
+
+                if (invoicedOrders.length === 0) {
+                  return (
+                    <Card className="rounded-none border-border shadow-none">
+                      <CardContent className="p-12 text-center">
+                        <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground">No transactions yet.</p>
+                        <p className="text-sm text-muted-foreground mt-1">Invoices are created automatically when an order is set to <strong>Payment Verified</strong> or <strong>Order Verified</strong>.</p>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {invoicedOrders.sort((a, b) => new Date(b.invoicedAt || b.createdAt || 0).getTime() - new Date(a.invoicedAt || a.createdAt || 0).getTime()).map(order => (
+                      <Card key={order.id} className="rounded-none border-border shadow-none" data-testid={`card-transaction-${order.id}`}>
+                        <CardContent className="p-6">
+                          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                            <div className="flex-1 space-y-3">
+                              {/* Invoice header */}
+                              <div className="flex flex-wrap items-center gap-3">
+                                <span className="text-xs uppercase tracking-widest font-bold text-muted-foreground">Invoice</span>
+                                <span className="font-mono font-bold text-sm" data-testid={`text-invoice-number-${order.id}`}>{order.invoiceNumber}</span>
+                                <span className="text-muted-foreground text-xs">·</span>
+                                <span className="text-xs text-muted-foreground">{order.invoicedAt ? new Date(order.invoicedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : ''}</span>
+                              </div>
+
+                              {/* Order + tracking */}
+                              <div className="flex flex-wrap gap-4 text-sm">
+                                <div>
+                                  <span className="text-muted-foreground text-xs uppercase tracking-wide">Order #</span>
+                                  <p className="font-mono font-semibold">{order.orderNumber}</p>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground text-xs uppercase tracking-wide">Tracking #</span>
+                                  <p className="font-mono font-semibold text-primary" data-testid={`text-tracking-${order.id}`}>{order.trackingNumber || order.orderNumber}</p>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground text-xs uppercase tracking-wide">Customer</span>
+                                  <p className="font-medium">{order.customerName}</p>
+                                </div>
+                              </div>
+
+                              {/* Items */}
+                              <div className="text-sm text-muted-foreground">
+                                {(order.items as any[]).map((item, i) => (
+                                  <span key={i}>{i > 0 ? ' · ' : ''}{item.qty}× {item.name}{item.size && item.size !== 'Standard' ? ` (${item.size})` : ''}{item.color && item.color !== 'Default' ? ` – ${item.color}` : ''}</span>
+                                ))}
+                              </div>
+
+                              {/* Total */}
+                              <div className="text-sm font-semibold">MVR {order.total.toLocaleString()}</div>
+
+                              {/* Delivery status */}
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground uppercase tracking-wide">Delivery:</span>
+                                {order.deliveryStatus ? (
+                                  <select
+                                    data-testid={`select-delivery-status-${order.id}`}
+                                    className={`text-xs font-semibold px-2 py-1.5 border rounded-none outline-none cursor-pointer ${deliveryStatusColors[order.deliveryStatus] || "bg-secondary/20 text-foreground border-border"}`}
+                                    value={order.deliveryStatus}
+                                    onChange={async (e) => {
+                                      const newStatus = e.target.value;
+                                      try {
+                                        const updated = await api.updateOrderDeliveryStatus(order.id, newStatus);
+                                        setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
+                                      } catch {
+                                        toast({ title: "Error", description: "Failed to update delivery status", variant: "destructive" });
+                                      }
+                                    }}
+                                  >
+                                    <option value="label_created">Label Created</option>
+                                    <option value="processing">Processing</option>
+                                    <option value="out_for_delivery">Out for Delivery</option>
+                                    <option value="delivered">Delivered</option>
+                                    <option value="failed">Failed</option>
+                                  </select>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground italic">No label yet — print label to begin</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex flex-row md:flex-col gap-2 shrink-0">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-none text-xs uppercase tracking-widest"
+                                data-testid={`button-print-label-${order.id}`}
+                                onClick={() => { setSelectedOrder(order); setTimeout(() => handlePrintLabel(), 50); }}
+                              >
+                                <Printer className="h-3.5 w-3.5 mr-1.5" />
+                                Label
+                              </Button>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="rounded-none text-xs uppercase tracking-widest bg-foreground text-background"
+                                data-testid={`button-view-order-${order.id}`}
+                                onClick={() => { setSelectedOrder(order); setActiveTab("Orders"); }}
+                              >
+                                View Order
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           )}
 

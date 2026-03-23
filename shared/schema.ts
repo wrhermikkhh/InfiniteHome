@@ -206,6 +206,10 @@ export const orders = pgTable("orders", {
   paymentSlip: text("payment_slip"), // URL to uploaded slip
   status: text("status").notNull().default("pending"),
   statusHistory: jsonb("status_history").$type<{ status: string; timestamp: string }[]>().default([]), // tracks all status changes with timestamps
+  trackingNumber: text("tracking_number").unique(),
+  deliveryStatus: text("delivery_status"), // label_created, processing, out_for_delivery, delivered, failed
+  invoiceNumber: text("invoice_number").unique(), // auto-generated on payment_verified/order_verified
+  invoicedAt: timestamp("invoiced_at"), // timestamp when invoice was created
   couponCode: text("coupon_code"),
   createdAt: timestamp("created_at").defaultNow(),
 });

@@ -54,6 +54,10 @@ export interface Order {
   paymentSlip?: string;
   status: string;
   statusHistory?: { status: string; timestamp: string }[]; // tracks all status changes with timestamps
+  trackingNumber?: string | null;
+  deliveryStatus?: string | null;
+  invoiceNumber?: string | null;
+  invoicedAt?: string | null;
   couponCode?: string;
   createdAt?: string;
 }
@@ -241,6 +245,15 @@ export const api = {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
+    });
+    return res.json();
+  },
+
+  async updateOrderDeliveryStatus(id: string, deliveryStatus: string): Promise<Order> {
+    const res = await fetch(`${API_BASE}/orders/${id}/delivery-status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deliveryStatus }),
     });
     return res.json();
   },
