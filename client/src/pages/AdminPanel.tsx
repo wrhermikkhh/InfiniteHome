@@ -365,6 +365,7 @@ export default function AdminPanel() {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPosLabelModal, setShowPosLabelModal] = useState(false);
   const [posLabelForm, setPosLabelForm] = useState({ recipientName: "", streetAddress: "", atollIsland: "", phone: "", deliveryType: "standard" });
+  const [posDeliveries, setPosDeliveries] = useState<any[]>([]);
   const [showPosVariantModal, setShowPosVariantModal] = useState(false);
   const [selectedPosProduct, setSelectedPosProduct] = useState<any>(null);
   const [selectedPosSize, setSelectedPosSize] = useState("");
@@ -439,18 +440,20 @@ export default function AdminPanel() {
 
   const loadData = async () => {
     try {
-      const [productsData, ordersData, couponsData, adminsData, categoriesData] = await Promise.all([
+      const [productsData, ordersData, couponsData, adminsData, categoriesData, posDeliveriesData] = await Promise.all([
         api.getProducts(),
         api.getOrders(),
         api.getCoupons(),
         api.getAdmins(),
-        api.getCategories()
+        api.getCategories(),
+        api.getPosTransactionsWithLabels(),
       ]);
       setProducts(productsData);
       setOrders(ordersData);
       setCoupons(couponsData);
       setAdmins(adminsData);
       setCategories(categoriesData);
+      setPosDeliveries(posDeliveriesData);
     } catch (error) {
       console.error("Failed to load data:", error);
     }
@@ -1021,6 +1024,24 @@ export default function AdminPanel() {
     `);
     printWindow.document.close();
     setShowPosLabelModal(false);
+
+    // Save label info to the transaction so it appears in Orders tab
+    try {
+      const updated = await api.updatePosTransaction(selectedTransaction.id, {
+        labelRecipientName: posLabelForm.recipientName,
+        labelAddress: fullAddress,
+        labelPhone: posLabelForm.phone,
+        labelDeliveryType: posLabelForm.deliveryType,
+        deliveryStatus: "label_created",
+      });
+      setPosDeliveries(prev => {
+        const exists = prev.find(d => d.id === updated.id);
+        if (exists) return prev.map(d => d.id === updated.id ? updated : d);
+        return [updated, ...prev];
+      });
+    } catch (e) {
+      console.error("Failed to save label info", e);
+    }
   };
 
   const handleSaveProduct = async () => {
@@ -3333,6 +3354,88 @@ export default function AdminPanel() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* POS Deliveries */}
+              {posDeliveries.length > 0 && (
+                <div className="mt-10">
+                  <h2 className="text-xl font-serif mb-4">POS Deliveries</h2>
+                  <Card className="rounded-none border-border shadow-none">
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-secondary/30">
+                            <tr>
+                              <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Tracking #</th>
+                              <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Recipient</th>
+                              <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Address</th>
+                              <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Type</th>
+                              <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Date</th>
+                              <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Delivery Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {posDeliveries.map((delivery: any) => {
+                              const cleanNum = delivery.trackingNumber || delivery.transactionNumber.replace(/^POS-/, '').replace(/-/g, '');
+                              const statusOptions = [
+                                { value: "label_created", label: "Label Created" },
+                                { value: "processing", label: "Processing" },
+                                { value: "out_for_delivery", label: "Out for Delivery" },
+                                { value: "delivered", label: "Delivered" },
+                                { value: "failed", label: "Failed" },
+                              ];
+                              const statusColors: Record<string, string> = {
+                                label_created: "bg-blue-50 text-blue-700 border-blue-200",
+                                processing: "bg-yellow-50 text-yellow-700 border-yellow-200",
+                                out_for_delivery: "bg-purple-50 text-purple-700 border-purple-200",
+                                delivered: "bg-green-50 text-green-700 border-green-200",
+                                failed: "bg-red-50 text-red-700 border-red-200",
+                              };
+                              return (
+                                <tr key={delivery.id} className="hover:bg-secondary/10">
+                                  <td className="p-4 font-mono text-sm">
+                                    <span className="font-bold text-primary block">{cleanNum}</span>
+                                    <span className="text-xs text-muted-foreground">{delivery.transactionNumber}</span>
+                                  </td>
+                                  <td className="p-4 text-sm">
+                                    <span className="font-medium">{delivery.labelRecipientName}</span>
+                                    {delivery.labelPhone && <span className="block text-xs text-muted-foreground">{delivery.labelPhone}</span>}
+                                  </td>
+                                  <td className="p-4 text-sm text-muted-foreground">{delivery.labelAddress}</td>
+                                  <td className="p-4 text-sm">
+                                    <span className={cn("text-[10px] uppercase font-bold px-2 py-1 border", delivery.labelDeliveryType === "express" ? "bg-orange-50 text-orange-700 border-orange-200" : "bg-slate-50 text-slate-700 border-slate-200")}>
+                                      {delivery.labelDeliveryType === "express" ? "Express" : "Standard"}
+                                    </span>
+                                  </td>
+                                  <td className="p-4 text-sm text-muted-foreground">
+                                    {delivery.createdAt ? new Date(delivery.createdAt).toLocaleDateString() : "-"}
+                                  </td>
+                                  <td className="p-4">
+                                    <select
+                                      className={cn("text-xs font-semibold px-2 py-1.5 border rounded-none outline-none cursor-pointer", statusColors[delivery.deliveryStatus] || "bg-secondary/20 text-foreground border-border")}
+                                      value={delivery.deliveryStatus || "label_created"}
+                                      onChange={async (e) => {
+                                        const newStatus = e.target.value;
+                                        try {
+                                          const updated = await api.updatePosTransaction(delivery.id, { deliveryStatus: newStatus });
+                                          setPosDeliveries(prev => prev.map(d => d.id === updated.id ? updated : d));
+                                        } catch {}
+                                      }}
+                                    >
+                                      {statusOptions.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </div>
           )}
 

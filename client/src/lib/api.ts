@@ -393,6 +393,22 @@ export const api = {
     return res.json();
   },
 
+  async updatePosTransaction(id: string, data: Partial<PosTransaction>): Promise<PosTransaction> {
+    const res = await fetch(`${API_BASE}/pos/transactions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  async getPosTransactionsWithLabels(): Promise<PosTransaction[]> {
+    const res = await fetch(`${API_BASE}/pos/transactions`);
+    const all = await res.json();
+    if (!Array.isArray(all)) return [];
+    return all.filter((t: PosTransaction) => t.deliveryStatus);
+  },
+
   async getPosStats(): Promise<{ totalSales: number; totalTransactions: number; totalItems: number; averageTransaction: number }> {
     const res = await fetch(`${API_BASE}/pos/stats/today`);
     return res.json();
@@ -402,6 +418,12 @@ export const api = {
 export interface PosTransaction {
   id: string;
   transactionNumber: string;
+  trackingNumber?: string | null;
+  labelRecipientName?: string | null;
+  labelAddress?: string | null;
+  labelPhone?: string | null;
+  labelDeliveryType?: string | null;
+  deliveryStatus?: string | null;
   items: { productId: string; name: string; qty: number; price: number; color?: string; size?: string }[];
   subtotal: number;
   discount: number;
