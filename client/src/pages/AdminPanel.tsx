@@ -3371,10 +3371,23 @@ export default function AdminPanel() {
                       {/* Status + Location */}
                       <div className="space-y-3 pb-3 border-b border-border">
                         <div className="flex flex-wrap items-center gap-3">
+                          <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground w-20 shrink-0">Location</p>
+                          <select
+                            className="border border-border rounded-none px-2 py-1.5 text-sm bg-background outline-none focus:ring-1 focus:ring-primary"
+                            value={deliveryLocation}
+                            data-testid="select-delivery-location"
+                            onChange={e => setDeliveryLocation(e.target.value)}
+                          >
+                            <option value="MLE">MLE</option>
+                            <option value="CN">CN</option>
+                            <option value="HMLE">HMLE</option>
+                          </select>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
                           <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground w-20 shrink-0">Status</p>
                           <select
                             className="border border-border rounded-none px-2 py-1.5 text-sm bg-background outline-none focus:ring-1 focus:ring-primary"
-                            value={selectedOrder.status || ""}
+                            value=""
                             data-testid="select-order-status"
                             onChange={async (e) => {
                               const newStatus = e.target.value;
@@ -3386,22 +3399,12 @@ export default function AdminPanel() {
                               }
                             }}
                           >
+                            <option value="" disabled>
+                              {selectedOrder.status ? `Current: ${selectedOrder.status.replace(/_/g, " ")}` : "— Select status —"}
+                            </option>
                             {orderStatuses.map(s => (
                               <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
                             ))}
-                          </select>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground w-20 shrink-0">Location</p>
-                          <select
-                            className="border border-border rounded-none px-2 py-1.5 text-sm bg-background outline-none focus:ring-1 focus:ring-primary"
-                            value={deliveryLocation}
-                            data-testid="select-delivery-location"
-                            onChange={e => setDeliveryLocation(e.target.value)}
-                          >
-                            <option value="MLE">MLE</option>
-                            <option value="CN">CN</option>
-                            <option value="HMLE">HMLE</option>
                           </select>
                         </div>
                       </div>
