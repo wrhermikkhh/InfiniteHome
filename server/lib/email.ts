@@ -421,15 +421,20 @@ export async function sendOrderStatusEmail(order: any, newStatus: string) {
     const { apiKey, fromEmail } = await getCredentials();
     const resend = new Resend(apiKey);
     const baseUrl = 'https://infinitehome.mv';
-    const trackingRef2 = order.trackingNumber || order.orderNumber;
-    const trackingUrl = `${baseUrl}/track?order=${trackingRef2}`;
-
+    const trackingNumber = order.trackingNumber || order.orderNumber;
+    const trackingUrl = `${baseUrl}/track?order=${trackingNumber}`;
     const statusContent: { [key: string]: { subject: string; title: string; message: string; icon: string } } = {
       confirmed: {
         subject: `Order Confirmed - ${order.orderNumber}`,
         title: 'Order Confirmed!',
         message: 'Great news! Your order has been confirmed and payment verified. We are now preparing your items for shipment.',
         icon: '✓'
+      },
+      label_created: {
+        subject: `Shipping Label Created - ${order.orderNumber}`,
+        title: 'Label Created',
+        message: 'Your shipping label has been generated and your order is being prepared for dispatch. Use your tracking number to follow your package.',
+        icon: '🏷️'
       },
       processing: {
         subject: `Preparing Your Order - ${order.orderNumber}`,
@@ -505,7 +510,9 @@ export async function sendOrderStatusEmail(order: any, newStatus: string) {
             <p style="color: #333; line-height: 1.6;">${content.message}</p>
             <div style="background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <p style="margin: 0; font-size: 14px; color: #666;">Order Number</p>
-              <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: bold; color: #1a1a1a;">${order.orderNumber}</p>
+              <p style="margin: 5px 0 0 0; font-size: 20px; font-weight: bold; color: #1a1a1a; font-family: monospace;">${order.orderNumber}</p>
+              <p style="margin: 16px 0 0; font-size: 14px; color: #666;">Tracking Number</p>
+              <p style="margin: 5px 0 0 0; font-size: 20px; font-weight: bold; color: #1a1a1a; font-family: monospace;">${trackingNumber}</p>
             </div>
             <div style="text-align: center; margin-top: 30px;">
               <a href="${trackingUrl}" style="display: inline-block; background-color: #1a1a1a; color: #ffffff; padding: 14px 30px; text-decoration: none; border-radius: 4px; font-weight: bold;">Track Your Order</a>

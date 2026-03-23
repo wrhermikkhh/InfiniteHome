@@ -933,16 +933,6 @@ export default function AdminPanel() {
     `);
     printWindow.document.close();
 
-    // Set delivery status to label_created after printing
-    try {
-      const updated = await api.updateOrderDeliveryStatus(selectedOrder.id, 'label_created');
-      setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
-      if (selectedOrder && selectedOrder.id === updated.id) {
-        setSelectedOrder(updated);
-      }
-    } catch (e) {
-      console.error("Failed to set label_created status", e);
-    }
   };
 
   const handleCreateCategory = async () => {
@@ -3448,6 +3438,33 @@ export default function AdminPanel() {
                                       {savingOrderNote ? <><span className="animate-spin">⟳</span> Saving…</> : "Save Note"}
                                     </Button>
                                   </div>
+                                </div>
+                                {/* Delivery Status */}
+                                <div className="mt-4 pt-4 border-t border-border">
+                                  <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-2">Delivery Status</p>
+                                  <select
+                                    className="w-full border border-border rounded-none p-2 text-sm bg-background outline-none focus:ring-1 focus:ring-primary"
+                                    value={selectedOrder.deliveryStatus || ""}
+                                    data-testid="select-order-delivery-status"
+                                    onChange={async (e) => {
+                                      const newStatus = e.target.value;
+                                      if (!newStatus) return;
+                                      try {
+                                        const updated = await api.updateOrderDeliveryStatus(selectedOrder.id, newStatus);
+                                        setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
+                                        setSelectedOrder(updated);
+                                      } catch {
+                                        toast({ title: "Error", description: "Failed to update delivery status", variant: "destructive" });
+                                      }
+                                    }}
+                                  >
+                                    <option value="">— Not set —</option>
+                                    <option value="label_created">Label Created</option>
+                                    <option value="processing">Processing</option>
+                                    <option value="out_for_delivery">Out for Delivery</option>
+                                    <option value="delivered">Delivered</option>
+                                    <option value="failed">Failed</option>
+                                  </select>
                                 </div>
                                 <div className="flex justify-end pt-4 border-t border-border mt-4 gap-4">
                                   <Button 

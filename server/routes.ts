@@ -618,9 +618,9 @@ export async function registerRoutes(
       const prevOrder = await storage.getOrder(req.params.id);
       const order = await storage.updateOrderDeliveryStatus(req.params.id, deliveryStatus);
       if (order) {
-        // Send label email to customer the first time a shipping label is created
-        if (deliveryStatus === 'label_created' && prevOrder?.deliveryStatus !== 'label_created') {
-          sendOrderLabelEmail(order).catch(err => console.error('Order label email failed:', err));
+        // Send email for every delivery status change (only once per status)
+        if (prevOrder?.deliveryStatus !== deliveryStatus) {
+          sendOrderStatusEmail(order, deliveryStatus).catch(err => console.error('Delivery status email failed:', err));
         }
         res.json(order);
       } else {
