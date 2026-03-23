@@ -377,8 +377,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPosTransactionByTrackingNumber(trackingNumber: string): Promise<PosTransaction | undefined> {
-    const [transaction] = await db.select().from(posTransactions).where(eq(posTransactions.trackingNumber, trackingNumber));
-    return transaction || undefined;
+    // First try the dedicated trackingNumber column (may not exist on older DBs)
+    try {
+      const [transaction] = await db.select().from(posTransactions).where(eq(posTransactions.trackingNumber, trackingNumber));
+      if (transaction) return transaction;
+    } catch {}
+    // Fallback: derive clean tracking number from transactionNumber using SQL REPLACE
+    try {
+      const all = await db.select().from(posTransactions);
+      return all.find(t => t.transactionNumber.replace(/^POS-/, '').replace(/-/g, '') === trackingNumber);
+    } catch {}
+    return undefined;
   }
 
   async createPosTransaction(transaction: InsertPosTransaction): Promise<PosTransaction> {
