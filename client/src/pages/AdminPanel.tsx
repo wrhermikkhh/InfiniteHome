@@ -3459,7 +3459,7 @@ export default function AdminPanel() {
                                     }}
                                   >
                                     <option value="">— Not set —</option>
-                                    <option value="label_created">Label Created</option>
+                                    <option value="label_created">Label Generated</option>
                                     <option value="processing">Processing</option>
                                     <option value="out_for_delivery">Out for Delivery</option>
                                     <option value="delivered">Delivered</option>
