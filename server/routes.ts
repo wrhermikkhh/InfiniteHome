@@ -563,7 +563,7 @@ export async function registerRoutes(
       let order = await storage.updateOrderStatus(req.params.id, status);
       
       // Auto-create invoice when payment is verified (only if not already invoiced)
-      const invoiceTriggers = ['payment_verified', 'order_verified'];
+      const invoiceTriggers = ['confirmed', 'payment_verified', 'order_verified'];
       if (order && invoiceTriggers.includes(status) && !invoiceTriggers.includes(previousStatus) && !order.invoiceNumber) {
         const invNow = new Date();
         const invDate = `${invNow.getFullYear()}${String(invNow.getMonth()+1).padStart(2,'0')}${String(invNow.getDate()).padStart(2,'0')}`;
