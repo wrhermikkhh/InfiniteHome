@@ -440,7 +440,7 @@ export const api = {
     const res = await fetch(`${API_BASE}/pos/transactions`);
     const all = await res.json();
     if (!Array.isArray(all)) return [];
-    return all.filter((t: PosTransaction) => t.deliveryStatus);
+    return all.filter((t: PosTransaction) => t.labelRecipientName);
   },
 
   async getPosStats(): Promise<{ totalSales: number; totalTransactions: number; totalItems: number; averageTransaction: number }> {
