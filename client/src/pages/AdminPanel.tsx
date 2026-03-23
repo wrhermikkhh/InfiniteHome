@@ -363,6 +363,8 @@ export default function AdminPanel() {
   const [posViewMode, setPosViewMode] = useState<"checkout" | "history">("checkout");
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showPosLabelModal, setShowPosLabelModal] = useState(false);
+  const [posLabelForm, setPosLabelForm] = useState({ recipientName: "", streetAddress: "", atollIsland: "", phone: "" });
   const [showPosVariantModal, setShowPosVariantModal] = useState(false);
   const [selectedPosProduct, setSelectedPosProduct] = useState<any>(null);
   const [selectedPosSize, setSelectedPosSize] = useState("");
@@ -870,6 +872,152 @@ export default function AdminPanel() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handlePrintPosLabel = async () => {
+    if (!selectedTransaction) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const escHtml = (s: string) => String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const escJs = (s: string) => String(s)
+      .replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+      .replace(/\r/g, '\\r').replace(/\n/g, '\\n');
+
+    const itemsText = selectedTransaction.items.map((item: any) =>
+      escHtml(`${item.qty}x ${item.name}${item.size && item.size !== 'Standard' ? ` (${item.size})` : ''}${item.color && item.color !== 'Default' ? ` - ${item.color}` : ''}`)
+    ).join(' | ');
+
+    const txDate = selectedTransaction.createdAt
+      ? new Date(selectedTransaction.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
+      : '';
+
+    const safeRef = escJs(selectedTransaction.transactionNumber);
+    const fullAddress = posLabelForm.atollIsland
+      ? `${posLabelForm.streetAddress}, ${posLabelForm.atollIsland}`
+      : posLabelForm.streetAddress;
+
+    let qrCodeBase64 = '';
+    try {
+      const response = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(selectedTransaction.transactionNumber)}`);
+      const blob = await response.blob();
+      qrCodeBase64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+    } catch {}
+
+    printWindow.document.write(`
+      <!DOCTYPE html><html><head>
+        <meta charset="UTF-8">
+        <title>Shipping Label - ${selectedTransaction.transactionNumber}</title>
+        <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000; width: 4in; margin: 0 auto; }
+          .label { width: 4in; border: 2px solid #000; background: white; }
+          .top-header { display: flex; flex-direction: column; border-bottom: 3px solid #000; }
+          .top-header-row { display: flex; align-items: stretch; min-height: 1.0in; }
+          .top-left { flex: 1; padding: 0.1in 0.12in; display: flex; flex-direction: column; justify-content: center; border-right: 2px solid #000; }
+          .company-name { font-size: 20pt; font-weight: 900; letter-spacing: -1px; line-height: 1; }
+          .company-sub { font-size: 7pt; color: #333; margin-top: 3px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+          .top-right { flex: 0 0 1.35in; padding: 0.08in 0.1in; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+          .qr-img { width: 80px; height: 80px; image-rendering: pixelated; }
+          .order-ref { font-size: 7.5pt; font-weight: bold; font-family: 'Courier New', monospace; letter-spacing: 1px; text-align: center; }
+          .order-date { font-size: 6.5pt; color: #444; text-align: center; }
+          .header-barcode-strip { border-top: 2px solid #000; padding: 0.04in 0.12in; overflow: hidden; background: white; }
+          #header-barcode { width: 100%; height: 28px; }
+          .delivery-banner { border-bottom: 3px solid #000; padding: 0.09in 0.12in; text-align: center; }
+          .delivery-banner-text { font-size: 17pt; font-weight: 900; letter-spacing: 0.5px; line-height: 1; }
+          .addresses { border-bottom: 3px solid #000; padding: 0.1in 0.12in; }
+          .from-block { margin-bottom: 0.1in; }
+          .from-label { font-size: 7pt; font-weight: bold; text-transform: uppercase; color: #555; }
+          .from-name { font-size: 9pt; font-weight: bold; margin-top: 2px; }
+          .from-addr { font-size: 8.5pt; color: #222; }
+          .ship-to-block { display: flex; gap: 0.08in; align-items: flex-start; }
+          .ship-to-label-col { font-size: 9pt; font-weight: 900; text-transform: uppercase; line-height: 1.1; white-space: nowrap; padding-top: 2px; }
+          .ship-to-details { flex: 1; }
+          .ship-to-name { font-size: 14pt; font-weight: 900; line-height: 1.15; }
+          .ship-to-addr { font-size: 11pt; line-height: 1.3; margin-top: 2px; }
+          .ship-to-phone { font-size: 9pt; color: #333; margin-top: 3px; }
+          .items-section { border-bottom: 3px solid #000; padding: 0.07in 0.12in; }
+          .items-label { font-size: 6.5pt; font-weight: bold; text-transform: uppercase; color: #666; margin-bottom: 3px; }
+          .items-text { font-size: 8pt; line-height: 1.4; }
+          .payment-info { font-size: 7pt; color: #444; margin-top: 3px; font-weight: bold; }
+          .tracking-section { padding: 0.08in 0.12in 0.1in; text-align: center; }
+          .tracking-label { font-size: 10pt; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.06in; }
+          .barcode-container { width: 100%; overflow: hidden; }
+          #barcode { width: 100%; height: 70px; }
+          .tracking-number { font-size: 11pt; font-weight: bold; font-family: 'Courier New', monospace; letter-spacing: 2px; margin-top: 0.05in; }
+          @media print { @page { margin: 0; size: 4in 6in; } body { margin: 0; width: 4in; } .label { border: none; } }
+        </style>
+      </head><body>
+        <div class="label">
+          <div class="top-header">
+            <div class="top-header-row">
+              <div class="top-left">
+                <div class="company-name">INFINITE<br>HOME</div>
+                <div class="company-sub">Malé, Maldives</div>
+              </div>
+              <div class="top-right">
+                ${qrCodeBase64 ? `<img src="${qrCodeBase64}" alt="QR" class="qr-img">` : ''}
+                <div class="order-ref">${escHtml(selectedTransaction.transactionNumber)}</div>
+                <div class="order-date">${escHtml(txDate)}</div>
+              </div>
+            </div>
+            <div class="header-barcode-strip"><svg id="header-barcode"></svg></div>
+          </div>
+          <div class="delivery-banner"><div class="delivery-banner-text">POS DELIVERY</div></div>
+          <div class="addresses">
+            <div class="from-block">
+              <div class="from-label">From:</div>
+              <div class="from-name">INFINITE HOME</div>
+              <div class="from-addr">Malé, Maldives</div>
+            </div>
+            <div class="ship-to-block">
+              <div class="ship-to-label-col">SHIP<br>TO:</div>
+              <div class="ship-to-details">
+                <div class="ship-to-name">${escHtml(posLabelForm.recipientName)}</div>
+                <div class="ship-to-addr">${escHtml(fullAddress)}</div>
+                <div class="ship-to-phone">Tel: ${escHtml(posLabelForm.phone)}</div>
+              </div>
+            </div>
+          </div>
+          <div class="items-section">
+            <div class="items-label">Package Contents</div>
+            <div class="items-text">${itemsText}</div>
+            <div class="payment-info">Payment: ${escHtml(selectedTransaction.paymentMethod)}</div>
+          </div>
+          <div class="tracking-section">
+            <div class="tracking-label">Reference #</div>
+            <div class="barcode-container"><svg id="barcode"></svg></div>
+            <div class="tracking-number">${escHtml(selectedTransaction.transactionNumber)}</div>
+          </div>
+        </div>
+        <script>
+          var printed = false;
+          function renderAndPrint() {
+            if (printed) return; printed = true;
+            try {
+              JsBarcode('#header-barcode', '${safeRef}', { format: 'CODE128', width: 1.5, height: 28, displayValue: false, margin: 0 });
+              JsBarcode('#barcode', '${safeRef}', { format: 'CODE128', width: 2.2, height: 70, displayValue: false, margin: 0 });
+            } catch(e) { return; }
+            var qrImg = document.querySelector('.qr-img');
+            var qrReady = (qrImg && !qrImg.complete)
+              ? new Promise(function(r) { qrImg.onload = r; qrImg.onerror = r; })
+              : Promise.resolve();
+            qrReady.then(function() { setTimeout(function() { window.print(); window.close(); }, 300); });
+          }
+          if (document.readyState === 'complete') renderAndPrint();
+          else window.addEventListener('load', renderAndPrint);
+        <\/script>
+      </body></html>
+    `);
+    printWindow.document.close();
+    setShowPosLabelModal(false);
   };
 
   const handleSaveProduct = async () => {
@@ -3633,6 +3781,64 @@ export default function AdminPanel() {
         </DialogContent>
       </Dialog>
 
+      {/* POS Shipping Label Modal */}
+      <Dialog open={showPosLabelModal} onOpenChange={setShowPosLabelModal}>
+        <DialogContent className="max-w-md rounded-none">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-xl">Shipping Label Details</DialogTitle>
+            <DialogDescription>Enter the customer delivery details for this POS transaction.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground block mb-1">Recipient Name *</label>
+              <Input
+                className="rounded-none"
+                placeholder="Full name"
+                value={posLabelForm.recipientName}
+                onChange={(e) => setPosLabelForm(f => ({ ...f, recipientName: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground block mb-1">Street Address *</label>
+              <Input
+                className="rounded-none"
+                placeholder="e.g. Haveereege"
+                value={posLabelForm.streetAddress}
+                onChange={(e) => setPosLabelForm(f => ({ ...f, streetAddress: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground block mb-1">Atoll & Island</label>
+              <Input
+                className="rounded-none"
+                placeholder="e.g. Aa. Mathiveri"
+                value={posLabelForm.atollIsland}
+                onChange={(e) => setPosLabelForm(f => ({ ...f, atollIsland: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground block mb-1">Phone Number *</label>
+              <Input
+                className="rounded-none"
+                placeholder="Contact number"
+                value={posLabelForm.phone}
+                onChange={(e) => setPosLabelForm(f => ({ ...f, phone: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" className="rounded-none" onClick={() => setShowPosLabelModal(false)}>Cancel</Button>
+            <Button
+              className="rounded-none"
+              disabled={!posLabelForm.recipientName || !posLabelForm.streetAddress || !posLabelForm.phone}
+              onClick={handlePrintPosLabel}
+            >
+              <Printer size={16} className="mr-2" /> Print Label
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Invoice Modal */}
       <Dialog open={showInvoiceModal} onOpenChange={setShowInvoiceModal}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-none p-0">
@@ -3795,6 +4001,16 @@ export default function AdminPanel() {
           <div className="flex justify-end gap-3 p-4 bg-white border-t">
             <Button variant="outline" className="rounded-none" onClick={() => setShowInvoiceModal(false)}>
               Close
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-none"
+              onClick={() => {
+                setPosLabelForm({ recipientName: selectedTransaction?.customerName || "", streetAddress: "", atollIsland: "", phone: selectedTransaction?.customerPhone || "" });
+                setShowPosLabelModal(true);
+              }}
+            >
+              <Printer size={16} className="mr-2" /> Shipping Label
             </Button>
             <Button
               className="rounded-none bg-stone-900 hover:bg-stone-800"
