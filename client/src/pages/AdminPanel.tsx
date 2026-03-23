@@ -3287,40 +3287,6 @@ export default function AdminPanel() {
                             </DropdownMenuContent>
                           </DropdownMenu>
 
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="sm" className="rounded-none text-xs gap-2 min-w-[140px] justify-between">
-                                {order.deliveryStatus ? order.deliveryStatus.replace(/_/g, " ") : "delivery status"}
-                                <ChevronDown size={14} />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="rounded-none bg-background border border-border">
-                              {[
-                                { value: "label_created", label: "Label Created" },
-                                { value: "processing", label: "Processing" },
-                                { value: "out_for_delivery", label: "Out for Delivery" },
-                                { value: "delivered", label: "Delivered" },
-                                { value: "failed", label: "Failed" },
-                              ].map(opt => (
-                                <DropdownMenuItem
-                                  key={opt.value}
-                                  onClick={async () => {
-                                    try {
-                                      const updated = await api.updateOrderDeliveryStatus(order.id, opt.value);
-                                      setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
-                                      if (selectedOrder?.id === updated.id) setSelectedOrder(updated);
-                                    } catch {
-                                      toast({ title: "Error", description: "Failed to update delivery status", variant: "destructive" });
-                                    }
-                                  }}
-                                  className="text-xs uppercase tracking-widest cursor-pointer bg-background hover:bg-secondary"
-                                >
-                                  {opt.label}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-
                           <Dialog open={selectedOrder !== null} onOpenChange={(open) => { if (!open) setSelectedOrder(null); }}>
                             <DialogTrigger asChild>
                               <Button 
@@ -3366,6 +3332,33 @@ export default function AdminPanel() {
                               </DialogHeader>
                               {selectedOrder && (
                                 <div className="space-y-6">
+                                  {/* Delivery Status */}
+                                  <div className="flex items-center gap-4 pb-2 border-b border-border">
+                                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground shrink-0">Delivery Status</p>
+                                    <select
+                                      className="border border-border rounded-none px-2 py-1.5 text-sm bg-background outline-none focus:ring-1 focus:ring-primary"
+                                      value={selectedOrder.deliveryStatus || ""}
+                                      data-testid="select-order-delivery-status"
+                                      onChange={async (e) => {
+                                        const newStatus = e.target.value;
+                                        if (!newStatus) return;
+                                        try {
+                                          const updated = await api.updateOrderDeliveryStatus(selectedOrder.id, newStatus);
+                                          setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
+                                          setSelectedOrder(updated);
+                                        } catch {
+                                          toast({ title: "Error", description: "Failed to update delivery status", variant: "destructive" });
+                                        }
+                                      }}
+                                    >
+                                      <option value="">— Not set —</option>
+                                      <option value="label_created">Label Created</option>
+                                      <option value="processing">Processing</option>
+                                      <option value="out_for_delivery">Out for Delivery</option>
+                                      <option value="delivered">Delivered</option>
+                                      <option value="failed">Failed</option>
+                                    </select>
+                                  </div>
                                   <div className="grid md:grid-cols-2 gap-8 py-4">
                                     <div className="space-y-4">
                                     <div>
