@@ -424,11 +424,23 @@ export async function sendOrderStatusEmail(order: any, newStatus: string) {
     const trackingNumber = order.trackingNumber || order.orderNumber;
     const trackingUrl = `${baseUrl}/track?order=${trackingNumber}`;
     const statusContent: { [key: string]: { subject: string; title: string; message: string; icon: string } } = {
+      pending: {
+        subject: `Order Received - ${order.orderNumber}`,
+        title: 'Order Received!',
+        message: 'Thank you for your order! We have received it and it is now being reviewed. You will receive another update once your order is confirmed.',
+        icon: '🛍️'
+      },
       confirmed: {
         subject: `Order Confirmed - ${order.orderNumber}`,
         title: 'Order Confirmed!',
         message: 'Great news! Your order has been confirmed and payment verified. We are now preparing your items for shipment.',
         icon: '✓'
+      },
+      label_generated: {
+        subject: `Shipping Label Generated — ${order.orderNumber}`,
+        title: 'Shipping Label Ready',
+        message: 'A shipping label has been created for your order. Your package will be dispatched very soon. Use your tracking number below to follow your shipment.',
+        icon: '🏷️'
       },
       label_created: {
         subject: `Shipping Label Created — ${order.orderNumber}`,
