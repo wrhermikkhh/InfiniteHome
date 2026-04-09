@@ -875,6 +875,11 @@ async function sendOrderConfirmationEmail(order: any) {
 }
 
 async function sendOrderStatusEmail(order: any, newStatus: string) {
+  // Guard: skip if no valid customer email
+  if (!order.customerEmail || !order.customerEmail.includes('@')) {
+    console.log(`[Email] Skipping status email for order ${order.orderNumber} — no valid customer email (got: "${order.customerEmail}")`);
+    return { success: false, reason: 'No valid customer email' };
+  }
   try {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
@@ -1579,9 +1584,12 @@ app.patch("/api/orders/:id/status", async (req, res) => {
       
       // Send status update email if status changed
       if (previousStatus !== status) {
+        console.log(`[Email] Triggering status email for order ${order.orderNumber}: ${previousStatus} → ${status}`);
         sendOrderStatusEmail(order, status).catch(err => {
-          console.error("Status email delivery failed:", err);
+          console.error(`[Email] Failed to send status email for order ${order.orderNumber}:`, err);
         });
+      } else {
+        console.log(`[Email] Skipping status email for order ${order.orderNumber} — status unchanged (${status})`);
       }
       
       res.json(order);
@@ -1609,8 +1617,16 @@ app.patch("/api/orders/:id/admin-note", async (req, res) => {
 app.patch("/api/orders/:id/delivery-status", async (req, res) => {
   try {
     const { deliveryStatus, location } = req.body;
+    const prevOrder = await storage.getOrder(req.params.id);
     const order = await storage.updateOrderDeliveryStatus(req.params.id, deliveryStatus, location);
     if (order) {
+      // Send email for every delivery status change (only once per status)
+      if (prevOrder?.deliveryStatus !== deliveryStatus) {
+        console.log(`[Email] Triggering delivery status email for order ${order.orderNumber}: ${prevOrder?.deliveryStatus} → ${deliveryStatus}`);
+        sendOrderStatusEmail(order, deliveryStatus).catch(err => console.error(`[Email] Delivery status email failed for order ${order.orderNumber}:`, err));
+      } else {
+        console.log(`[Email] Skipping delivery status email for order ${order.orderNumber} — delivery status unchanged (${deliveryStatus})`);
+      }
       res.json(order);
     } else {
       res.status(404).json({ message: "Order not found" });

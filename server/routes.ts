@@ -585,9 +585,12 @@ export async function registerRoutes(
         
         // Send email notification for status change
         if (status !== previousStatus) {
+          console.log(`[Email] Triggering status email for order ${order.orderNumber}: ${previousStatus} → ${status}`);
           sendOrderStatusEmail(order, status).catch(err => {
-            console.error("Failed to send status email:", err);
+            console.error(`[Email] Failed to send status email for order ${order.orderNumber}:`, err);
           });
+        } else {
+          console.log(`[Email] Skipping status email for order ${order.orderNumber} — status unchanged (${status})`);
         }
         
         res.json(order);
@@ -620,7 +623,10 @@ export async function registerRoutes(
       if (order) {
         // Send email for every delivery status change (only once per status)
         if (prevOrder?.deliveryStatus !== deliveryStatus) {
-          sendOrderStatusEmail(order, deliveryStatus).catch(err => console.error('Delivery status email failed:', err));
+          console.log(`[Email] Triggering delivery status email for order ${order.orderNumber}: ${prevOrder?.deliveryStatus} → ${deliveryStatus}`);
+          sendOrderStatusEmail(order, deliveryStatus).catch(err => console.error(`[Email] Delivery status email failed for order ${order.orderNumber}:`, err));
+        } else {
+          console.log(`[Email] Skipping delivery status email for order ${order.orderNumber} — delivery status unchanged (${deliveryStatus})`);
         }
         res.json(order);
       } else {

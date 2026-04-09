@@ -417,6 +417,11 @@ export async function sendPosLabelEmail(transaction: any) {
 }
 
 export async function sendOrderStatusEmail(order: any, newStatus: string) {
+  // Guard: skip if no valid customer email
+  if (!order.customerEmail || !order.customerEmail.includes('@')) {
+    console.log(`[Email] Skipping status email for order ${order.orderNumber} — no valid customer email (got: "${order.customerEmail}")`);
+    return;
+  }
   try {
     const { apiKey, fromEmail } = await getCredentials();
     const resend = new Resend(apiKey);
