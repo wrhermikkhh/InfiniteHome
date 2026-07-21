@@ -446,13 +446,17 @@ export async function sendAdminPasswordResetEmail(adminEmail: string, adminName:
       </body>
       </html>
     `;
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: `INFINITE HOME <${fromEmail}>`,
       to: adminEmail,
       subject: `Your Admin Password Reset Code — ${otp}`,
       html,
     });
-    console.log(`Admin password reset OTP sent to ${adminEmail}`);
+    if (error) {
+      console.error(`Resend error sending admin reset OTP to ${adminEmail}:`, JSON.stringify(error));
+      throw new Error(error.message || 'Resend rejected the email');
+    }
+    console.log(`Admin password reset OTP sent to ${adminEmail}`, data?.id);
   } catch (error) {
     console.error('Error sending admin password reset email:', error);
     throw error;

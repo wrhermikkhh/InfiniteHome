@@ -812,13 +812,17 @@ async function sendAdminPasswordResetEmail(adminEmail: string, adminName: string
         <p style="margin:0;font-size:11px;color:#999;">&copy; 2026 INFINITE LOOP PVT LTD. All rights reserved.</p>
       </div>
     </div></body></html>`;
-  await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from: `INFINITE HOME <noreply@infinitehome.mv>`,
     to: adminEmail,
     subject: `Your Admin Password Reset Code — ${otp}`,
     html,
   });
-  console.log(`Admin password reset OTP sent to ${adminEmail}`);
+  if (error) {
+    console.error(`Resend error sending admin reset OTP to ${adminEmail}:`, JSON.stringify(error));
+    throw new Error(error.message || 'Resend rejected the email');
+  }
+  console.log(`Admin password reset OTP sent to ${adminEmail}`, data?.id);
 }
 
 async function sendOrderConfirmationEmail(order: any) {
@@ -1201,7 +1205,7 @@ app.post("/api/admin/forgot-password", async (req, res) => {
     res.json({ success: true });
   } catch (error: any) {
     console.error("Forgot password error:", error);
-    res.status(500).json({ message: "Failed to send reset email" });
+    res.status(500).json({ message: error?.message || "Failed to send reset email" });
   }
 });
 
