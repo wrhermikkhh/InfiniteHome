@@ -1,0 +1,2 @@
+- [Pre-order stock design](preorder-stock-design.md) — cap/variant-map semantics, missing key = unavailable; atomic deduction before order creation; must stay mirrored in api/index.ts.
+- Vercel prod serves api/index.ts, which duplicates server/routes.ts logic and inline pgTable schemas by design — every schema or route change must be applied in both places.

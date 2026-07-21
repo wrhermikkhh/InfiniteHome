@@ -128,6 +128,8 @@ const products = pgTable("products", {
   preOrderPrice: real("pre_order_price"),
   preOrderInitialPayment: real("pre_order_initial_payment"),
   preOrderEta: text("pre_order_eta"),
+  preOrderStock: integer("pre_order_stock"),
+  preOrderVariantStock: jsonb("pre_order_variant_stock").$type<{ [key: string]: number }>().default({}),
   productDetails: text("product_details"),
   materialsAndCare: text("materials_and_care"),
   showOnStorefront: boolean("show_on_storefront").default(true),
@@ -191,6 +193,8 @@ const orders = pgTable("orders", {
   adminNote: text("admin_note"),
   invoiceNumber: text("invoice_number").unique(),
   invoicedAt: timestamp("invoiced_at"),
+  balanceInvoiceNumber: text("balance_invoice_number").unique(),
+  balanceInvoicedAt: timestamp("balance_invoiced_at"),
   couponCode: text("coupon_code"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -692,6 +696,81 @@ class DatabaseStorage {
       const newStock = (product.stock || 0) + quantity;
       await this.getDb().update(products).set({ stock: newStock }).where(eq(products.id, productId));
     }
+  }
+
+  async deductPreOrderStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
+    await this.getDb().transaction(async (tx: any) => {
+      const [product] = await tx.select().from(products).where(eq(products.id, productId)).for("update");
+      if (!product) throw new Error("Product not found");
+      const updates: Partial<{ preOrderStock: number; preOrderVariantStock: { [key: string]: number } }> = {};
+      const pvs = (product.preOrderVariantStock as { [key: string]: number } | null) || {};
+      if (Object.keys(pvs).length > 0) {
+        const variantKey = `${size}-${color}`;
+        const matchedKey = pvs[variantKey] !== undefined
+          ? variantKey
+          : Object.keys(pvs).find((k: string) => k.toLowerCase() === variantKey.toLowerCase());
+        if (matchedKey === undefined) {
+          throw new Error(`${product.name} (${size}/${color}) is not available for pre-order`);
+        }
+        const avail = pvs[matchedKey] || 0;
+        if (avail < quantity) {
+          throw new Error(`${product.name} (${size}/${color}) pre-order only has ${avail} available`);
+        }
+        updates.preOrderVariantStock = { ...pvs, [matchedKey]: avail - quantity };
+      }
+      if (product.preOrderStock !== null && product.preOrderStock !== undefined) {
+        if (product.preOrderStock < quantity) {
+          throw new Error(`${product.name} pre-order only has ${product.preOrderStock} units available`);
+        }
+        updates.preOrderStock = product.preOrderStock - quantity;
+      }
+      if (Object.keys(updates).length > 0) {
+        await tx.update(products).set(updates).where(eq(products.id, productId));
+      }
+    });
+  }
+
+  async restorePreOrderStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
+    const product = await this.getProduct(productId);
+    if (!product) return;
+    const updates: Partial<{ preOrderStock: number; preOrderVariantStock: { [key: string]: number } }> = {};
+    const pvs = (product.preOrderVariantStock as { [key: string]: number } | null) || {};
+    if (Object.keys(pvs).length > 0) {
+      const variantKey = `${size}-${color}`;
+      const matchedKey = pvs[variantKey] !== undefined
+        ? variantKey
+        : Object.keys(pvs).find(k => k.toLowerCase() === variantKey.toLowerCase());
+      if (matchedKey !== undefined) {
+        updates.preOrderVariantStock = { ...pvs, [matchedKey]: (pvs[matchedKey] || 0) + quantity };
+      }
+    }
+    if (product.preOrderStock !== null && product.preOrderStock !== undefined) {
+      updates.preOrderStock = product.preOrderStock + quantity;
+    }
+    if (Object.keys(updates).length > 0) {
+      await this.getDb().update(products).set(updates).where(eq(products.id, productId));
+    }
+  }
+
+  async balanceInvoiceOrder(id: string, balanceInvoiceNumber: string): Promise<Order | undefined> {
+    const [updated] = await this.getDb().update(orders).set({ balanceInvoiceNumber, balanceInvoicedAt: new Date() }).where(eq(orders.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async getNextBalanceInvoiceNumber(): Promise<string> {
+    const rows = await this.getDb().select({ balanceInvoiceNumber: orders.balanceInvoiceNumber }).from(orders).where(sql`${orders.balanceInvoiceNumber} IS NOT NULL`);
+    let maxSeq = 10000;
+    for (const row of rows) {
+      const inv: string = row.balanceInvoiceNumber || "";
+      const match = inv.match(/BINV-\d{8}-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxSeq) maxSeq = num;
+      }
+    }
+    const now = new Date();
+    const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    return `BINV-${date}-${maxSeq + 1}`;
   }
 
   // POS Transaction methods
@@ -1541,7 +1620,7 @@ app.get("/api/pos/track/:number", async (req, res) => {
 
 app.post("/api/orders", async (req, res) => {
   try {
-    const items = req.body.items as { productId?: string; name: string; qty: number; price: number; color?: string; size?: string }[];
+    const items = req.body.items as { productId?: string; name: string; qty: number; price: number; color?: string; size?: string; isPreOrder?: boolean }[];
     
     if (!items || items.length === 0) {
       return res.status(400).json({ message: "No items in order" });
@@ -1551,6 +1630,8 @@ app.post("/api/orders", async (req, res) => {
     const productMap = new Map(allProducts.map(p => [p.id, p]));
     
     const stockErrors: string[] = [];
+    const poTotalReq: Record<string, number> = {};
+    const poVariantReq: Record<string, number> = {};
     for (const item of items) {
       if (!item.productId) {
         stockErrors.push(`Product ID missing for "${item.name}"`);
@@ -1581,6 +1662,43 @@ app.post("/api/orders", async (req, res) => {
         continue;
       }
       
+      // Pre-order items validate against pre-order stock, not regular stock
+      if (item.isPreOrder) {
+        if (!product.isPreOrder) {
+          stockErrors.push(`${item.name} is no longer available for pre-order`);
+          continue;
+        }
+        const poTotal = product.preOrderStock;
+        const poVariant = (product.preOrderVariantStock as { [key: string]: number } | null) || {};
+        const poVariantKey = `${requestedSize}-${requestedColor}`;
+        // Aggregate requested qty across all line items for the same product/variant
+        poTotalReq[item.productId] = (poTotalReq[item.productId] || 0) + item.qty;
+        if (poTotal !== null && poTotal !== undefined) {
+          if (poTotal <= 0) {
+            stockErrors.push(`${item.name} pre-order is sold out`);
+            continue;
+          }
+          if (poTotalReq[item.productId] > poTotal) {
+            stockErrors.push(`${item.name} pre-order only has ${poTotal} units available`);
+            continue;
+          }
+        }
+        if (Object.keys(poVariant).length > 0) {
+          const matchedKey = poVariant[poVariantKey] !== undefined
+            ? poVariantKey
+            : Object.keys(poVariant).find(k => k.toLowerCase() === poVariantKey.toLowerCase());
+          const variantAvail = matchedKey !== undefined ? (poVariant[matchedKey] || 0) : 0;
+          const variantReqKey = `${item.productId}|${(matchedKey || poVariantKey).toLowerCase()}`;
+          poVariantReq[variantReqKey] = (poVariantReq[variantReqKey] || 0) + item.qty;
+          if (variantAvail <= 0) {
+            stockErrors.push(`${item.name} (${requestedSize}/${requestedColor}) is not available for pre-order`);
+          } else if (poVariantReq[variantReqKey] > variantAvail) {
+            stockErrors.push(`${item.name} (${requestedSize}/${requestedColor}) pre-order only has ${variantAvail} available`);
+          }
+        }
+        continue;
+      }
+
       const variantStock = product.variantStock as { [key: string]: number } | null;
       const variantKey = `${requestedSize}-${requestedColor}`;
       let availableStock = 0;
@@ -1631,10 +1749,37 @@ app.post("/api/orders", async (req, res) => {
     const trackingNumber = `${trkDate}${trkTime}${trkSuffix}`;
     const initialStatus = req.body.status || "pending";
     const data = insertOrderSchema.parse({ ...req.body, orderNumber, trackingNumber, statusHistory: [{ status: initialStatus, timestamp: new Date().toISOString() }] });
-    const order = await storage.createOrder(data);
+
+    // Atomically deduct pre-order stock BEFORE creating the order (throws if insufficient)
+    const deductedPreOrders: { productId: string; size: string; color: string; qty: number }[] = [];
+    try {
+      for (const item of items) {
+        if (item.productId && item.isPreOrder) {
+          const size = item.size || 'Standard';
+          const color = item.color || 'Default';
+          await storage.deductPreOrderStock(item.productId, size, color, item.qty);
+          deductedPreOrders.push({ productId: item.productId, size, color, qty: item.qty });
+        }
+      }
+    } catch (deductError) {
+      for (const d of deductedPreOrders) {
+        await storage.restorePreOrderStock(d.productId, d.size, d.color, d.qty).catch(() => {});
+      }
+      throw deductError;
+    }
+
+    let order;
+    try {
+      order = await storage.createOrder(data);
+    } catch (createError) {
+      for (const d of deductedPreOrders) {
+        await storage.restorePreOrderStock(d.productId, d.size, d.color, d.qty).catch(() => {});
+      }
+      throw createError;
+    }
     
     for (const item of items) {
-      if (item.productId) {
+      if (item.productId && !item.isPreOrder) {
         const size = item.size || 'Standard';
         const color = item.color || 'Default';
         await storage.deductStock(item.productId, size, color, item.qty);
@@ -1671,12 +1816,16 @@ app.patch("/api/orders/:id/status", async (req, res) => {
     
     if (order) {
       if (status === 'cancelled' && previousStatus !== 'cancelled') {
-        const items = order.items as { productId?: string; name: string; qty: number; size?: string; color?: string }[];
+        const items = order.items as { productId?: string; name: string; qty: number; size?: string; color?: string; isPreOrder?: boolean }[];
         for (const item of items) {
           if (item.productId) {
             const size = item.size || 'Standard';
             const color = item.color || 'Default';
-            await storage.restoreStock(item.productId, size, color, item.qty);
+            if (item.isPreOrder) {
+              await storage.restorePreOrderStock(item.productId, size, color, item.qty);
+            } else {
+              await storage.restoreStock(item.productId, size, color, item.qty);
+            }
           }
         }
       }
@@ -1697,6 +1846,36 @@ app.patch("/api/orders/:id/status", async (req, res) => {
     }
   } catch (error: any) {
     res.status(400).json({ message: error.message });
+  }
+});
+
+// Generate balance invoice for a pre-order order (paid deposit vs remaining due)
+app.post("/api/orders/:id/balance-invoice", async (req, res) => {
+  try {
+    const order = await storage.getOrder(req.params.id);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+    if (order.balanceInvoiceNumber) return res.json(order);
+    const items = order.items as { isPreOrder?: boolean }[];
+    if (!items.some(i => i.isPreOrder)) {
+      return res.status(400).json({ message: "Order has no pre-order items" });
+    }
+    // Retry a few times in case of a concurrent invoice-number collision (unique constraint)
+    let updated;
+    let lastError: any;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const balanceInvoiceNumber = await storage.getNextBalanceInvoiceNumber();
+        updated = await storage.balanceInvoiceOrder(req.params.id, balanceInvoiceNumber);
+        break;
+      } catch (e: any) {
+        lastError = e;
+        if (!/unique|duplicate/i.test(e.message || '')) throw e;
+      }
+    }
+    if (!updated) throw lastError || new Error("Failed to generate balance invoice");
+    res.json(updated);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
   }
 });
 

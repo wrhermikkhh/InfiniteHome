@@ -101,6 +101,8 @@ export const products = pgTable("products", {
   preOrderPrice: real("pre_order_price"),
   preOrderInitialPayment: real("pre_order_initial_payment"),
   preOrderEta: text("pre_order_eta"),
+  preOrderStock: integer("pre_order_stock"), // total units accepted for this pre-order; 0 hides pre-order publicly
+  preOrderVariantStock: jsonb("pre_order_variant_stock").$type<{ [key: string]: number }>().default({}), // per-variant pre-order limits
   productDetails: text("product_details"),
   materialsAndCare: text("materials_and_care"),
   showOnStorefront: boolean("show_on_storefront").default(true),
@@ -218,6 +220,8 @@ export const orders = pgTable("orders", {
   adminNote: text("admin_note"), // Optional admin note shown on tracking page
   invoiceNumber: text("invoice_number").unique(), // auto-generated on confirmation
   invoicedAt: timestamp("invoiced_at"), // timestamp when invoice was created
+  balanceInvoiceNumber: text("balance_invoice_number").unique(), // balance invoice for pre-order remaining payment
+  balanceInvoicedAt: timestamp("balance_invoiced_at"),
   couponCode: text("coupon_code"),
   createdAt: timestamp("created_at").defaultNow(),
 });

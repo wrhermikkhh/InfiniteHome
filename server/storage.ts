@@ -73,6 +73,10 @@ export interface IStorage {
   // Stock Management
   deductStock(productId: string, size: string, color: string, quantity: number): Promise<void>;
   restoreStock(productId: string, size: string, color: string, quantity: number): Promise<void>;
+  deductPreOrderStock(productId: string, size: string, color: string, quantity: number): Promise<void>;
+  restorePreOrderStock(productId: string, size: string, color: string, quantity: number): Promise<void>;
+  balanceInvoiceOrder(id: string, balanceInvoiceNumber: string): Promise<Order | undefined>;
+  getNextBalanceInvoiceNumber(): Promise<string>;
   
   // Product Search
   searchProducts(query: string): Promise<Product[]>;
@@ -430,6 +434,83 @@ export class DatabaseStorage implements IStorage {
         await db.update(products).set({ variantStock: newVariantStock }).where(eq(products.id, productId));
       }
     }
+  }
+
+  async deductPreOrderStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
+    await db.transaction(async (tx) => {
+      const [product] = await tx.select().from(products).where(eq(products.id, productId)).for("update");
+      if (!product) throw new Error("Product not found");
+      const updates: Partial<{ preOrderStock: number; preOrderVariantStock: { [key: string]: number } }> = {};
+      const pvs = (product.preOrderVariantStock as { [key: string]: number } | null) || {};
+      if (Object.keys(pvs).length > 0) {
+        const variantKey = `${size}-${color}`;
+        const matchedKey = pvs[variantKey] !== undefined
+          ? variantKey
+          : Object.keys(pvs).find(k => k.toLowerCase() === variantKey.toLowerCase());
+        if (matchedKey === undefined) {
+          throw new Error(`${product.name} (${size}/${color}) is not available for pre-order`);
+        }
+        const avail = pvs[matchedKey] || 0;
+        if (avail < quantity) {
+          throw new Error(`${product.name} (${size}/${color}) pre-order only has ${avail} available`);
+        }
+        updates.preOrderVariantStock = { ...pvs, [matchedKey]: avail - quantity };
+      }
+      if (product.preOrderStock !== null && product.preOrderStock !== undefined) {
+        if (product.preOrderStock < quantity) {
+          throw new Error(`${product.name} pre-order only has ${product.preOrderStock} units available`);
+        }
+        updates.preOrderStock = product.preOrderStock - quantity;
+      }
+      if (Object.keys(updates).length > 0) {
+        await tx.update(products).set(updates).where(eq(products.id, productId));
+      }
+    });
+  }
+
+  async restorePreOrderStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
+    const product = await this.getProduct(productId);
+    if (!product) return;
+    const updates: Partial<{ preOrderStock: number; preOrderVariantStock: { [key: string]: number } }> = {};
+    const pvs = (product.preOrderVariantStock as { [key: string]: number } | null) || {};
+    if (Object.keys(pvs).length > 0) {
+      const variantKey = `${size}-${color}`;
+      const matchedKey = pvs[variantKey] !== undefined
+        ? variantKey
+        : Object.keys(pvs).find(k => k.toLowerCase() === variantKey.toLowerCase());
+      if (matchedKey !== undefined) {
+        updates.preOrderVariantStock = { ...pvs, [matchedKey]: (pvs[matchedKey] || 0) + quantity };
+      }
+    }
+    if (product.preOrderStock !== null && product.preOrderStock !== undefined) {
+      updates.preOrderStock = product.preOrderStock + quantity;
+    }
+    if (Object.keys(updates).length > 0) {
+      await db.update(products).set(updates).where(eq(products.id, productId));
+    }
+  }
+
+  async balanceInvoiceOrder(id: string, balanceInvoiceNumber: string): Promise<Order | undefined> {
+    const [updated] = await db.update(orders).set({ balanceInvoiceNumber, balanceInvoicedAt: new Date() }).where(eq(orders.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async getNextBalanceInvoiceNumber(): Promise<string> {
+    const rows = await db.execute(
+      sql`SELECT balance_invoice_number FROM orders WHERE balance_invoice_number IS NOT NULL`
+    );
+    let maxSeq = 10000;
+    for (const row of rows.rows as any[]) {
+      const inv: string = row.balance_invoice_number || "";
+      const match = inv.match(/BINV-\d{8}-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxSeq) maxSeq = num;
+      }
+    }
+    const now = new Date();
+    const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    return `BINV-${date}-${maxSeq + 1}`;
   }
 
   // Storefront Products (only products with showOnStorefront = true)

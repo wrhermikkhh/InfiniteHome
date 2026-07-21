@@ -471,7 +471,7 @@ export async function registerRoutes(
 
   app.post("/api/orders", async (req, res) => {
     try {
-      const items = req.body.items as { productId?: string; name: string; qty: number; price: number; color?: string; size?: string }[];
+      const items = req.body.items as { productId?: string; name: string; qty: number; price: number; color?: string; size?: string; isPreOrder?: boolean }[];
       
       // Validate that items exist
       if (!items || items.length === 0) {
@@ -484,6 +484,8 @@ export async function registerRoutes(
       
       // Validate variant stock for each item
       const stockErrors: string[] = [];
+      const poTotalReq: Record<string, number> = {};
+      const poVariantReq: Record<string, number> = {};
       for (const item of items) {
         // Require productId for secure validation
         if (!item.productId) {
@@ -518,6 +520,43 @@ export async function registerRoutes(
           continue;
         }
         
+        // Pre-order items validate against pre-order stock, not regular stock
+        if (item.isPreOrder) {
+          if (!product.isPreOrder) {
+            stockErrors.push(`${item.name} is no longer available for pre-order`);
+            continue;
+          }
+          const poTotal = product.preOrderStock;
+          const poVariant = (product.preOrderVariantStock as { [key: string]: number } | null) || {};
+          const poVariantKey = `${requestedSize}-${requestedColor}`;
+          // Aggregate requested qty across all line items for the same product/variant
+          poTotalReq[item.productId] = (poTotalReq[item.productId] || 0) + item.qty;
+          if (poTotal !== null && poTotal !== undefined) {
+            if (poTotal <= 0) {
+              stockErrors.push(`${item.name} pre-order is sold out`);
+              continue;
+            }
+            if (poTotalReq[item.productId] > poTotal) {
+              stockErrors.push(`${item.name} pre-order only has ${poTotal} units available`);
+              continue;
+            }
+          }
+          if (Object.keys(poVariant).length > 0) {
+            const matchedKey = poVariant[poVariantKey] !== undefined
+              ? poVariantKey
+              : Object.keys(poVariant).find(k => k.toLowerCase() === poVariantKey.toLowerCase());
+            const variantAvail = matchedKey !== undefined ? (poVariant[matchedKey] || 0) : 0;
+            const variantReqKey = `${item.productId}|${(matchedKey || poVariantKey).toLowerCase()}`;
+            poVariantReq[variantReqKey] = (poVariantReq[variantReqKey] || 0) + item.qty;
+            if (variantAvail <= 0) {
+              stockErrors.push(`${item.name} (${requestedSize}/${requestedColor}) is not available for pre-order`);
+            } else if (poVariantReq[variantReqKey] > variantAvail) {
+              stockErrors.push(`${item.name} (${requestedSize}/${requestedColor}) pre-order only has ${variantAvail} available`);
+            }
+          }
+          continue;
+        }
+
         const variantStock = product.variantStock as { [key: string]: number } | null;
         const variantKey = `${requestedSize}-${requestedColor}`;
         let availableStock = 0;
@@ -570,12 +609,40 @@ export async function registerRoutes(
       // Record initial status with timestamp in statusHistory
       const initialStatus = req.body.status || "pending";
       const data = insertOrderSchema.parse({ ...req.body, orderNumber, trackingNumber, statusHistory: [{ status: initialStatus, timestamp: new Date().toISOString() }] });
-      const order = await storage.createOrder(data);
+
+      // Atomically deduct pre-order stock BEFORE creating the order (throws if insufficient)
+      const deductedPreOrders: { productId: string; size: string; color: string; qty: number }[] = [];
+      try {
+        for (const item of items) {
+          if (item.productId && item.isPreOrder) {
+            const size = item.size || 'Standard';
+            const color = item.color || 'Default';
+            await storage.deductPreOrderStock(item.productId, size, color, item.qty);
+            deductedPreOrders.push({ productId: item.productId, size, color, qty: item.qty });
+            console.log(`Pre-order stock deducted: ${item.name} (${size}/${color}) x${item.qty}`);
+          }
+        }
+      } catch (deductError) {
+        for (const d of deductedPreOrders) {
+          await storage.restorePreOrderStock(d.productId, d.size, d.color, d.qty).catch(() => {});
+        }
+        throw deductError;
+      }
+
+      let order;
+      try {
+        order = await storage.createOrder(data);
+      } catch (createError) {
+        for (const d of deductedPreOrders) {
+          await storage.restorePreOrderStock(d.productId, d.size, d.color, d.qty).catch(() => {});
+        }
+        throw createError;
+      }
       console.log("Order created:", order.id, "Order Number:", order.orderNumber);
       
-      // Deduct stock for each item in the order
+      // Deduct regular stock for each non-pre-order item
       for (const item of items) {
-        if (item.productId) {
+        if (item.productId && !item.isPreOrder) {
           const size = item.size || 'Standard';
           const color = item.color || 'Default';
           await storage.deductStock(item.productId, size, color, item.qty);
@@ -617,13 +684,18 @@ export async function registerRoutes(
       if (order) {
         // Restore stock if order is being cancelled (and wasn't cancelled before)
         if (status === 'cancelled' && previousStatus !== 'cancelled') {
-          const items = order.items as { productId?: string; name: string; qty: number; size?: string; color?: string }[];
+          const items = order.items as { productId?: string; name: string; qty: number; size?: string; color?: string; isPreOrder?: boolean }[];
           for (const item of items) {
             if (item.productId) {
               const size = item.size || 'Standard';
               const color = item.color || 'Default';
-              await storage.restoreStock(item.productId, size, color, item.qty);
-              console.log(`Stock restored: ${item.name} (${size}/${color}) x${item.qty}`);
+              if (item.isPreOrder) {
+                await storage.restorePreOrderStock(item.productId, size, color, item.qty);
+                console.log(`Pre-order stock restored: ${item.name} (${size}/${color}) x${item.qty}`);
+              } else {
+                await storage.restoreStock(item.productId, size, color, item.qty);
+                console.log(`Stock restored: ${item.name} (${size}/${color}) x${item.qty}`);
+              }
             }
           }
         }
@@ -648,6 +720,37 @@ export async function registerRoutes(
   });
 
   // Update order admin note
+  // Generate balance invoice for a pre-order order (paid deposit vs remaining due)
+  app.post("/api/orders/:id/balance-invoice", async (req, res) => {
+    try {
+      const order = await storage.getOrder(req.params.id);
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      if (order.balanceInvoiceNumber) return res.json(order); // already generated
+      const items = order.items as { isPreOrder?: boolean }[];
+      if (!items.some(i => i.isPreOrder)) {
+        return res.status(400).json({ message: "Order has no pre-order items" });
+      }
+      // Retry a few times in case of a concurrent invoice-number collision (unique constraint)
+      let updated;
+      let lastError: any;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const balanceInvoiceNumber = await storage.getNextBalanceInvoiceNumber();
+          updated = await storage.balanceInvoiceOrder(req.params.id, balanceInvoiceNumber);
+          console.log(`Balance invoice created for order ${order.orderNumber}: ${balanceInvoiceNumber}`);
+          break;
+        } catch (e: any) {
+          lastError = e;
+          if (!/unique|duplicate/i.test(e.message || '')) throw e;
+        }
+      }
+      if (!updated) throw lastError || new Error("Failed to generate balance invoice");
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.patch("/api/orders/:id/admin-note", async (req, res) => {
     try {
       const { adminNote } = req.body;

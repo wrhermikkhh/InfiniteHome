@@ -58,6 +58,8 @@ export interface Order {
   deliveryStatus?: string | null;
   invoiceNumber?: string | null;
   invoicedAt?: string | null;
+  balanceInvoiceNumber?: string | null;
+  balanceInvoicedAt?: string | null;
   couponCode?: string;
   createdAt?: string;
 }
@@ -255,6 +257,18 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ deliveryStatus, location: location || "MLE" }),
     });
+    return res.json();
+  },
+
+  async generateBalanceInvoice(id: string): Promise<Order> {
+    const res = await fetch(`${API_BASE}/orders/${id}/balance-invoice`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Failed to generate balance invoice");
+    }
     return res.json();
   },
 

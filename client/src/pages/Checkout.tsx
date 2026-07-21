@@ -123,7 +123,23 @@ export default function Checkout() {
   });
 
   const getItemLiveStock = (item: typeof items[0]) => {
-    if ((item as any).isPreOrder) return Infinity;
+    if ((item as any).isPreOrder) {
+      const fresh = freshProducts.find((p) => p.id === item.id);
+      if (!fresh) return Infinity;
+      const totalCap = fresh.preOrderStock === null || fresh.preOrderStock === undefined ? Infinity : fresh.preOrderStock;
+      const variantMap = (fresh.preOrderVariantStock || {}) as Record<string, number>;
+      const hasEntries = Object.keys(variantMap).length > 0;
+      const key = `${item.selectedSize}-${item.selectedColor}`;
+      let variantCap = Infinity;
+      if (hasEntries) {
+        const matchedKey = variantMap[key] !== undefined
+          ? key
+          : Object.keys(variantMap).find(k => k.toLowerCase() === key.toLowerCase());
+        // Server treats a missing key (when the map is non-empty) as unavailable
+        variantCap = matchedKey !== undefined ? (variantMap[matchedKey] || 0) : 0;
+      }
+      return Math.min(totalCap, variantCap);
+    }
     const freshProduct = freshProducts.find((p) => p.id === item.id);
     if (freshProduct) {
       return getVariantStock(freshProduct, item.selectedSize, item.selectedColor);
@@ -204,7 +220,7 @@ export default function Checkout() {
         deliveryType: deliveryLocation,
         items: inStockItems.map(item => {
           const stock = getItemLiveStock(item);
-          const cappedQty = (item as any).isPreOrder ? item.quantity : Math.min(item.quantity, stock);
+          const cappedQty = stock === Infinity ? item.quantity : Math.min(item.quantity, stock);
           return {
             productId: item.id,
             name: item.name,

@@ -413,6 +413,8 @@ export default function AdminPanel() {
     preOrderPrice: "",
     preOrderInitialPayment: "",
     preOrderEta: "",
+    preOrderStock: "",
+    preOrderVariantStock: {} as { [key: string]: string },
     productDetails: "",
     materialsAndCare: "",
     maxOrderQty: ""
@@ -563,6 +565,77 @@ export default function AdminPanel() {
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+  };
+
+  const handlePrintBalanceInvoice = async (order: typeof orders[0]) => {
+    try {
+      let ord = order;
+      if (!ord.balanceInvoiceNumber) {
+        ord = await api.generateBalanceInvoice(order.id);
+        setOrders(prev => prev.map(o => o.id === ord.id ? ord : o));
+      }
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+      const esc = (s: string) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const items = (ord.items as any[]) || [];
+      const invoiceDate = ord.balanceInvoicedAt ? new Date(ord.balanceInvoicedAt) : new Date();
+      const dateStr = invoiceDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      let grandTotal = 0;
+      const rowsHtml = items.map((item: any) => {
+        const unitFull = item.isPreOrder && item.preOrderTotalPrice ? Number(item.preOrderTotalPrice) : Number(item.price || 0);
+        const lineTotal = unitFull * Number(item.qty || 1);
+        grandTotal += lineTotal;
+        return `
+        <tr>
+          <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;">${esc(item.name)}${item.size && item.size !== 'Standard' ? ` <span style="color:#78716c;font-size:12px;">(${esc(item.size)})</span>` : ''}${item.color && item.color !== 'Default' ? ` <span style="color:#78716c;font-size:12px;">– ${esc(item.color)}</span>` : ''}${item.isPreOrder ? ' <span style="color:#b45309;font-size:11px;font-weight:600;">PRE-ORDER</span>' : ''}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;text-align:center;">${item.qty}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;text-align:right;">MVR ${unitFull.toLocaleString()}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;text-align:right;">MVR ${lineTotal.toLocaleString()}</td>
+        </tr>`;
+      }).join('');
+      const discount = Number(ord.discount || 0);
+      const shipping = Number(ord.shipping || 0);
+      const contractTotal = grandTotal - discount + shipping;
+      const amountPaid = Number(ord.total || 0);
+      const amountDue = Math.max(0, contractTotal - amountPaid);
+      printWindow.document.write(`<!DOCTYPE html><html><head><title>Balance Invoice ${esc(ord.balanceInvoiceNumber || '')}</title>
+        <style>@page{size:A4;margin:20mm 15mm;}*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1c1917;font-size:14px;line-height:1.5;}</style>
+      </head><body>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1c1917;padding-bottom:20px;margin-bottom:28px;">
+          <div><div style="font-size:24px;font-weight:300;letter-spacing:4px;">INFINITE HOME</div><div style="font-size:11px;color:#78716c;letter-spacing:2px;margin-top:4px;">PREMIUM LIVING</div></div>
+          <div style="text-align:right;"><div style="font-size:22px;font-weight:300;letter-spacing:3px;">BALANCE INVOICE</div><div style="font-family:monospace;font-size:14px;font-weight:700;margin-top:4px;">${esc(ord.balanceInvoiceNumber || '')}</div><div style="font-size:12px;color:#78716c;margin-top:2px;">${dateStr}</div></div>
+        </div>
+        <div style="display:flex;gap:40px;margin-bottom:28px;">
+          <div style="flex:1;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#78716c;margin-bottom:6px;">Bill To</div><div style="font-weight:600;">${esc(ord.customerName)}</div><div style="color:#57534e;">${esc(ord.customerEmail || '')}</div><div style="color:#57534e;">${esc(ord.customerPhone || '')}</div></div>
+          <div><div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#78716c;margin-bottom:6px;">Order Details</div><div><span style="color:#78716c;">Order #</span> <span style="font-family:monospace;font-weight:600;">${esc(ord.orderNumber)}</span></div>${ord.invoiceNumber ? `<div style="margin-top:2px;"><span style="color:#78716c;">Deposit Invoice</span> <span style="font-family:monospace;font-weight:500;">${esc(ord.invoiceNumber)}</span></div>` : ''}</div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+          <thead><tr style="background:#f5f5f4;">
+            <th style="padding:10px 8px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Item</th>
+            <th style="padding:10px 8px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Qty</th>
+            <th style="padding:10px 8px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Full Price</th>
+            <th style="padding:10px 8px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Total</th>
+          </tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:40px;">
+          <div style="width:280px;">
+            <div style="display:flex;justify-content:space-between;padding:6px 0;color:#57534e;"><span>Subtotal (Full Value)</span><span>MVR ${grandTotal.toLocaleString()}</span></div>
+            ${discount ? `<div style="display:flex;justify-content:space-between;padding:6px 0;color:#16a34a;"><span>Discount</span><span>-MVR ${discount.toLocaleString()}</span></div>` : ''}
+            ${shipping ? `<div style="display:flex;justify-content:space-between;padding:6px 0;color:#57534e;"><span>Shipping</span><span>MVR ${shipping.toLocaleString()}</span></div>` : ''}
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #1c1917;margin-top:6px;font-weight:600;"><span>Total Order Value</span><span>MVR ${contractTotal.toLocaleString()}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;color:#16a34a;font-weight:600;"><span>Amount Paid (Deposit)</span><span>-MVR ${amountPaid.toLocaleString()}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:12px;border:2px solid #1c1917;margin-top:8px;font-weight:700;font-size:17px;background:#fef3c7;"><span>BALANCE DUE</span><span>MVR ${amountDue.toLocaleString()}</span></div>
+          </div>
+        </div>
+        <div style="border-top:1px solid #e7e5e4;padding-top:16px;text-align:center;color:#78716c;font-size:11px;letter-spacing:1px;">THANK YOU FOR SHOPPING WITH INFINITE HOME</div>
+      </body></html>`);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to generate balance invoice", variant: "destructive" });
+    }
   };
 
   const handlePrintLabel = async () => {
@@ -1254,6 +1327,14 @@ export default function AdminPanel() {
       preOrderPrice: productForm.isPreOrder && productForm.preOrderPrice ? Number(productForm.preOrderPrice) : null,
       preOrderInitialPayment: productForm.isPreOrder && productForm.preOrderInitialPayment ? Number(productForm.preOrderInitialPayment) : null,
       preOrderEta: productForm.isPreOrder ? productForm.preOrderEta : null,
+      preOrderStock: productForm.isPreOrder && productForm.preOrderStock !== "" ? parseInt(productForm.preOrderStock) || 0 : null,
+      preOrderVariantStock: productForm.isPreOrder ? (() => {
+        const out: { [key: string]: number } = {};
+        Object.entries(productForm.preOrderVariantStock).forEach(([key, val]) => {
+          if (val !== "") out[key] = parseInt(val) || 0;
+        });
+        return out;
+      })() : {},
       productDetails: productForm.productDetails || null,
       materialsAndCare: productForm.materialsAndCare || null,
       maxOrderQty: productForm.maxOrderQty ? Number(productForm.maxOrderQty) : null
@@ -1299,6 +1380,8 @@ export default function AdminPanel() {
       preOrderPrice: "",
       preOrderInitialPayment: "",
       preOrderEta: "",
+      preOrderStock: "",
+      preOrderVariantStock: {},
       productDetails: "",
       materialsAndCare: "",
       maxOrderQty: ""
@@ -1348,6 +1431,13 @@ export default function AdminPanel() {
       preOrderPrice: ((product as any).preOrderPrice || "").toString(),
       preOrderInitialPayment: ((product as any).preOrderInitialPayment || "").toString(),
       preOrderEta: (product as any).preOrderEta || "",
+      preOrderStock: (product as any).preOrderStock !== null && (product as any).preOrderStock !== undefined ? String((product as any).preOrderStock) : "",
+      preOrderVariantStock: (() => {
+        const src = ((product as any).preOrderVariantStock || {}) as { [key: string]: number };
+        const out: { [key: string]: string } = {};
+        Object.entries(src).forEach(([k, v]) => { out[k] = String(v); });
+        return out;
+      })(),
       productDetails: (product as any).productDetails || "",
       materialsAndCare: (product as any).materialsAndCare || "",
       maxOrderQty: ((product as any).maxOrderQty || "").toString()
@@ -2314,6 +2404,71 @@ export default function AdminPanel() {
                                 placeholder="e.g., 2-3 weeks"
                                 data-testid="input-preorder-eta"
                               />
+                            </div>
+                          </div>
+                        )}
+                        {productForm.isPreOrder && (
+                          <div className="space-y-4 pt-4 border-t border-border">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <Label className="text-xs uppercase tracking-widest font-bold">Pre-Order Quantity Limit</Label>
+                                <p className="text-[10px] text-muted-foreground mt-1">Total units accepted for this pre-order. When it hits 0, pre-order is automatically hidden from the store. Leave empty for unlimited.</p>
+                              </div>
+                              <Input 
+                                type="number"
+                                value={productForm.preOrderStock}
+                                onChange={(e) => setProductForm({...productForm, preOrderStock: e.target.value})}
+                                className="rounded-none h-9 w-28 text-right"
+                                placeholder="e.g., 15"
+                                data-testid="input-preorder-stock"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs uppercase tracking-widest font-bold">Pre-Order Stock Per Variant</Label>
+                              <p className="text-[10px] text-muted-foreground mt-1 mb-2">Optional. Set how many units of each variant can be pre-ordered. Set 0 to make a variant unavailable for pre-order. Leave all empty to allow all variants.</p>
+                              <div className="space-y-2 max-h-64 overflow-y-auto">
+                                {(() => {
+                                  const sizes = productForm.variants.filter(v => v.size).map(v => v.size);
+                                  const colors = productForm.colorVariants.filter(cv => cv.name.trim()).map(cv => cv.name.trim());
+                                  const combos: { size: string; color: string; key: string }[] = [];
+                                  const addedKeys = new Set<string>();
+                                  if (sizes.length > 0 && colors.length > 0) {
+                                    sizes.forEach(size => { colors.forEach(color => { const key = `${size}-${color}`; combos.push({ size, color, key }); addedKeys.add(key.toLowerCase()); }); });
+                                  } else if (sizes.length > 0) {
+                                    sizes.forEach(size => { combos.push({ size, color: "Default", key: `${size}-Default` }); addedKeys.add(`${size}-default`.toLowerCase()); });
+                                  } else if (colors.length > 0) {
+                                    colors.forEach(color => { combos.push({ size: "Standard", color, key: `Standard-${color}` }); addedKeys.add(`standard-${color}`.toLowerCase()); });
+                                  } else {
+                                    combos.push({ size: "Standard", color: "Default", key: "Standard-Default" });
+                                    addedKeys.add("standard-default");
+                                  }
+                                  Object.keys(productForm.preOrderVariantStock).forEach(key => {
+                                    if (!addedKeys.has(key.toLowerCase())) {
+                                      const parts = key.split('-');
+                                      combos.push({ size: parts[0] || 'Standard', color: parts.slice(1).join('-') || 'Default', key });
+                                      addedKeys.add(key.toLowerCase());
+                                    }
+                                  });
+                                  return combos.map(({ size, color, key }) => (
+                                    <div key={key} className="flex items-center gap-2 p-2 bg-secondary/5 border border-border">
+                                      <span className="text-xs flex-1 font-medium">{size} / {color}</span>
+                                      <Input 
+                                        type="number"
+                                        placeholder="—"
+                                        value={productForm.preOrderVariantStock[key] ?? ""}
+                                        onChange={(e) => {
+                                          setProductForm({
+                                            ...productForm,
+                                            preOrderVariantStock: { ...productForm.preOrderVariantStock, [key]: e.target.value }
+                                          });
+                                        }}
+                                        className="rounded-none h-8 w-24 text-xs text-right"
+                                        data-testid={`input-preorder-variant-stock-${key}`}
+                                      />
+                                    </div>
+                                  ));
+                                })()}
+                              </div>
                             </div>
                           </div>
                         )}
@@ -3473,6 +3628,17 @@ export default function AdminPanel() {
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
+                          {(order.items as any[]).some((i: any) => i.isPreOrder) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-none text-xs gap-2 border-amber-300 text-amber-700 hover:bg-amber-50"
+                              onClick={() => handlePrintBalanceInvoice(order)}
+                              data-testid={`button-balance-invoice-${order.id}`}
+                            >
+                              <FileText size={14} /> Balance Invoice
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
