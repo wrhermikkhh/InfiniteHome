@@ -311,7 +311,12 @@ export default function AdminPanel() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("Products");
+  const [activeTab, setActiveTab] = useState(() => window.location.hash.replace('#', '') || "Products");
+
+  const switchTab = (tab: string) => {
+    setActiveTab(tab);
+    window.location.hash = tab;
+  };
   const [isLoading, setIsLoading] = useState(false);
 
   // Forgot password flow
