@@ -35,6 +35,7 @@ export interface Product {
   preOrderInitialPayment?: number | null;
   preOrderEta?: string | null;
   preOrderStock?: number | null;
+  preOrderDeadline?: string | null;
   preOrderVariantStock?: { [key: string]: number } | null;
   showOnStorefront?: boolean | null;
   lowStockThreshold?: number | null;

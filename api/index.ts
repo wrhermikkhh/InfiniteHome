@@ -129,6 +129,7 @@ const products = pgTable("products", {
   preOrderInitialPayment: real("pre_order_initial_payment"),
   preOrderEta: text("pre_order_eta"),
   preOrderStock: integer("pre_order_stock"),
+  preOrderDeadline: text("pre_order_deadline"),
   preOrderVariantStock: jsonb("pre_order_variant_stock").$type<{ [key: string]: number }>().default({}),
   productDetails: text("product_details"),
   materialsAndCare: text("materials_and_care"),
@@ -1666,6 +1667,11 @@ app.post("/api/orders", async (req, res) => {
       if (item.isPreOrder) {
         if (!product.isPreOrder) {
           stockErrors.push(`${item.name} is no longer available for pre-order`);
+          continue;
+        }
+        // Pre-order closes automatically on the deadline date (compared as UTC dates)
+        if (product.preOrderDeadline && new Date().toISOString().slice(0, 10) >= product.preOrderDeadline) {
+          stockErrors.push(`${item.name} pre-order period has ended`);
           continue;
         }
         const poTotal = product.preOrderStock;

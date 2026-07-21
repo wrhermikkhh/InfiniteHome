@@ -102,6 +102,7 @@ export const products = pgTable("products", {
   preOrderInitialPayment: real("pre_order_initial_payment"),
   preOrderEta: text("pre_order_eta"),
   preOrderStock: integer("pre_order_stock"), // total units accepted for this pre-order; 0 hides pre-order publicly
+  preOrderDeadline: text("pre_order_deadline"), // ISO date (YYYY-MM-DD); pre-order auto-disables on/after this date
   preOrderVariantStock: jsonb("pre_order_variant_stock").$type<{ [key: string]: number }>().default({}), // per-variant pre-order limits
   productDetails: text("product_details"),
   materialsAndCare: text("materials_and_care"),

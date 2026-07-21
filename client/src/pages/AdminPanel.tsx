@@ -414,6 +414,7 @@ export default function AdminPanel() {
     preOrderInitialPayment: "",
     preOrderEta: "",
     preOrderStock: "",
+    preOrderDeadline: "",
     preOrderVariantStock: {} as { [key: string]: string },
     productDetails: "",
     materialsAndCare: "",
@@ -1328,6 +1329,7 @@ export default function AdminPanel() {
       preOrderInitialPayment: productForm.isPreOrder && productForm.preOrderInitialPayment ? Number(productForm.preOrderInitialPayment) : null,
       preOrderEta: productForm.isPreOrder ? productForm.preOrderEta : null,
       preOrderStock: productForm.isPreOrder && productForm.preOrderStock !== "" ? parseInt(productForm.preOrderStock) || 0 : null,
+      preOrderDeadline: productForm.isPreOrder && productForm.preOrderDeadline ? productForm.preOrderDeadline : null,
       preOrderVariantStock: productForm.isPreOrder ? (() => {
         const out: { [key: string]: number } = {};
         Object.entries(productForm.preOrderVariantStock).forEach(([key, val]) => {
@@ -1381,6 +1383,7 @@ export default function AdminPanel() {
       preOrderInitialPayment: "",
       preOrderEta: "",
       preOrderStock: "",
+      preOrderDeadline: "",
       preOrderVariantStock: {},
       productDetails: "",
       materialsAndCare: "",
@@ -1432,6 +1435,7 @@ export default function AdminPanel() {
       preOrderInitialPayment: ((product as any).preOrderInitialPayment || "").toString(),
       preOrderEta: (product as any).preOrderEta || "",
       preOrderStock: (product as any).preOrderStock !== null && (product as any).preOrderStock !== undefined ? String((product as any).preOrderStock) : "",
+      preOrderDeadline: (product as any).preOrderDeadline || "",
       preOrderVariantStock: (() => {
         const src = ((product as any).preOrderVariantStock || {}) as { [key: string]: number };
         const out: { [key: string]: string } = {};
@@ -2421,6 +2425,19 @@ export default function AdminPanel() {
                                 className="rounded-none h-9 w-28 text-right"
                                 placeholder="e.g., 15"
                                 data-testid="input-preorder-stock"
+                              />
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <Label className="text-xs uppercase tracking-widest font-bold">Pre-Order Closing Date</Label>
+                                <p className="text-[10px] text-muted-foreground mt-1">Pre-order is automatically disabled on this date, even if slots remain. Leave empty for no deadline.</p>
+                              </div>
+                              <Input 
+                                type="date"
+                                value={productForm.preOrderDeadline}
+                                onChange={(e) => setProductForm({...productForm, preOrderDeadline: e.target.value})}
+                                className="rounded-none h-9 w-40"
+                                data-testid="input-preorder-deadline"
                               />
                             </div>
                             <div>

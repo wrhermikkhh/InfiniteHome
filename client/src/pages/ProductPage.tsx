@@ -148,7 +148,9 @@ export default function ProductPage() {
     Math.max(0, getPreOrderVariantLimit(selectedSize, selectedColor) - preOrderInCartVariant)
   );
   const preOrderSoldOut = preOrderTotalCap <= 0;
-  const isPreOrder = (product.isPreOrder || false) && !preOrderSoldOut;
+  // Pre-order closes automatically on the deadline date (compared as UTC dates, matching the server)
+  const preOrderExpired = !!product.preOrderDeadline && new Date().toISOString().slice(0, 10) >= product.preOrderDeadline;
+  const isPreOrder = (product.isPreOrder || false) && !preOrderSoldOut && !preOrderExpired;
   const preOrderVariantUnavailable = isPreOrder && getPreOrderVariantLimit(selectedSize, selectedColor) <= 0;
   const preOrderPrice = product.preOrderPrice;
   const isOnSale = product.isOnSale || false;
@@ -642,6 +644,11 @@ export default function ProductPage() {
                             ? `Pre-Order Limited to ${preOrderRemaining}`
                             : `Pre-Order - ${formatCurrency((preOrderInitialPayment || displayPrice) * quantity)} deposit`}
                       </Button>
+                      {isPreOrder && product.preOrderDeadline && (
+                        <p className="text-xs text-amber-700 font-medium text-center" data-testid="text-preorder-deadline">
+                          Pre-order closes on {new Date(product.preOrderDeadline + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </p>
+                      )}
                       {isPreOrder && preOrderRemaining !== Infinity && preOrderRemaining > 0 && preOrderRemaining <= 10 && (
                         <p className="text-xs text-amber-700 font-medium text-center" data-testid="text-preorder-remaining">
                           Only {preOrderRemaining} pre-order {preOrderRemaining === 1 ? 'slot' : 'slots'} left

@@ -526,6 +526,11 @@ export async function registerRoutes(
             stockErrors.push(`${item.name} is no longer available for pre-order`);
             continue;
           }
+          // Pre-order closes automatically on the deadline date (compared as UTC dates)
+          if (product.preOrderDeadline && new Date().toISOString().slice(0, 10) >= product.preOrderDeadline) {
+            stockErrors.push(`${item.name} pre-order period has ended`);
+            continue;
+          }
           const poTotal = product.preOrderStock;
           const poVariant = (product.preOrderVariantStock as { [key: string]: number } | null) || {};
           const poVariantKey = `${requestedSize}-${requestedColor}`;

@@ -126,6 +126,8 @@ export default function Checkout() {
     if ((item as any).isPreOrder) {
       const fresh = freshProducts.find((p) => p.id === item.id);
       if (!fresh) return Infinity;
+      // Pre-order closes automatically on the deadline date (compared as UTC dates, matching the server)
+      if (fresh.preOrderDeadline && new Date().toISOString().slice(0, 10) >= fresh.preOrderDeadline) return 0;
       const totalCap = fresh.preOrderStock === null || fresh.preOrderStock === undefined ? Infinity : fresh.preOrderStock;
       const variantMap = (fresh.preOrderVariantStock || {}) as Record<string, number>;
       const hasEntries = Object.keys(variantMap).length > 0;
