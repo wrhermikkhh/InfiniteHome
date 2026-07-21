@@ -158,9 +158,9 @@ export default function ProductPage() {
   const preOrderInitialPayment = product.preOrderInitialPayment;
   const preOrderEta = product.preOrderEta;
   const variantSalePrice = isOnSale ? getVariantSalePrice(product, currentPrice) : null;
-  const displayPrice = isPreOrder && preOrderPrice 
-    ? preOrderPrice 
-    : (isOnSale && variantSalePrice ? variantSalePrice : currentPrice);
+  // displayPrice is always the regular retail price (sale price if on sale, otherwise variant price)
+  // The pre-order price is separate and only used for the pre-order deposit/button calculation
+  const displayPrice = isOnSale && variantSalePrice ? variantSalePrice : currentPrice;
 
   return (
     <div className="min-h-screen bg-background font-body overflow-x-hidden">
@@ -328,7 +328,7 @@ export default function ProductPage() {
                 <p className="text-2xl font-medium text-foreground">
                   {formatCurrency(displayPrice)}
                 </p>
-                {isOnSale && variantSalePrice && !isPreOrder && (
+                {isOnSale && variantSalePrice && (
                   <>
                     <p className="text-xl text-muted-foreground line-through">
                       {formatCurrency(currentPrice)}
