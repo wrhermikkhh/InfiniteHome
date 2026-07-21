@@ -416,6 +416,49 @@ export async function sendPosLabelEmail(transaction: any) {
   }
 }
 
+export async function sendAdminPasswordResetEmail(adminEmail: string, adminName: string, otp: string) {
+  try {
+    const { apiKey, fromEmail } = await getCredentials();
+    const resend = new Resend(apiKey);
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <body style="margin: 0; padding: 0; background-color: #fcfaf7; font-family: 'Helvetica Neue', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+          <div style="padding: 40px 20px; text-align: center; background-color: #1a1a1a; color: #ffffff;">
+            <h1 style="font-family: serif; margin: 0; font-size: 28px; letter-spacing: 2px;">INFINITE HOME</h1>
+            <p style="margin: 10px 0 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.8;">Admin Portal</p>
+          </div>
+          <div style="padding: 40px 30px;">
+            <h2 style="color: #1a1a1a; font-size: 22px; margin: 0 0 16px;">Password Reset Request</h2>
+            <p style="color: #333; line-height: 1.6;">Hi ${adminName},</p>
+            <p style="color: #333; line-height: 1.6;">We received a request to reset your admin password. Use the code below to complete the reset. This code expires in <strong>15 minutes</strong>.</p>
+            <div style="background-color: #f4f4f4; border: 2px dashed #1a1a1a; border-radius: 8px; padding: 30px; text-align: center; margin: 24px 0;">
+              <p style="margin: 0 0 6px; font-size: 13px; color: #666; letter-spacing: 1px; text-transform: uppercase;">Your OTP Code</p>
+              <p style="margin: 0; font-size: 42px; font-weight: bold; letter-spacing: 10px; font-family: monospace; color: #1a1a1a;">${otp}</p>
+            </div>
+            <p style="color: #666; font-size: 13px; line-height: 1.6;">If you did not request this, please ignore this email. Your password will remain unchanged.</p>
+          </div>
+          <div style="padding: 24px 20px; background-color: #f8f8f8; text-align: center; border-top: 1px solid #eee;">
+            <p style="margin: 0; font-size: 11px; color: #999;">&copy; 2026 INFINITE LOOP PVT LTD. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    await resend.emails.send({
+      from: `INFINITE HOME <${fromEmail}>`,
+      to: adminEmail,
+      subject: `Your Admin Password Reset Code — ${otp}`,
+      html,
+    });
+    console.log(`Admin password reset OTP sent to ${adminEmail}`);
+  } catch (error) {
+    console.error('Error sending admin password reset email:', error);
+    throw error;
+  }
+}
+
 export async function sendOrderStatusEmail(order: any, newStatus: string) {
   // Guard: skip if no valid customer email
   if (!order.customerEmail || !order.customerEmail.includes('@')) {

@@ -458,6 +458,23 @@ class DatabaseStorage {
     return admin || undefined;
   }
 
+  async getAdminByResetToken(token: string): Promise<Admin | undefined> {
+    const [admin] = await this.getDb().select().from(admins).where(eq(admins.resetToken, token));
+    return admin || undefined;
+  }
+
+  async setAdminResetToken(email: string, token: string, expiry: Date): Promise<boolean> {
+    const result = await this.getDb().update(admins)
+      .set({ resetToken: token, resetTokenExpiry: expiry })
+      .where(eq(admins.email, email))
+      .returning();
+    return result.length > 0;
+  }
+
+  async clearAdminResetToken(id: string): Promise<void> {
+    await this.getDb().update(admins).set({ resetToken: null, resetTokenExpiry: null }).where(eq(admins.id, id));
+  }
+
   async createAdmin(admin: InsertAdmin): Promise<Admin> {
     const [newAdmin] = await this.getDb().insert(admins).values(admin).returning();
     return newAdmin;
@@ -768,6 +785,40 @@ function getItemsHtml(items: any[]) {
       </td>
     </tr>
   `).join('');
+}
+
+async function sendAdminPasswordResetEmail(adminEmail: string, adminName: string, otp: string) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error('RESEND_API_KEY not set');
+  const resend = new Resend(apiKey);
+  const html = `
+    <!DOCTYPE html><html><body style="margin:0;padding:0;background:#fcfaf7;font-family:'Helvetica Neue',Arial,sans-serif;">
+    <div style="max-width:600px;margin:0 auto;background:#fff;">
+      <div style="padding:40px 20px;text-align:center;background:#1a1a1a;color:#fff;">
+        <h1 style="font-family:serif;margin:0;font-size:28px;letter-spacing:2px;">INFINITE HOME</h1>
+        <p style="margin:10px 0 0;font-size:12px;letter-spacing:1px;text-transform:uppercase;opacity:.8;">Admin Portal</p>
+      </div>
+      <div style="padding:40px 30px;">
+        <h2 style="color:#1a1a1a;font-size:22px;margin:0 0 16px;">Password Reset Request</h2>
+        <p style="color:#333;line-height:1.6;">Hi ${adminName},</p>
+        <p style="color:#333;line-height:1.6;">Use the code below to reset your admin password. This code expires in <strong>15 minutes</strong>.</p>
+        <div style="background:#f4f4f4;border:2px dashed #1a1a1a;border-radius:8px;padding:30px;text-align:center;margin:24px 0;">
+          <p style="margin:0 0 6px;font-size:13px;color:#666;letter-spacing:1px;text-transform:uppercase;">Your OTP Code</p>
+          <p style="margin:0;font-size:42px;font-weight:bold;letter-spacing:10px;font-family:monospace;color:#1a1a1a;">${otp}</p>
+        </div>
+        <p style="color:#666;font-size:13px;line-height:1.6;">If you did not request this, please ignore this email.</p>
+      </div>
+      <div style="padding:24px 20px;background:#f8f8f8;text-align:center;border-top:1px solid #eee;">
+        <p style="margin:0;font-size:11px;color:#999;">&copy; 2026 INFINITE LOOP PVT LTD. All rights reserved.</p>
+      </div>
+    </div></body></html>`;
+  await resend.emails.send({
+    from: `INFINITE HOME <noreply@infinitehome.mv>`,
+    to: adminEmail,
+    subject: `Your Admin Password Reset Code — ${otp}`,
+    html,
+  });
+  console.log(`Admin password reset OTP sent to ${adminEmail}`);
 }
 
 async function sendOrderConfirmationEmail(order: any) {
@@ -1133,6 +1184,48 @@ app.post("/api/admin/login", async (req, res) => {
   } catch (err) {
     console.error("Admin login error:", err);
     res.status(500).json({ success: false, message: "Server error during login" });
+  }
+});
+
+// Forgot password — sends OTP to admin email
+app.post("/api/admin/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email is required" });
+    const admin = await storage.getAdminByEmail(email);
+    if (!admin) return res.json({ success: true }); // avoid enumeration
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = new Date(Date.now() + 15 * 60 * 1000);
+    await storage.setAdminResetToken(email, otp, expiry);
+    await sendAdminPasswordResetEmail(admin.email, admin.name, otp);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ message: "Failed to send reset email" });
+  }
+});
+
+// Reset password — validates OTP and sets new password
+app.post("/api/admin/reset-password", async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) return res.status(400).json({ message: "Email, OTP, and new password are required" });
+    if (newPassword.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
+    const admin = await storage.getAdminByEmail(email);
+    if (!admin || !admin.resetToken || !admin.resetTokenExpiry) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+    if (admin.resetToken !== otp) return res.status(400).json({ message: "Invalid OTP" });
+    if (new Date() > new Date(admin.resetTokenExpiry)) {
+      return res.status(400).json({ message: "OTP has expired. Please request a new one." });
+    }
+    const hashedPassword = await hashPassword(newPassword);
+    await storage.updateAdmin(admin.id, { password: hashedPassword });
+    await storage.clearAdminResetToken(admin.id);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ message: "Failed to reset password" });
   }
 });
 

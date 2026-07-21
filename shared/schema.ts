@@ -52,6 +52,8 @@ export const admins = pgTable("admins", {
     canManageCoupons: boolean;
     canAccessPOS: boolean;
   }>().default({ canManageProducts: true, canManageStock: true, canManageOrders: true, canManageCoupons: true, canAccessPOS: true }),
+  resetToken: text("reset_token"),
+  resetTokenExpiry: timestamp("reset_token_expiry"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

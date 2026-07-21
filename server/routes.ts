@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema, insertPosTransactionSchema } from "@shared/schema";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { sendOrderConfirmationEmail, sendOrderStatusEmail, sendOrderLabelEmail, sendPosLabelEmail } from "./lib/email";
+import { sendOrderConfirmationEmail, sendOrderStatusEmail, sendOrderLabelEmail, sendPosLabelEmail, sendAdminPasswordResetEmail } from "./lib/email";
 import { hashPassword, comparePasswords } from "./auth";
 
 export async function registerRoutes(
@@ -117,6 +117,51 @@ export async function registerRoutes(
       res.json({ success: true, admin: { id: admin.id, name: admin.name, email: admin.email, isSuperAdmin: admin.isSuperAdmin, permissions: admin.permissions } });
     } else {
       res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
+  });
+
+  // Forgot password — sends OTP to admin email
+  app.post("/api/admin/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ message: "Email is required" });
+      const admin = await storage.getAdminByEmail(email);
+      // Always respond success to avoid email enumeration
+      if (!admin) return res.json({ success: true });
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+      await storage.setAdminResetToken(email, otp, expiry);
+      await sendAdminPasswordResetEmail(admin.email, admin.name, otp);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ message: "Failed to send reset email" });
+    }
+  });
+
+  // Reset password — validates OTP and sets new password
+  app.post("/api/admin/reset-password", async (req, res) => {
+    try {
+      const { email, otp, newPassword } = req.body;
+      if (!email || !otp || !newPassword) return res.status(400).json({ message: "Email, OTP, and new password are required" });
+      if (newPassword.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
+      const admin = await storage.getAdminByEmail(email);
+      if (!admin || !admin.resetToken || !admin.resetTokenExpiry) {
+        return res.status(400).json({ message: "Invalid or expired OTP" });
+      }
+      if (admin.resetToken !== otp) {
+        return res.status(400).json({ message: "Invalid OTP" });
+      }
+      if (new Date() > new Date(admin.resetTokenExpiry)) {
+        return res.status(400).json({ message: "OTP has expired. Please request a new one." });
+      }
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateAdmin(admin.id, { password: hashedPassword });
+      await storage.clearAdminResetToken(admin.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: "Failed to reset password" });
     }
   });
 

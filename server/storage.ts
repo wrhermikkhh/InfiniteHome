@@ -27,6 +27,9 @@ export interface IStorage {
   
   // Admins
   getAdminByEmail(email: string): Promise<Admin | undefined>;
+  getAdminByResetToken(token: string): Promise<Admin | undefined>;
+  setAdminResetToken(email: string, token: string, expiry: Date): Promise<boolean>;
+  clearAdminResetToken(id: string): Promise<void>;
   createAdmin(admin: InsertAdmin): Promise<Admin>;
   getAllAdmins(): Promise<Admin[]>;
   updateAdmin(id: string, data: Partial<InsertAdmin>): Promise<Admin | undefined>;
@@ -139,6 +142,23 @@ export class DatabaseStorage implements IStorage {
   async getAdminByEmail(email: string): Promise<Admin | undefined> {
     const [admin] = await db.select().from(admins).where(eq(admins.email, email));
     return admin || undefined;
+  }
+
+  async getAdminByResetToken(token: string): Promise<Admin | undefined> {
+    const [admin] = await db.select().from(admins).where(eq(admins.resetToken, token));
+    return admin || undefined;
+  }
+
+  async setAdminResetToken(email: string, token: string, expiry: Date): Promise<boolean> {
+    const result = await db.update(admins)
+      .set({ resetToken: token, resetTokenExpiry: expiry })
+      .where(eq(admins.email, email))
+      .returning();
+    return result.length > 0;
+  }
+
+  async clearAdminResetToken(id: string): Promise<void> {
+    await db.update(admins).set({ resetToken: null, resetTokenExpiry: null }).where(eq(admins.id, id));
   }
 
   async createAdmin(admin: InsertAdmin): Promise<Admin> {

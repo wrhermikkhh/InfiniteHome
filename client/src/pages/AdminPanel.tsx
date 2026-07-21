@@ -313,6 +313,16 @@ export default function AdminPanel() {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("Products");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Forgot password flow
+  const [forgotStep, setForgotStep] = useState<"login" | "forgot" | "otp">("login");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotOtp, setForgotOtp] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+  const [forgotSuccess, setForgotSuccess] = useState("");
   
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -969,6 +979,53 @@ export default function AdminPanel() {
     }
   };
 
+  const handleForgotSendOtp = async () => {
+    if (!forgotEmail) { setForgotError("Please enter your email"); return; }
+    setForgotLoading(true);
+    setForgotError("");
+    try {
+      const res = await fetch("/api/admin/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      if (!res.ok) { const d = await res.json(); setForgotError(d.message || "Failed to send OTP"); return; }
+      setForgotStep("otp");
+      setForgotSuccess("A 6-digit code was sent to your email. Check your inbox.");
+    } catch {
+      setForgotError("Network error. Please try again.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleForgotResetPassword = async () => {
+    setForgotError("");
+    if (!forgotOtp || forgotOtp.length !== 6) { setForgotError("Enter the 6-digit code from your email"); return; }
+    if (!forgotNewPassword || forgotNewPassword.length < 6) { setForgotError("New password must be at least 6 characters"); return; }
+    if (forgotNewPassword !== forgotConfirmPassword) { setForgotError("Passwords do not match"); return; }
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/admin/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail, otp: forgotOtp, newPassword: forgotNewPassword }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setForgotError(d.message || "Failed to reset password"); return; }
+      setForgotSuccess("Password reset successfully! You can now log in.");
+      setTimeout(() => {
+        setForgotStep("login");
+        setForgotEmail(""); setForgotOtp(""); setForgotNewPassword(""); setForgotConfirmPassword("");
+        setForgotSuccess(""); setForgotError("");
+      }, 2000);
+    } catch {
+      setForgotError("Network error. Please try again.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   const handlePrintPosLabel = async () => {
     if (!selectedTransaction) return;
     const printWindow = window.open('', '_blank');
@@ -1507,40 +1564,151 @@ export default function AdminPanel() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md rounded-none shadow-none border-border">
           <div className="p-6 text-center">
-            <h1 className="text-2xl font-serif mb-2">Admin Login</h1>
-            <p className="text-sm text-muted-foreground mb-6">Secure access required</p>
+            <h1 className="text-2xl font-serif mb-2">INFINITE HOME</h1>
+            <p className="text-sm text-muted-foreground mb-6">
+              {forgotStep === "login" ? "Admin login — secure access required" : forgotStep === "forgot" ? "Enter your email to receive a reset code" : "Enter the code from your email"}
+            </p>
           </div>
           <CardContent className="space-y-4">
-            <div className="space-y-4">
-              <Input 
-                type="email" 
-                placeholder="Email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="rounded-none h-12"
-                data-testid="input-admin-email"
-              />
-              <Input 
-                type="password" 
-                placeholder="Password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="rounded-none h-12"
-                data-testid="input-admin-password"
-              />
-              {error && <p className="text-xs text-destructive">{error}</p>}
-            </div>
-            <Button 
-              className="w-full h-12 rounded-none uppercase tracking-widest font-bold"
-              onClick={handleLogin}
-              disabled={isLoading}
-              data-testid="button-admin-login"
-            >
-              {isLoading ? "Signing In..." : "Sign In"}
-            </Button>
-            <Button variant="link" className="w-full text-xs text-muted-foreground" onClick={() => setLocation("/")}>
-              Back to Home
-            </Button>
+            {forgotStep === "login" && (
+              <>
+                <div className="space-y-3">
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                    className="rounded-none h-12"
+                    data-testid="input-admin-email"
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                    className="rounded-none h-12"
+                    data-testid="input-admin-password"
+                  />
+                  {error && <p className="text-xs text-destructive" data-testid="text-login-error">{error}</p>}
+                </div>
+                <Button
+                  className="w-full h-12 rounded-none uppercase tracking-widest font-bold"
+                  onClick={handleLogin}
+                  disabled={isLoading}
+                  data-testid="button-admin-login"
+                >
+                  {isLoading ? "Signing In..." : "Sign In"}
+                </Button>
+                <button
+                  className="w-full text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors py-1"
+                  onClick={() => { setForgotStep("forgot"); setForgotEmail(email); setForgotError(""); setForgotSuccess(""); }}
+                  data-testid="button-forgot-password"
+                >
+                  Forgot your password?
+                </button>
+                <Button variant="link" className="w-full text-xs text-muted-foreground" onClick={() => setLocation("/")}>
+                  Back to Home
+                </Button>
+              </>
+            )}
+
+            {forgotStep === "forgot" && (
+              <>
+                <div className="space-y-3">
+                  <Input
+                    type="email"
+                    placeholder="Admin email address"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleForgotSendOtp()}
+                    className="rounded-none h-12"
+                    data-testid="input-forgot-email"
+                    autoFocus
+                  />
+                  {forgotError && <p className="text-xs text-destructive" data-testid="text-forgot-error">{forgotError}</p>}
+                  {forgotSuccess && <p className="text-xs text-green-600" data-testid="text-forgot-success">{forgotSuccess}</p>}
+                </div>
+                <Button
+                  className="w-full h-12 rounded-none uppercase tracking-widest font-bold"
+                  onClick={handleForgotSendOtp}
+                  disabled={forgotLoading}
+                  data-testid="button-send-otp"
+                >
+                  {forgotLoading ? "Sending..." : "Send Reset Code"}
+                </Button>
+                <button
+                  className="w-full text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors py-1"
+                  onClick={() => { setForgotStep("login"); setForgotError(""); setForgotSuccess(""); }}
+                  data-testid="button-back-to-login"
+                >
+                  Back to login
+                </button>
+              </>
+            )}
+
+            {forgotStep === "otp" && (
+              <>
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">Code sent to <span className="font-medium text-foreground">{forgotEmail}</span></p>
+                  <Input
+                    type="text"
+                    placeholder="6-digit code"
+                    value={forgotOtp}
+                    onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    className="rounded-none h-12 text-center text-2xl tracking-widest font-mono"
+                    maxLength={6}
+                    data-testid="input-otp"
+                    autoFocus
+                  />
+                  <Input
+                    type="password"
+                    placeholder="New password (min 6 characters)"
+                    value={forgotNewPassword}
+                    onChange={(e) => setForgotNewPassword(e.target.value)}
+                    className="rounded-none h-12"
+                    data-testid="input-new-password"
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Confirm new password"
+                    value={forgotConfirmPassword}
+                    onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleForgotResetPassword()}
+                    className="rounded-none h-12"
+                    data-testid="input-confirm-password"
+                  />
+                  {forgotError && <p className="text-xs text-destructive" data-testid="text-otp-error">{forgotError}</p>}
+                  {forgotSuccess && <p className="text-xs text-green-600 font-medium" data-testid="text-otp-success">{forgotSuccess}</p>}
+                </div>
+                <Button
+                  className="w-full h-12 rounded-none uppercase tracking-widest font-bold"
+                  onClick={handleForgotResetPassword}
+                  disabled={forgotLoading}
+                  data-testid="button-reset-password"
+                >
+                  {forgotLoading ? "Resetting..." : "Reset Password"}
+                </Button>
+                <div className="flex gap-2 text-xs justify-center">
+                  <button
+                    className="text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors py-1"
+                    onClick={() => { setForgotStep("forgot"); setForgotOtp(""); setForgotError(""); setForgotSuccess(""); }}
+                    data-testid="button-resend-otp"
+                  >
+                    Resend code
+                  </button>
+                  <span className="text-muted-foreground">·</span>
+                  <button
+                    className="text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors py-1"
+                    onClick={() => { setForgotStep("login"); setForgotOtp(""); setForgotError(""); setForgotSuccess(""); }}
+                    data-testid="button-cancel-reset"
+                  >
+                    Back to login
+                  </button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
