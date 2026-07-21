@@ -1751,12 +1751,12 @@ app.post("/api/orders", async (req, res) => {
     }
     
     // Sequential invoice number shared across web orders and POS (atomic via DB sequence)
-    const orderNumber = await storage.getNextInvoiceSeq();
+    const invoiceSeq = await storage.getNextInvoiceSeq();
     const trkNow = new Date();
     const trkDate = `${trkNow.getFullYear()}${String(trkNow.getMonth()+1).padStart(2,'0')}${String(trkNow.getDate()).padStart(2,'0')}`;
     const trkTime = `${String(trkNow.getHours()).padStart(2,'0')}${String(trkNow.getMinutes()).padStart(2,'0')}${String(trkNow.getSeconds()).padStart(2,'0')}`;
-    const trkSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    const trackingNumber = `${trkDate}${trkTime}${trkSuffix}`;
+    const orderNumber = `ECOM-${trkDate}-${trkTime}-${invoiceSeq}`;
+    const trackingNumber = orderNumber.replace(/^ECOM-/, '').replace(/-/g, '');
     const initialStatus = req.body.status || "pending";
     const data = insertOrderSchema.parse({ ...req.body, orderNumber, trackingNumber, statusHistory: [{ status: initialStatus, timestamp: new Date().toISOString() }] });
 
@@ -2282,9 +2282,12 @@ app.post("/api/pos/transactions", async (req, res) => {
     }
 
     // Sequential invoice number shared across web orders and POS (atomic via DB sequence)
-    const transactionNumber = await storage.getNextInvoiceSeq();
-    // Tracking number same as invoice number for POS (simple and unique)
-    const trackingNumber = transactionNumber;
+    const invoiceSeq = await storage.getNextInvoiceSeq();
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+    const transactionNumber = `POS-${dateStr}-${timeStr}-${invoiceSeq}`;
+    const trackingNumber = transactionNumber.replace(/^POS-/, '').replace(/-/g, '');
 
     // Manually construct the transaction data
     const data = {
