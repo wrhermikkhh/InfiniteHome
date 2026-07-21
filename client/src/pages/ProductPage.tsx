@@ -402,10 +402,11 @@ export default function ProductPage() {
                 <div className="flex flex-wrap gap-3">
                   {colors.map((color: string) => {
                     const colorImage = product.colorImages?.[color];
-                    const hasAnyStockForColor = !product.isPreOrder && variants.some(v => getVariantStock(product, v.size, color) > 0);
+                    const hasAnyStockForColor = variants.some(v => getVariantStock(product, v.size, color) > 0);
                     const hasVariantStockEntries = product.variantStock && Object.keys(product.variantStock as object).length > 0;
-                    const preOrderColorUnavailable = isPreOrder && hasPreOrderVariantEntries && variants.every(v => getPreOrderVariantLimit(v.size, color) <= 0);
-                    const colorOos = (hasVariantStockEntries && !hasAnyStockForColor && !product.isPreOrder) || preOrderColorUnavailable;
+                    const preOrderColorAvailable = isPreOrder && (!hasPreOrderVariantEntries || variants.some(v => getPreOrderVariantLimit(v.size, color) > 0));
+                    // A color is only unavailable when there's no warehouse stock AND no pre-order availability
+                    const colorOos = hasVariantStockEntries && !hasAnyStockForColor && !preOrderColorAvailable;
                     return (
                       <button
                         key={color}
@@ -451,8 +452,9 @@ export default function ProductPage() {
                    {variants.map((v: ProductVariant) => {
                      const hasVariantStockEntries = product.variantStock && Object.keys(product.variantStock as object).length > 0;
                      const hasAnyStockForSize = colors.some(c => getVariantStock(product, v.size, c) > 0);
-                     const preOrderSizeUnavailable = isPreOrder && hasPreOrderVariantEntries && colors.every(c => getPreOrderVariantLimit(v.size, c) <= 0);
-                     const sizeOos = (hasVariantStockEntries && !hasAnyStockForSize && !product.isPreOrder) || preOrderSizeUnavailable;
+                     const preOrderSizeAvailable = isPreOrder && (!hasPreOrderVariantEntries || colors.some(c => getPreOrderVariantLimit(v.size, c) > 0));
+                     // A size is only unavailable when there's no warehouse stock AND no pre-order availability
+                     const sizeOos = hasVariantStockEntries && !hasAnyStockForSize && !preOrderSizeAvailable;
                      const vSalePrice = isOnSale ? getVariantSalePrice(product, v.price) : null;
                      const showVariantPrices = variants.length > 1 && variants.some(vr => vr.price !== variants[0].price);
                      return (
@@ -530,8 +532,11 @@ export default function ProductPage() {
                     </button>
                     <span className="w-12 text-center font-medium" data-testid="quantity-value">{quantity}</span>
                     <button 
-                      onClick={() => (isPreOrder ? (preOrderRemaining === Infinity || quantity < preOrderRemaining) : remainingStock > quantity) ? setQuantity(quantity + 1) : null}
-                      disabled={isPreOrder ? (preOrderRemaining !== Infinity && quantity >= preOrderRemaining) : (remainingStock <= 0 || quantity >= remainingStock)}
+                      onClick={() => {
+                        const qtyCap = isPreOrder ? Math.max(preOrderRemaining, remainingStock) : remainingStock;
+                        if (qtyCap === Infinity || quantity < qtyCap) setQuantity(quantity + 1);
+                      }}
+                      disabled={isPreOrder ? (Math.max(preOrderRemaining, remainingStock) !== Infinity && quantity >= Math.max(preOrderRemaining, remainingStock)) : (remainingStock <= 0 || quantity >= remainingStock)}
                       className="p-3 hover:bg-secondary/50 transition-colors"
                       data-testid="quantity-increase"
                     >
@@ -627,13 +632,15 @@ export default function ProductPage() {
                           addItem(product, quantity, selectedColor, selectedSize, preOrderInitialPayment || displayPrice, true, preOrderPrice || undefined, preOrderEta || undefined);
                           window.location.href = "/checkout?direct=true";
                         }}
-                        disabled={preOrderVariantUnavailable || preOrderRemaining <= 0}
-                        className={`w-full h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-amber-600 text-white hover:bg-amber-700 transition-all ${(preOrderVariantUnavailable || preOrderRemaining <= 0) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={preOrderVariantUnavailable || preOrderRemaining <= 0 || quantity > preOrderRemaining}
+                        className={`w-full h-12 rounded-none uppercase tracking-widest font-bold text-sm bg-amber-600 text-white hover:bg-amber-700 transition-all ${(preOrderVariantUnavailable || preOrderRemaining <= 0 || quantity > preOrderRemaining) ? 'opacity-50 cursor-not-allowed' : ''}`}
                         data-testid="button-preorder"
                       >
                         {preOrderVariantUnavailable || preOrderRemaining <= 0
                           ? "Pre-Order Unavailable for This Option"
-                          : `Pre-Order - ${formatCurrency((preOrderInitialPayment || displayPrice) * quantity)} deposit`}
+                          : quantity > preOrderRemaining
+                            ? `Pre-Order Limited to ${preOrderRemaining}`
+                            : `Pre-Order - ${formatCurrency((preOrderInitialPayment || displayPrice) * quantity)} deposit`}
                       </Button>
                       {isPreOrder && preOrderRemaining !== Infinity && preOrderRemaining > 0 && preOrderRemaining <= 10 && (
                         <p className="text-xs text-amber-700 font-medium text-center" data-testid="text-preorder-remaining">
