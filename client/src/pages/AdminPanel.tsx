@@ -1737,7 +1737,7 @@ export default function AdminPanel() {
             {menuItems.map((item) => (
               <button
                 key={item.label}
-                onClick={() => { setActiveTab(item.label); setMobileMenuOpen(false); }}
+                onClick={() => { switchTab(item.label); setMobileMenuOpen(false); }}
                 className={cn(
                   "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors",
                   activeTab === item.label ? "bg-primary text-primary-foreground" : "hover:bg-secondary/20"
@@ -1770,7 +1770,7 @@ export default function AdminPanel() {
           {menuItems.map((item) => (
             <button
               key={item.label}
-              onClick={() => setActiveTab(item.label)}
+              onClick={() => switchTab(item.label)}
               className={cn(
                 "w-full flex items-center gap-3 px-4 py-2 text-sm font-medium transition-colors",
                 activeTab === item.label ? "bg-primary text-primary-foreground" : "hover:bg-secondary/20"
@@ -1978,7 +1978,7 @@ export default function AdminPanel() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="font-serif text-lg">Recent Orders</h3>
-                    <Button variant="outline" size="sm" className="rounded-none text-xs" onClick={() => setActiveTab("Orders")}>
+                    <Button variant="outline" size="sm" className="rounded-none text-xs" onClick={() => switchTab("Orders")}>
                       View All
                     </Button>
                   </div>
@@ -3906,7 +3906,7 @@ export default function AdminPanel() {
                                 size="sm"
                                 className="rounded-none text-xs uppercase tracking-widest bg-foreground text-background"
                                 data-testid={`button-view-order-${order.id}`}
-                                onClick={() => { setSelectedOrder(order); setActiveTab("Orders"); }}
+                                onClick={() => { setSelectedOrder(order); switchTab("Orders"); }}
                               >
                                 View Order
                               </Button>
