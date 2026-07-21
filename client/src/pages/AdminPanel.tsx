@@ -3123,7 +3123,7 @@ export default function AdminPanel() {
                       setPosViewMode("history");
                       api.getAllPosTransactions()
                         .then(data => {
-                          if (Array.isArray(data)) setPosTransactions([...data].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+                          if (Array.isArray(data)) setPosTransactions([...data].sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()));
                           else setPosTransactions([]);
                         })
                         .catch(() => setPosTransactions([]));

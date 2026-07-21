@@ -67,6 +67,7 @@ export interface IStorage {
   updateOrderDeliveryStatus(id: string, deliveryStatus: string, location?: string): Promise<Order | undefined>;
   invoiceOrder(id: string, invoiceNumber: string): Promise<Order | undefined>;
   getNextInvoiceNumber(): Promise<string>;
+  getNextInvoiceSeq(): Promise<string>;
   updateOrderAdminNote(id: string, adminNote: string | null): Promise<Order | undefined>;
   getOrderByTrackingNumber(trackingNumber: string): Promise<Order | undefined>;
   
@@ -336,6 +337,11 @@ export class DatabaseStorage implements IStorage {
     const now = new Date();
     const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
     return `INV-${date}-${maxSeq + 1}`;
+  }
+
+  async getNextInvoiceSeq(): Promise<string> {
+    const result = await db.execute(sql`SELECT nextval('invoice_seq')`);
+    return String((result.rows[0] as any).nextval);
   }
 
   async updateOrderAdminNote(id: string, adminNote: string | null): Promise<Order | undefined> {

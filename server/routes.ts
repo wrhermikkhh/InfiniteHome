@@ -602,10 +602,9 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Stock validation failed: " + stockErrors.join("; ") });
       }
       
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-      const randomId = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-      const orderNumber = randomId;
-      // Generate digits-only tracking number (same style as POS)
+      // Sequential invoice number shared across web orders and POS (atomic via DB sequence)
+      const orderNumber = await storage.getNextInvoiceSeq();
+      // Generate digits-only tracking number (separate from invoice number, used for shipping)
       const now = new Date();
       const trkDate = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
       const trkTime = `${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
@@ -892,6 +891,8 @@ export async function registerRoutes(
       
       const stockErrors: string[] = [];
       for (const item of items) {
+        // Custom/non-catalog items have no productId — skip stock check
+        if (!item.productId) continue;
         const product = productMap.get(item.productId);
         if (!product) {
           stockErrors.push(`Product "${item.name}" not found`);
@@ -945,15 +946,10 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Stock validation failed: " + stockErrors.join("; ") });
       }
 
-      // Generate transaction number
-      const now = new Date();
-      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-      const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
-      const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-      const transactionNumber = `POS-${dateStr}-${timeStr}-${randomSuffix}`;
-
-      // Generate clean tracking number from transaction number digits only
-      const trackingNumber = transactionNumber.replace(/^POS-/, '').replace(/-/g, '');
+      // Sequential invoice number shared across web orders and POS (atomic via DB sequence)
+      const transactionNumber = await storage.getNextInvoiceSeq();
+      // Tracking number same as invoice number for POS (simple and unique)
+      const trackingNumber = transactionNumber;
 
       // Manually construct the transaction data to avoid drizzle-zod pattern issues
       const data = {
