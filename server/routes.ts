@@ -608,7 +608,7 @@ export async function registerRoutes(
       const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
       const timeStr = `${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
       const orderNumber = `ECOM-${dateStr}-${timeStr}-${invoiceSeq}`;
-      const trackingNumber = orderNumber.replace(/^ECOM-/, '').replace(/-/g, '');
+      const trackingNumber = invoiceSeq; // numeric-only for easy customer tracking
       // Record initial status with timestamp in statusHistory
       const initialStatus = req.body.status || "pending";
       const data = insertOrderSchema.parse({ ...req.body, orderNumber, trackingNumber, statusHistory: [{ status: initialStatus, timestamp: new Date().toISOString() }] });
@@ -951,7 +951,7 @@ export async function registerRoutes(
       const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
       const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
       const transactionNumber = `POS-${dateStr}-${timeStr}-${invoiceSeq}`;
-      const trackingNumber = transactionNumber.replace(/^POS-/, '').replace(/-/g, '');
+      const trackingNumber = invoiceSeq; // numeric-only for easy customer tracking
 
       // Manually construct the transaction data to avoid drizzle-zod pattern issues
       const data = {

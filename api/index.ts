@@ -924,7 +924,7 @@ async function sendOrderConfirmationEmail(order: any) {
     const resend = new Resend(apiKey);
     console.log('Vercel: Sending email with Resend API Key:', apiKey.substring(0, 10) + '...');
     const baseUrl = getEmailBaseUrl();
-    const trackingUrl = `${baseUrl}/track?order=${order.orderNumber}`;
+    const trackingUrl = `${baseUrl}/track?order=${order.trackingNumber || order.orderNumber}`;
 
     const html = `
       <!DOCTYPE html>
@@ -1033,7 +1033,7 @@ async function sendOrderStatusEmail(order: any, newStatus: string) {
     const resend = new Resend(apiKey);
     console.log('Vercel: Sending email with Resend API Key:', apiKey.substring(0, 10) + '...');
     const baseUrl = getEmailBaseUrl();
-    const trackingUrl = `${baseUrl}/track?order=${order.orderNumber}`;
+    const trackingUrl = `${baseUrl}/track?order=${order.trackingNumber || order.orderNumber}`;
     
     // Define email content based on status
     const statusContent: { [key: string]: { subject: string; title: string; message: string; icon: string } } = {
@@ -1757,7 +1757,7 @@ app.post("/api/orders", async (req, res) => {
     const trkDate = `${trkNow.getFullYear()}${String(trkNow.getMonth()+1).padStart(2,'0')}${String(trkNow.getDate()).padStart(2,'0')}`;
     const trkTime = `${String(trkNow.getHours()).padStart(2,'0')}${String(trkNow.getMinutes()).padStart(2,'0')}${String(trkNow.getSeconds()).padStart(2,'0')}`;
     const orderNumber = `ECOM-${trkDate}-${trkTime}-${invoiceSeq}`;
-    const trackingNumber = orderNumber.replace(/^ECOM-/, '').replace(/-/g, '');
+    const trackingNumber = invoiceSeq; // numeric-only for easy customer tracking
     const initialStatus = req.body.status || "pending";
     const data = insertOrderSchema.parse({ ...req.body, orderNumber, trackingNumber, statusHistory: [{ status: initialStatus, timestamp: new Date().toISOString() }] });
 
@@ -2288,7 +2288,7 @@ app.post("/api/pos/transactions", async (req, res) => {
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
     const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
     const transactionNumber = `POS-${dateStr}-${timeStr}-${invoiceSeq}`;
-    const trackingNumber = transactionNumber.replace(/^POS-/, '').replace(/-/g, '');
+    const trackingNumber = invoiceSeq; // numeric-only for easy customer tracking
 
     // Manually construct the transaction data
     const data = {
