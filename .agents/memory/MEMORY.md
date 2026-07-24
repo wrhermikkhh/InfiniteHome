@@ -1,2 +1,3 @@
 - [Pre-order stock design](preorder-stock-design.md) — cap/variant-map semantics, missing key = unavailable; atomic deduction before order creation; must stay mirrored in api/index.ts.
 - Vercel prod serves api/index.ts, which duplicates server/routes.ts logic and inline pgTable schemas by design — every schema or route change must be applied in both places.
+- [Vercel postgres-js result shape](vercel-driver-mismatch.md) — raw db.execute() returns an array on Vercel (postgres-js) but {rows} in dev (node-postgres); handle both or prod crashes while dev works.
