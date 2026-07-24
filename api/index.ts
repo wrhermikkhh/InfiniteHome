@@ -592,12 +592,18 @@ class DatabaseStorage {
     try {
       const [order] = await this.getDb().select().from(orders).where(eq(orders.trackingNumber, trackingNumber));
       if (order) return order;
-    } catch {}
-    // Fallback: derive clean tracking number from orderNumber (legacy orders with null trackingNumber)
-    try {
-      const all = await this.getDb().select().from(orders);
-      return all.find((o: Order) => o.orderNumber.replace(/^ECOM-/i, '').replace(/-/g, '') === trackingNumber);
-    } catch {}
+    } catch (err: any) {
+      // Only swallow missing-column errors; surface real DB failures
+      const msg = String(err?.message || '');
+      if (err?.code !== '42703' && !msg.includes('does not exist')) throw err;
+    }
+    // Fallback: match on order_number only (always exists) — covers legacy
+    // orders with null tracking_number and DBs missing the column entirely
+    const result: any = await this.getDb().execute(
+      sql`SELECT order_number FROM orders WHERE replace(replace(upper(order_number), 'ECOM-', ''), '-', '') = ${trackingNumber} LIMIT 1`
+    );
+    const row = Array.isArray(result) ? result[0] : result.rows?.[0];
+    if (row?.order_number) return await this.getOrderByNumber(row.order_number);
     return undefined;
   }
 
@@ -814,12 +820,18 @@ class DatabaseStorage {
     try {
       const [transaction] = await this.getDb().select().from(posTransactions).where(eq(posTransactions.trackingNumber, trackingNumber));
       if (transaction) return transaction;
-    } catch {}
-    // Fallback: derive clean tracking number from transactionNumber in JS
-    try {
-      const all = await this.getDb().select().from(posTransactions);
-      return all.find((t: PosTransaction) => t.transactionNumber.replace(/^POS-/, '').replace(/-/g, '') === trackingNumber);
-    } catch {}
+    } catch (err: any) {
+      // Only swallow missing-column errors; surface real DB failures
+      const msg = String(err?.message || '');
+      if (err?.code !== '42703' && !msg.includes('does not exist')) throw err;
+    }
+    // Fallback: match on transaction_number only (always exists) — covers legacy
+    // transactions with null tracking_number and DBs missing the column entirely
+    const result: any = await this.getDb().execute(
+      sql`SELECT transaction_number FROM pos_transactions WHERE replace(replace(upper(transaction_number), 'POS-', ''), '-', '') = ${trackingNumber} LIMIT 1`
+    );
+    const row = Array.isArray(result) ? result[0] : result.rows?.[0];
+    if (row?.transaction_number) return await this.getPosTransactionByNumber(row.transaction_number);
     return undefined;
   }
 
