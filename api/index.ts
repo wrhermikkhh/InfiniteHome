@@ -1757,7 +1757,7 @@ app.post("/api/orders", async (req, res) => {
     const trkDate = `${trkNow.getFullYear()}${String(trkNow.getMonth()+1).padStart(2,'0')}${String(trkNow.getDate()).padStart(2,'0')}`;
     const trkTime = `${String(trkNow.getHours()).padStart(2,'0')}${String(trkNow.getMinutes()).padStart(2,'0')}${String(trkNow.getSeconds()).padStart(2,'0')}`;
     const orderNumber = `ECOM-${trkDate}-${trkTime}-${invoiceSeq}`;
-    const trackingNumber = invoiceSeq; // numeric-only for easy customer tracking
+    const trackingNumber = `${trkDate}${trkTime}${invoiceSeq}`;
     const initialStatus = req.body.status || "pending";
     const data = insertOrderSchema.parse({ ...req.body, orderNumber, trackingNumber, statusHistory: [{ status: initialStatus, timestamp: new Date().toISOString() }] });
 
@@ -2288,7 +2288,7 @@ app.post("/api/pos/transactions", async (req, res) => {
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
     const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
     const transactionNumber = `POS-${dateStr}-${timeStr}-${invoiceSeq}`;
-    const trackingNumber = invoiceSeq; // numeric-only for easy customer tracking
+    const trackingNumber = `${dateStr}${timeStr}${invoiceSeq}`;
 
     // Manually construct the transaction data
     const data = {
