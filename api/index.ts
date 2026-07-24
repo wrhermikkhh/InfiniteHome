@@ -649,6 +649,7 @@ class DatabaseStorage {
   }
 
   async getNextInvoiceSeq(): Promise<string> {
+    await this.getDb().execute(sql`CREATE SEQUENCE IF NOT EXISTS invoice_seq START 1000 INCREMENT 1`);
     const result = await this.getDb().execute(sql`SELECT nextval('invoice_seq')`);
     return String((result.rows[0] as any).nextval);
   }

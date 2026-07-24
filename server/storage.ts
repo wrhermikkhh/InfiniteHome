@@ -340,6 +340,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNextInvoiceSeq(): Promise<string> {
+    await db.execute(sql`CREATE SEQUENCE IF NOT EXISTS invoice_seq START 1000 INCREMENT 1`);
     const result = await db.execute(sql`SELECT nextval('invoice_seq')`);
     return String((result.rows[0] as any).nextval);
   }
