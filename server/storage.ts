@@ -351,8 +351,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrderByTrackingNumber(trackingNumber: string): Promise<Order | undefined> {
-    const [order] = await db.select().from(orders).where(eq(orders.trackingNumber, trackingNumber));
-    return order || undefined;
+    // First try the dedicated trackingNumber column (may not exist on older DBs)
+    try {
+      const [order] = await db.select().from(orders).where(eq(orders.trackingNumber, trackingNumber));
+      if (order) return order;
+    } catch {}
+    // Fallback: derive clean tracking number from orderNumber (legacy orders with null trackingNumber)
+    try {
+      const all = await db.select().from(orders);
+      return all.find(o => o.orderNumber.replace(/^ECOM-/i, '').replace(/-/g, '') === trackingNumber);
+    } catch {}
+    return undefined;
   }
 
   async getOrdersByEmail(email: string): Promise<Order[]> {

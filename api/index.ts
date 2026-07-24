@@ -588,8 +588,17 @@ class DatabaseStorage {
   }
 
   async getOrderByTrackingNumber(trackingNumber: string): Promise<Order | undefined> {
-    const [order] = await this.getDb().select().from(orders).where(eq(orders.trackingNumber, trackingNumber));
-    return order || undefined;
+    // First try the dedicated trackingNumber column (may not exist on older DBs)
+    try {
+      const [order] = await this.getDb().select().from(orders).where(eq(orders.trackingNumber, trackingNumber));
+      if (order) return order;
+    } catch {}
+    // Fallback: derive clean tracking number from orderNumber (legacy orders with null trackingNumber)
+    try {
+      const all = await this.getDb().select().from(orders);
+      return all.find((o: Order) => o.orderNumber.replace(/^ECOM-/i, '').replace(/-/g, '') === trackingNumber);
+    } catch {}
+    return undefined;
   }
 
   async getOrdersByEmail(email: string): Promise<Order[]> {
@@ -1598,7 +1607,7 @@ app.get("/api/orders/:id", async (req, res) => {
 });
 
 app.get("/api/orders/track/:orderNumber", async (req, res) => {
-  const num = req.params.orderNumber;
+  const num = req.params.orderNumber.trim().toUpperCase();
   let order = await storage.getOrderByNumber(num);
   if (!order) order = await storage.getOrderByTrackingNumber(num);
   if (order) {
@@ -1610,7 +1619,7 @@ app.get("/api/orders/track/:orderNumber", async (req, res) => {
 
 app.get("/api/pos/track/:number", async (req, res) => {
   try {
-    const num = req.params.number;
+    const num = req.params.number.trim().toUpperCase();
     let transaction = await storage.getPosTransactionByNumber(num);
     if (!transaction) {
       transaction = await storage.getPosTransactionByTrackingNumber(num);

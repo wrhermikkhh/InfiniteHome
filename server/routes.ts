@@ -442,7 +442,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/orders/track/:orderNumber", async (req, res) => {
-    const num = req.params.orderNumber;
+    const num = req.params.orderNumber.trim().toUpperCase();
     let order = await storage.getOrderByNumber(num);
     if (!order) order = await storage.getOrderByTrackingNumber(num);
     if (order) {
@@ -454,7 +454,7 @@ export async function registerRoutes(
 
   app.get("/api/pos/track/:number", async (req, res) => {
     try {
-      const num = req.params.number;
+      const num = req.params.number.trim().toUpperCase();
       let transaction = await storage.getPosTransactionByNumber(num);
       if (!transaction) {
         transaction = await storage.getPosTransactionByTrackingNumber(num);
