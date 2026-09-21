@@ -39,3 +39,15 @@ blocked and explain the operational impact before rollout. If an earlier
 deployment contains `inventory_sales`, treat it as evidence requiring reviewed
 reconciliation; never silently migrate it into the canonical
 `legacy_inventory_reservations` ledger.
+
+Distinguish private-key validity from errors introduced while copying it into
+secure storage. Do not rotate merchant keys solely because an imported copy
+cannot be parsed.
+
+**Why:** A locally validated sandbox key repeatedly arrived malformed through
+manual terminal selection; direct clipboard transfer of an encoded copy
+preserved the existing RSA pair and allowed a signed sandbox lookup.
+
+**How to apply:** Validate locally without printing private material, use secure
+input for transfer, and confirm decoding/parsing before making provider calls.
+Never treat a successful lookup as full payment or webhook acceptance.
