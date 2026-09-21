@@ -337,6 +337,28 @@ test("operator requires DB permission and origin; cannot forge payment or refund
   assert.equal((await f.invoke(route, { action: "reconcile" })).status, 403);
 });
 
+test("operator actions accept only explicitly configured official alternate origins", async () => {
+  const previousPrimary = process.env.ADMIN_PUBLIC_ORIGIN;
+  const previousAllowed = process.env.ADMIN_ALLOWED_ORIGINS;
+  process.env.ADMIN_PUBLIC_ORIGIN = "https://www.infinitehome.mv";
+  process.env.ADMIN_ALLOWED_ORIGINS = "https://infinitehome.mv";
+  try {
+    const allowed = recoveryFixture(true);
+    assert.equal((await allowed.invoke("post /api/admin/redotpay/:id/action", { action: "reconcile" }, {
+      origin: "https://infinitehome.mv",
+    })).status, 200);
+    const denied = recoveryFixture(true);
+    assert.equal((await denied.invoke("post /api/admin/redotpay/:id/action", { action: "reconcile" }, {
+      origin: "https://untrusted.example",
+    })).status, 403);
+  } finally {
+    if (previousPrimary === undefined) delete process.env.ADMIN_PUBLIC_ORIGIN;
+    else process.env.ADMIN_PUBLIC_ORIGIN = previousPrimary;
+    if (previousAllowed === undefined) delete process.env.ADMIN_ALLOWED_ORIGINS;
+    else process.env.ADMIN_ALLOWED_ORIGINS = previousAllowed;
+  }
+});
+
 test("bounded recovery retains uncertain reservations and audits failures", async () => {
   const f = recoveryFixture(true, "unknown"); f.mismatch();
   const result = await f.invoke("post /api/admin/redotpay/recover");

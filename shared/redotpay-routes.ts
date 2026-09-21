@@ -123,8 +123,19 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
       ? await dependencies.authenticateOperator(req)
       : isPaymentOperator(res.locals?.admin) ? res.locals.admin : null;
     if (!admin?.id) throw Object.assign(new Error("Payment operator authorization required"), { status: 403 });
-    if (req.method !== "GET" && (req.get("origin") !== configure().origin || req.get("sec-fetch-site") === "cross-site")) {
-      throw Object.assign(new Error("Invalid operator request origin"), { status: 403 });
+    if (req.method !== "GET") {
+      const primary = process.env.ADMIN_PUBLIC_ORIGIN || configure().origin;
+      const allowed = [primary, ...(process.env.ADMIN_ALLOWED_ORIGINS || "").split(",").map(value => value.trim()).filter(Boolean)];
+      try {
+        if (allowed.some(value => {
+          const parsed = new URL(value);
+          return parsed.origin !== value || (process.env.NODE_ENV === "production" && parsed.protocol !== "https:");
+        }) || !allowed.includes(req.get("origin") || "") || req.get("sec-fetch-site") === "cross-site") {
+          throw new Error();
+        }
+      } catch {
+        throw Object.assign(new Error("Invalid operator request origin"), { status: 403 });
+      }
     }
     return `admin:${admin.id}`;
   }
