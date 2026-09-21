@@ -1,3 +1,4 @@
 - [Pre-order stock design](preorder-stock-design.md) — cap/variant-map semantics, missing key = unavailable; atomic deduction before order creation; must stay mirrored in api/index.ts.
 - [Vercel api/index.ts mirroring](vercel-api-mirroring.md) — prod serves api/index.ts, a duplicate of server logic and schemas; every change must be applied in both places.
 - [Vercel postgres-js result shape](vercel-driver-mismatch.md) — raw db.execute() returns an array on Vercel (postgres-js) but {rows} in dev (node-postgres); handle both or prod crashes while dev works.
+- [RedotPay activation safety](redotpay-release-gate.md) — merchant credentials alone do not clear live use; review the documented authentication, inventory, and provider-test blockers.

@@ -99,6 +99,11 @@ const statusConfig: Record<string, { label: string; description: string; icon: R
     description: "We are verifying your bank transfer. This usually takes 1-2 business hours.",
     icon: <CreditCard size={20} />,
   },
+  payment_pending: {
+    label: "RedotPay Payment Pending",
+    description: "Payment has not been confirmed. A checkout redirect or browser return is not proof of payment.",
+    icon: <CreditCard size={20} />,
+  },
 };
 
 const deliveryStepConfig: Record<string, { label: string; description: string; icon: React.ReactNode }> = {

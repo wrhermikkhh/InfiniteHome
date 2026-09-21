@@ -457,6 +457,7 @@ export default function Account() {
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
                             {order.items.length} item(s) • {formatCurrency(order.total)}
+                            {order.paymentMethod === "redotpay" && <span> • RedotPay (USD){order.status === "payment_pending" ? " — payment not confirmed" : ""}</span>}
                           </p>
                         </div>
                         <div className="flex gap-2">

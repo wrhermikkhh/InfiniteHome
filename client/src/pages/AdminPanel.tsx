@@ -953,7 +953,7 @@ export default function AdminPanel() {
             <div class="items-section">
               <div class="items-label">Package Contents</div>
               <div class="items-text">${itemsText}</div>
-              <div class="payment-info">Payment: ${selectedOrder.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Bank Transfer'}</div>
+              <div class="payment-info">Payment: ${selectedOrder.paymentMethod === 'redotpay' ? 'RedotPay (USD; see verified order status)' : selectedOrder.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Bank Transfer'}</div>
             </div>
 
             <!-- TRACKING -->
@@ -3798,7 +3798,8 @@ export default function AdminPanel() {
                           )}
                           <div>
                             <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Payment Method</p>
-                            <p className="font-medium">{selectedOrder.paymentMethod === "cod" ? "Cash on Delivery" : "Bank Transfer"}</p>
+                            <p className="font-medium">{selectedOrder.paymentMethod === "redotpay" ? "RedotPay — USD hosted checkout" : selectedOrder.paymentMethod === "cod" ? "Cash on Delivery" : "Bank Transfer"}</p>
+                            {selectedOrder.paymentMethod === "redotpay" && <p className="text-sm text-amber-700">Payment is confirmed only when the provider verifies it. Pending orders are unpaid. Public manual status, delivery, invoice and cancellation changes are blocked for RedotPay; use a reviewed operator process.</p>}
                           </div>
                           {selectedOrder.paymentMethod === "bank" && selectedOrder.paymentSlip && (
                             <div>

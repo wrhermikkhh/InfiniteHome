@@ -11,6 +11,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { registerRedotPay } from "../shared/redotpay-routes";
 
 // ============ PASSWORD HASHING ============
 const scryptAsync = promisify(scrypt);
@@ -313,7 +314,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
+app.use(express.json({ verify: (req, _res, buf) => { (req as any).rawBody = buf; } }));
 app.use(express.urlencoded({ extended: false }));
 
 app.use((req, res, next) => {
@@ -855,6 +856,7 @@ class DatabaseStorage {
 }
 
 const storage = new DatabaseStorage();
+registerRedotPay(app, () => db, orders);
 
 // ============ EMAIL FUNCTIONS ============
 

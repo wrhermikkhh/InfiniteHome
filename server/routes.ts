@@ -5,11 +5,15 @@ import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdmin
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { sendOrderConfirmationEmail, sendOrderStatusEmail, sendOrderLabelEmail, sendPosLabelEmail, sendAdminPasswordResetEmail } from "./lib/email";
 import { hashPassword, comparePasswords } from "./auth";
+import { db } from "./db";
+import { orders } from "@shared/schema";
+import { registerRedotPay } from "../shared/redotpay-routes";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  registerRedotPay(app, () => db, orders);
   
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);

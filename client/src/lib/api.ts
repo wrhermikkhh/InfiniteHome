@@ -50,7 +50,7 @@ export interface Order {
   discount: number;
   shipping: number;
   total: number;
-  paymentMethod: "cod" | "bank";
+  paymentMethod: "cod" | "bank" | "redotpay";
   paymentSlip?: string;
   status: string;
   statusHistory?: { status: string; timestamp: string }[]; // tracks all status changes with timestamps

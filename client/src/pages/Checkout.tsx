@@ -13,12 +13,23 @@ import { CreditCard, Truck, Zap, Wallet, Upload, CheckCircle, MapPin, Plus } fro
 import { useUpload } from "@/hooks/use-upload";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
+import { paymentRequest, paymentToken, PAYMENT_TOKEN_KEY } from "@/lib/redotpay";
 
 export default function Checkout() {
   const { items, clearCart } = useCart();
   const [, setLocation] = useLocation();
   const { user, isAuthenticated } = useAuth();
   const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [checkoutError, setCheckoutError] = useState("");
+  const { data: redotpay } = useQuery({
+    queryKey: ["redotpay-readiness"],
+    queryFn: async () => {
+      const response = await fetch("/api/payments/redotpay/readiness");
+      if (!response.ok) throw new Error("RedotPay setup status unavailable");
+      return response.json();
+    },
+    retry: false,
+  });
   const [deliveryLocation, setDeliveryLocation] = useState<"male" | "hulhumale" | "boat">("male");
   const [deliveryType, setDeliveryType] = useState<"standard" | "express">("standard");
   const [couponCode, setCouponCode] = useState("");
@@ -208,6 +219,7 @@ export default function Checkout() {
       return;
     }
 
+    setCheckoutError("");
     setIsSubmitting(true);
     try {
       const customerEmail = isAuthenticated && user?.email 
@@ -255,11 +267,27 @@ export default function Checkout() {
         orderData.boatAtollIsland = formData.boatAtollIsland;
       }
 
+      if (paymentMethod === "redotpay") {
+        if (!redotpay?.available) throw new Error(redotpay?.message || "RedotPay is not available");
+        // An unfinished attempt must be reconciled, never silently replaced.
+        if (localStorage.getItem(PAYMENT_TOKEN_KEY)) {
+          setLocation("/payment/redotpay");
+          return;
+        }
+        orderData.shippingSpeed = deliveryType;
+        const quote = await paymentRequest("quote", orderData);
+        if (!window.confirm(`RedotPay charge: MVR ${quote.total.toFixed(2)} ÷ ${quote.rate} = USD ${(quote.usdCents / 100).toFixed(2)} (rounded to cents).\n\nThis is the server-verified total, including eligible discounts and shipping. Continue to hosted checkout?`)) return;
+        const token = paymentToken();
+        const payment = await paymentRequest("create", { ...orderData, expectedUsdCents: quote.usdCents, expectedTotal: quote.total }, token);
+        if (payment.checkoutUrl) window.location.assign(payment.checkoutUrl);
+        else setLocation("/payment/redotpay");
+        return;
+      }
       const order = await api.createOrder(orderData);
       clearCart();
       setLocation(`/track?id=${order.orderNumber}&status=${order.status}`);
-    } catch (error) {
-      console.error("Failed to create order:", error);
+    } catch (error: any) {
+      setCheckoutError(error.message || "Checkout could not be completed. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -466,6 +494,7 @@ export default function Checkout() {
 
             <section>
               <h2 className="text-2xl font-serif mb-6">Payment Method</h2>
+              {checkoutError && <p role="alert" className="mb-4 text-sm text-red-700">{checkoutError}</p>}
               <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid gap-4">
                 <Label
                   className={`flex items-center justify-between p-4 border cursor-pointer transition-colors ${paymentMethod === "cod" ? "border-primary bg-secondary/10" : "border-border"}`}
@@ -494,6 +523,15 @@ export default function Checkout() {
                 </Label>
               </RadioGroup>
               
+              <label className={`flex items-center justify-between p-4 border ${!redotpay?.available ? "opacity-60" : "cursor-pointer"}`}>
+                <div className="space-y-1">
+                  <span className="font-medium">RedotPay hosted checkout</span>
+                  <p className="text-xs text-muted-foreground">Pay in USD: MVR total ÷ {redotpay?.rate ?? "—"}, rounded to cents. Final server-verified amount shown before redirect.</p>
+                  {!redotpay?.available && <p className="text-xs">{redotpay?.message || "RedotPay unavailable — setup status not ready"}. Cash and bank transfer remain available.</p>}
+                </div>
+                <input type="radio" name="redotpay-method" checked={paymentMethod === "redotpay"} disabled={!redotpay?.available} onChange={() => setPaymentMethod("redotpay")} aria-label="Pay with RedotPay" />
+              </label>
+              {paymentMethod === "redotpay" && <p className="text-sm">Estimated charge: USD {redotpay?.rate > 0 ? (total / redotpay.rate).toFixed(2) : "—"}. Stock is reserved until verified payment or provider-confirmed cancellation. Returning or closing the browser is not payment confirmation.</p>}
               {paymentMethod === "bank" && (
                 <div className="mt-4 p-4 bg-secondary/20 border border-dashed border-border text-sm space-y-4">
                   <div className="space-y-2">
