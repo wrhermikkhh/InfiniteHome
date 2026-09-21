@@ -7,6 +7,12 @@ import { registerInventoryAdmin } from "../shared/inventory-routes";
 import { calculateCatalogQuote, createCatalogOrder } from "../shared/checkout";
 import { readFileSync } from "node:fs";
 
+test("legacy ledger comparisons normalize order and UUID POS identifiers to text", () => {
+  const source = readFileSync("shared/inventory-admin.ts", "utf8");
+  assert.match(source, /s\.owner_id = o\.id::text/);
+  assert.match(source, /s\.owner_id = p\.id::text/);
+});
+
 // Deterministic transaction adapter. No DB connection, provider, email, or env.
 // A write requires a preceding FOR UPDATE; waiting transactions see committed
 // data. Rollback restores the snapshot taken after acquiring the lock.
