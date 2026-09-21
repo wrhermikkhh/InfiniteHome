@@ -39,7 +39,7 @@
   "crons": [
     {
       "path": "/api/payments/redotpay/recover",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
