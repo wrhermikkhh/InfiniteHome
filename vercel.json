@@ -2,7 +2,7 @@
   "version": 2,
   "buildCommand": "npx vite build && cp dist/public/index.html api/template.html",
   "outputDirectory": "dist/public",
-  "installCommand": "npm install --registry=https://registry.npmjs.org --replace-registry-host=always",
+  "installCommand": "node script/prepare-vercel-lock.cjs && npm ci --registry=https://registry.npmjs.org",
   "framework": null,
   "rewrites": [
     {
