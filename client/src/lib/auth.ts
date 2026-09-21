@@ -110,6 +110,7 @@ export const DEFAULT_PERMISSIONS: AdminPermissions = {
 interface AdminAuthStore {
   admin: { id: string; name: string; email: string; isSuperAdmin?: boolean; permissions?: AdminPermissions } | null;
   isAdminAuthenticated: boolean;
+  isAdminLoading: boolean;
   adminLogin: (email: string, password: string) => Promise<boolean>;
   adminLogout: () => Promise<void>;
   refreshAdmin: () => Promise<void>;
@@ -120,31 +121,34 @@ export const useAdminAuth = create<AdminAuthStore>()(
     (set, get) => ({
       admin: null,
       isAdminAuthenticated: false,
+      isAdminLoading: true,
       adminLogin: async (email, password) => {
         const result = await api.adminLogin(email, password);
         if (result.success && result.admin) {
           set({
             admin: result.admin,
             isAdminAuthenticated: true,
+            isAdminLoading: false,
           });
           return true;
         }
         return false;
       },
       refreshSession: async () => {
+        set({ isAdminLoading: true });
         try {
-          const response = await fetch("/api/admin/session", { credentials: "same-origin", cache: "no-store" });
+          const response = await fetch("/api/admin/session", { credentials: "include", cache: "no-store" });
           const result = await response.json();
           set(response.ok && result.admin
-            ? { admin: result.admin, isAdminAuthenticated: true }
-            : { admin: null, isAdminAuthenticated: false });
-        } catch { set({ admin: null, isAdminAuthenticated: false }); }
+            ? { admin: result.admin, isAdminAuthenticated: true, isAdminLoading: false }
+            : { admin: null, isAdminAuthenticated: false, isAdminLoading: false });
+        } catch { set({ admin: null, isAdminAuthenticated: false, isAdminLoading: false }); }
       },
       refreshAdmin: async () => get().refreshSession(),
       adminLogout: async () => {
-        const response = await fetch("/api/admin/logout", { method: "POST", credentials: "same-origin" });
+        const response = await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
         if (!response.ok) throw new Error("Logout failed. Please retry to revoke your session.");
-        set({ admin: null, isAdminAuthenticated: false });
+        set({ admin: null, isAdminAuthenticated: false, isAdminLoading: false });
       },
     })
 );

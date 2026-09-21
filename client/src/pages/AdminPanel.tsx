@@ -307,7 +307,7 @@ function ColorVariantRow({
 }
 
 export default function AdminPanel() {
-  const { admin: user, adminLogin: login, adminLogout, isAdminAuthenticated } = useAdminAuth();
+  const { admin: user, adminLogin: login, adminLogout, isAdminAuthenticated, isAdminLoading } = useAdminAuth();
   const logout = async () => {
     try {
       await adminLogout();
@@ -1714,6 +1714,14 @@ export default function AdminPanel() {
   }, [orders]);
 
   const COLORS = ['#1a1a1a', '#4a4a4a', '#8a8a8a', '#c0c0c0', '#e0e0e0'];
+
+  if (isAdminLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <p className="text-sm text-muted-foreground">Checking admin session…</p>
+      </div>
+    );
+  }
 
   if (!isAdminAuthenticated) {
     return (

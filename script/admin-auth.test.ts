@@ -90,7 +90,7 @@ test("isolated sessions: origin, login, authorization, live revocation, throttli
     assert.equal(login.status, 200);
     const header = login.headers.get("set-cookie")!;
     assert.match(header, /HttpOnly/);
-    assert.match(header, /SameSite=Strict/);
+    assert.match(header, /SameSite=Lax/);
     const cookie = header.split(";")[0];
     assert.equal((await request("/api/admin/session", "GET", cookie)).status, 200);
     assert.equal((await request("/api/admin/session", "GET", `admin_session=${"00".repeat(32)}`)).status, 401);

@@ -55,7 +55,9 @@ export function adminPermissionFor(method: string, path: string): string | null 
 }
 
 export function registerAdminAuth(app: Express, getDb: () => any) {
-  const options = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict" as const, path: "/" };
+  // Lax preserves the secure host-only session across normal top-level
+  // navigation while mutation routes remain protected by explicit origin checks.
+  const options = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/" };
   function token(req: Request) {
     const value = req.headers.cookie?.split(";").map(v => v.trim()).find(v => v.startsWith(`${cookieName}=`))?.slice(cookieName.length + 1);
     return value && /^[a-f0-9]{64}$/.test(value) ? value : null;
