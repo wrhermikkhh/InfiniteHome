@@ -18,6 +18,15 @@ const text = (value: unknown, max = 200) => {
 };
 
 export const RESERVATION_LIMITS = { networkActive: 3, networkHourly: 10, globalActive: 100, globalHourly: 200 };
+export function providerCheckoutUrl(result: any, environment: "WEB" | "APP") {
+  const raw = environment === "APP" ? result?.appUrl : result?.webUrl;
+  if (typeof raw !== "string" || !raw || raw.length > 2048) throw new Error("Invalid provider checkout response");
+  const url = new URL(raw);
+  const protocols = environment === "APP" ? ["https:", "redotpay:", "intent:", "app:"] : ["https:"];
+  if (!protocols.includes(url.protocol) || url.username || url.password) throw new Error("Invalid provider checkout response");
+  return url.href;
+}
+
 export function calculateQuote(input: any, products: any[], coupon: any = null) {
   if (!Array.isArray(input.items) || !input.items.length || input.items.length > 50) throw new Error("Invalid cart");
   if (!["male", "hulhumale", "boat"].includes(input.deliveryType) || !["standard", "express"].includes(input.shippingSpeed)) throw new Error("Invalid delivery option");
@@ -211,6 +220,7 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
     if (!/^[a-f0-9]{64}$/.test(token)) throw new Error("Payment authorization required");
     const tokenHash = hash(token);
     const input = req.body;
+    const paymentEnvironment: "WEB" | "APP" = input.paymentEnvironment === "APP" ? "APP" : "WEB";
     const payment = await getDb().transaction(async (tx: any) => {
       // Serializes retries across serverless instances without trusting client IDs.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${tokenHash}, 0))`);
@@ -276,14 +286,14 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
         const settings = configure();
         const result = await request("/openapi/v2/order/create", {
           outerOrderSn: payment.id, outerUid: payment.id, orderAmount: payment.usd_cents / 100,
-          orderCurrency: "USD", env: "WEB", orderDesc: `Store order ${payment.id}`,
+          orderCurrency: "USD", env: paymentEnvironment, orderDesc: `Store order ${payment.id}`,
           timeExpire: new Date(payment.expires_at).getTime(), redirectUrl: `${settings.origin}/payment/redotpay`,
           goods: [{ goodsType: "01", goodsCategory: "Z000", goodsCode: payment.id.slice(0, 19),
             goodsName: "Store order", goodsCount: 1, goodsAmount: payment.usd_cents / 100, goodsCoin: "USD" }],
         });
-        const url = new URL(result.webUrl);
-        if (url.protocol !== "https:" || url.username || url.password || result.outerOrderSn !== payment.id || !result.orderSn) throw new Error("Invalid provider checkout response");
-        await getDb().execute(sql`UPDATE redotpay_payments SET provider_id = ${result.orderSn}, checkout_url = ${url.href}, state = 'pending', updated_at = now() WHERE id = ${payment.id} AND state = 'unknown'`);
+        const checkoutUrl = providerCheckoutUrl(result, paymentEnvironment);
+        if (result.outerOrderSn !== payment.id || !result.orderSn) throw new Error("Invalid provider checkout response");
+        await getDb().execute(sql`UPDATE redotpay_payments SET provider_id = ${result.orderSn}, checkout_url = ${checkoutUrl}, state = 'pending', updated_at = now() WHERE id = ${payment.id} AND state = 'unknown'`);
       } catch { /* Ambiguous outcome: held for authoritative reconciliation, never auto-recreate. */ }
     }
     const current = rows(await getDb().execute(sql`SELECT * FROM redotpay_payments WHERE id = ${payment.id}`))[0];

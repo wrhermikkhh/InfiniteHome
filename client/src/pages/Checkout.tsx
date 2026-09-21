@@ -14,8 +14,7 @@ import { useUpload } from "@/hooks/use-upload";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { paymentRequest, paymentToken, PAYMENT_TOKEN_KEY } from "@/lib/redotpay";
-import usdtLogo from "@/assets/usdt.svg";
-import usdcLogo from "@/assets/usdc.svg";
+import { PaymentBrandMarks } from "@/components/payment/PaymentBrandMarks";
 
 export default function Checkout() {
   const { items, clearCart } = useCart();
@@ -179,24 +178,6 @@ export default function Checkout() {
   
   const shipping = expressCharge;
   const total = Math.max(0, subtotal - discount + shipping);
-  const redotpayQuoteInput = useMemo(() => ({
-    deliveryType: deliveryLocation,
-    shippingSpeed: deliveryType,
-    couponCode: appliedCoupon?.code,
-    items: inStockItems.map(item => ({
-      productId: item.id,
-      qty: item.quantity || 1,
-      color: item.selectedColor,
-      size: item.selectedSize,
-      isPreOrder: (item as any).isPreOrder || false,
-    })),
-  }), [deliveryLocation, deliveryType, appliedCoupon?.code, inStockItems]);
-  const { data: redotpayQuote, isFetching: isRedotpayQuoteLoading } = useQuery({
-    queryKey: ["redotpay-order-summary", redotpayQuoteInput],
-    queryFn: () => paymentRequest("quote", redotpayQuoteInput),
-    enabled: paymentMethod === "redotpay" && !!redotpay?.available && inStockItems.length > 0,
-    retry: false,
-  });
 
   const handleApplyCoupon = async () => {
     try {
@@ -297,9 +278,16 @@ export default function Checkout() {
         }
         orderData.shippingSpeed = deliveryType;
         const quote = await paymentRequest("quote", orderData);
-        if (!window.confirm(`Continue to secure hosted checkout?\n\nYour final server-verified payment amount includes eligible discounts and shipping.`)) return;
+        if (!window.confirm(`RedotPay charge: USD ${(quote.usdCents / 100).toFixed(2)}.\n\nThis final amount was calculated and verified securely by the server, including eligible discounts and shipping. Continue to hosted checkout?`)) return;
         const token = paymentToken();
-        const payment = await paymentRequest("create", { ...orderData, expectedUsdCents: quote.usdCents, expectedTotal: quote.total }, token);
+        const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+          (navigator as any).userAgentData?.mobile === true;
+        const payment = await paymentRequest("create", {
+          ...orderData,
+          expectedUsdCents: quote.usdCents,
+          expectedTotal: quote.total,
+          paymentEnvironment: mobile ? "APP" : "WEB",
+        }, token);
         if (payment.checkoutUrl) window.location.assign(payment.checkoutUrl);
         else setLocation("/payment/redotpay");
         return;
@@ -543,20 +531,41 @@ export default function Checkout() {
                   <span className="text-xs text-muted-foreground italic">Verification required</span>
                 </Label>
               </RadioGroup>
-              
-              <label className={`flex items-center justify-between p-4 border ${!redotpay?.available ? "opacity-60" : "cursor-pointer"}`}>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <img src={usdtLogo} alt="USDT" className="h-6 w-6" />
-                    <img src={usdcLogo} alt="USDC" className="h-6 w-6" />
-                    <span className="font-medium">Powered by RedotPay</span>
+
+              <button
+                type="button"
+                disabled={!redotpay?.available}
+                aria-pressed={paymentMethod === "redotpay"}
+                aria-label="Pay with RedotPay using USDT or USDC"
+                onClick={() => setPaymentMethod("redotpay")}
+                data-testid="payment-redotpay"
+                className={`group mt-4 w-full border p-4 text-left transition-all ${
+                  paymentMethod === "redotpay"
+                    ? "border-[#2775ca] bg-[#eef6ff] shadow-[4px_4px_0_#26a17b]"
+                    : "border-border bg-background hover:border-[#2775ca] hover:bg-[#f5faff]"
+                } ${!redotpay?.available ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${paymentMethod === "redotpay" ? "border-[#2775ca]" : "border-muted-foreground/40"}`}>
+                      {paymentMethod === "redotpay" && <span className="h-2.5 w-2.5 rounded-full bg-[#2775ca]" />}
+                    </span>
+                    <div className="min-w-0">
+                      <span className="block font-medium">RedotPay</span>
+                      <span className="mt-1 block text-xs text-muted-foreground">Secure hosted checkout in USD</span>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">Secure hosted crypto checkout.</p>
-                  {!redotpay?.available && <p className="text-xs">{redotpay?.message || "RedotPay unavailable — setup status not ready"}. Cash and bank transfer remain available.</p>}
+                  <PaymentBrandMarks className="shrink-0" />
                 </div>
-                <input type="radio" name="redotpay-method" checked={paymentMethod === "redotpay"} disabled={!redotpay?.available} onChange={() => setPaymentMethod("redotpay")} aria-label="Pay with RedotPay" />
-              </label>
-              {paymentMethod === "redotpay" && <p className="text-sm">Stock is reserved until verified payment or provider-confirmed cancellation. Returning or closing the browser is not payment confirmation.</p>}
+                {!redotpay?.available && (
+                  <p className="mt-3 border-t border-border/70 pt-3 text-xs">{redotpay?.message || "RedotPay is currently unavailable — cash and bank transfer remain available."}</p>
+                )}
+              </button>
+              {paymentMethod === "redotpay" && redotpay?.available && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Your final USD total will be calculated securely by the server before you continue. Stock is reserved until verified payment or provider-confirmed cancellation.
+                </p>
+              )}
               {paymentMethod === "bank" && (
                 <div className="mt-4 p-4 bg-secondary/20 border border-dashed border-border text-sm space-y-4">
                   <div className="space-y-2">
@@ -638,8 +647,7 @@ export default function Checkout() {
                 {appliedCoupon && (
                   <div className="space-y-1">
                     <p className="text-[10px] text-green-700 font-bold uppercase tracking-widest">
-                      Code {appliedCoupon.code} applied!
-                      {paymentMethod !== "redotpay" && ` (MVR ${eligibleDiscount.toFixed(2)} off)`}
+                      Code {appliedCoupon.code} applied! (MVR {eligibleDiscount.toFixed(2)} off)
                     </p>
                     {couponMessage && (
                       <p className="text-[10px] text-amber-600">{couponMessage}</p>
@@ -680,12 +688,12 @@ export default function Checkout() {
                         {isPreOrderItem && preOrderEta && (
                           <span className="text-[10px] text-amber-700">ETA: {preOrderEta}</span>
                         )}
-                        {paymentMethod !== "redotpay" && isPreOrderItem && balanceDue > 0 && (
+                        {isPreOrderItem && balanceDue > 0 && (
                           <span className="text-[10px] text-muted-foreground">Balance due on delivery: {formatCurrency(balanceDue)}</span>
                         )}
                       </div>
                       <div className="text-right">
-                        {paymentMethod === "redotpay" ? null : isInStock ? (
+                        {isInStock ? (
                           <span className={hasIssue ? 'text-destructive' : ''}>
                             {formatCurrency(item.price * (item.quantity || 0))}
                           </span>
@@ -706,43 +714,28 @@ export default function Checkout() {
                 </div>
               )}
               <div className="space-y-2 py-4 border-t border-border">
-                {paymentMethod === "redotpay" ? (
-                  <div className="flex justify-between text-lg font-bold pt-2">
-                    <span>Total</span>
-                    <span data-testid="text-total">
-                      {isRedotpayQuoteLoading
-                        ? "Calculating…"
-                        : redotpayQuote
-                          ? `USD ${(redotpayQuote.usdCents / 100).toFixed(2)}`
-                          : "USD —"}
-                    </span>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>{formatCurrency(subtotal)}</span>
+                </div>
+                {appliedCoupon && (
+                  <div className="flex justify-between text-sm text-green-700">
+                    <span>Discount ({appliedCoupon.code})</span>
+                    <span>-{formatCurrency(discount)}</span>
                   </div>
-                ) : (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Subtotal</span>
-                      <span>{formatCurrency(subtotal)}</span>
-                    </div>
-                    {appliedCoupon && (
-                      <div className="flex justify-between text-sm text-green-700">
-                        <span>Discount ({appliedCoupon.code})</span>
-                        <span>-{formatCurrency(discount)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        {deliveryType === "express" ? "Express Delivery" : "Standard Delivery"}
-                      </span>
-                      <span className={expressCharge > 0 ? "" : "text-green-600"}>
-                        {expressCharge > 0 ? `+${formatCurrency(expressCharge)}` : "FREE"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-lg font-bold pt-2">
-                      <span>Total</span>
-                      <span data-testid="text-total">{formatCurrency(total)}</span>
-                    </div>
-                  </>
                 )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {deliveryType === "express" ? "Express Delivery" : "Standard Delivery"}
+                  </span>
+                  <span className={expressCharge > 0 ? "" : "text-green-600"}>
+                    {expressCharge > 0 ? `+${formatCurrency(expressCharge)}` : "FREE"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-lg font-bold pt-2">
+                  <span>Total</span>
+                  <span data-testid="text-total">{formatCurrency(total)}</span>
+                </div>
               </div>
               <Button 
                 onClick={handlePlaceOrder}

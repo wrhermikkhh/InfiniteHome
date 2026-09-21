@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign, verify } from "node:crypto";
-import { calculateQuote, registerRedotPay } from "../shared/redotpay-routes";
+import { calculateQuote, providerCheckoutUrl, registerRedotPay } from "../shared/redotpay-routes";
 import { config, matchesPayment, providerRequest, publicOrigin, usdCents, verifyWebhook, SANDBOX_PUBLIC_KEY, PRODUCTION_PUBLIC_KEY } from "../shared/redotpay";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { BROWSER_ID_COOKIE, getBrowserIdentity, getReservationOwner, transportPeerBucket } from "../shared/request-identity";
@@ -11,6 +11,14 @@ const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 20
 const publicPem = publicKey.export({ type: "spki", format: "pem" }).toString();
 const product = { id: "p1", name: "Pillow", price: 210, stock: 10, express_charge: 21, variants: [], colors: [], category: "Bedding" };
 const input = { items: [{ productId: "p1", qty: 2 }], deliveryType: "male", shippingSpeed: "standard" };
+
+test("checkout uses RedotPay app deep links on mobile and HTTPS on web", () => {
+  assert.equal(providerCheckoutUrl({ appUrl: "redotpay://checkout/order-1" }, "APP"), "redotpay://checkout/order-1");
+  assert.equal(providerCheckoutUrl({ appUrl: "intent://checkout/order-1" }, "APP"), "intent://checkout/order-1");
+  assert.equal(providerCheckoutUrl({ webUrl: "https://connect.redotpay.com/order-1" }, "WEB"), "https://connect.redotpay.com/order-1");
+  assert.throws(() => providerCheckoutUrl({ appUrl: "javascript:alert(1)" }, "APP"));
+  assert.throws(() => providerCheckoutUrl({ webUrl: "http://connect.redotpay.com/order-1" }, "WEB"));
+});
 
 test("MVR / 15.42 rounds once to USD cents; rejects invalid totals", () => {
   assert.equal(usdCents(15420), 1000);
