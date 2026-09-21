@@ -14,6 +14,8 @@ import { useUpload } from "@/hooks/use-upload";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { paymentRequest, paymentToken, PAYMENT_TOKEN_KEY } from "@/lib/redotpay";
+import usdtLogo from "@/assets/usdt.svg";
+import usdcLogo from "@/assets/usdc.svg";
 
 export default function Checkout() {
   const { items, clearCart } = useCart();
@@ -277,7 +279,7 @@ export default function Checkout() {
         }
         orderData.shippingSpeed = deliveryType;
         const quote = await paymentRequest("quote", orderData);
-        if (!window.confirm(`RedotPay charge: MVR ${quote.total.toFixed(2)} ÷ ${quote.rate} = USD ${(quote.usdCents / 100).toFixed(2)} (rounded to cents).\n\nThis is the server-verified total, including eligible discounts and shipping. Continue to hosted checkout?`)) return;
+        if (!window.confirm(`Continue to secure hosted checkout?\n\nYour final server-verified payment amount includes eligible discounts and shipping.`)) return;
         const token = paymentToken();
         const payment = await paymentRequest("create", { ...orderData, expectedUsdCents: quote.usdCents, expectedTotal: quote.total }, token);
         if (payment.checkoutUrl) window.location.assign(payment.checkoutUrl);
@@ -526,13 +528,17 @@ export default function Checkout() {
               
               <label className={`flex items-center justify-between p-4 border ${!redotpay?.available ? "opacity-60" : "cursor-pointer"}`}>
                 <div className="space-y-1">
-                  <span className="font-medium">RedotPay hosted checkout</span>
-                  <p className="text-xs text-muted-foreground">Pay in USD: MVR total ÷ {redotpay?.rate ?? "—"}, rounded to cents. Final server-verified amount shown before redirect.</p>
+                  <div className="flex items-center gap-2">
+                    <img src={usdtLogo} alt="USDT" className="h-6 w-6" />
+                    <img src={usdcLogo} alt="USDC" className="h-6 w-6" />
+                    <span className="font-medium">Powered by RedotPay</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Secure hosted crypto checkout.</p>
                   {!redotpay?.available && <p className="text-xs">{redotpay?.message || "RedotPay unavailable — setup status not ready"}. Cash and bank transfer remain available.</p>}
                 </div>
                 <input type="radio" name="redotpay-method" checked={paymentMethod === "redotpay"} disabled={!redotpay?.available} onChange={() => setPaymentMethod("redotpay")} aria-label="Pay with RedotPay" />
               </label>
-              {paymentMethod === "redotpay" && <p className="text-sm">Estimated charge: USD {redotpay?.rate > 0 ? (total / redotpay.rate).toFixed(2) : "—"}. Stock is reserved until verified payment or provider-confirmed cancellation. Returning or closing the browser is not payment confirmation.</p>}
+              {paymentMethod === "redotpay" && <p className="text-sm">Stock is reserved until verified payment or provider-confirmed cancellation. Returning or closing the browser is not payment confirmation.</p>}
               {paymentMethod === "bank" && (
                 <div className="mt-4 p-4 bg-secondary/20 border border-dashed border-border text-sm space-y-4">
                   <div className="space-y-2">

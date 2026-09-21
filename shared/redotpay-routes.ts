@@ -56,7 +56,7 @@ export function calculateQuote(input: any, products: any[], coupon: any = null) 
   const cents = usdCents(totalCents);
   // Provider goodsAmount supports at most 10,000 USD; use one basket line.
   if (cents > 1000000) throw new Error("Order exceeds the hosted checkout limit");
-  return { items, subtotal: subtotal / 100, discount: discount / 100, shipping: shipping / 100, total: totalCents / 100, usdCents: cents, rate: REDOTPAY_RATE };
+  return { items, subtotal: subtotal / 100, discount: discount / 100, shipping: shipping / 100, total: totalCents / 100, usdCents: cents };
 }
 
 export function registerRedotPay(app: Express, getDb: () => any, ordersTable: any,
@@ -75,10 +75,10 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
       await getDb().execute(sql`SELECT token_hash, expires_at FROM request_browser_identities LIMIT 0`);
       await getDb().execute(sql`SELECT payment_id, actor, action, outcome FROM redotpay_audit LIMIT 0`);
       await getDb().execute(sql`SELECT id, actor_id, payment_id, action, reason, outcome, created_at, completed_at FROM redotpay_operator_audit LIMIT 0`);
-      return { available: true, rate: REDOTPAY_RATE, currency: "USD", message: "" };
+      return { available: true, currency: "USD", message: "" };
     } catch (error: any) {
       const message = /RedotPay|REDOTPAY/.test(error.message) ? error.message : "RedotPay payment migration is missing or unavailable";
-      return { available: false, rate: REDOTPAY_RATE, currency: "USD", message };
+      return { available: false, currency: "USD", message };
     }
   }
   const handle = (fn: (req: Request, res: Response) => Promise<any>) => async (req: Request, res: Response) => {
