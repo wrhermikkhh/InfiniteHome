@@ -14,7 +14,8 @@ import { useUpload } from "@/hooks/use-upload";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { paymentRequest, paymentToken, PAYMENT_TOKEN_KEY } from "@/lib/redotpay";
-import { PaymentBrandMarks } from "@/components/payment/PaymentBrandMarks";
+import usdtLogo from "@/assets/usdt.svg";
+import usdcLogo from "@/assets/usdc.svg";
 
 export default function Checkout() {
   const { items, clearCart } = useCart();
@@ -280,10 +281,13 @@ export default function Checkout() {
         const quote = await paymentRequest("quote", orderData);
         if (!window.confirm(`RedotPay charge: USD ${(quote.usdCents / 100).toFixed(2)}.\n\nThis final amount was calculated and verified securely by the server, including eligible discounts and shipping. Continue to hosted checkout?`)) return;
         const token = paymentToken();
+        const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+          (navigator as any).userAgentData?.mobile === true;
         const payment = await paymentRequest("create", {
           ...orderData,
           expectedUsdCents: quote.usdCents,
           expectedTotal: quote.total,
+          paymentEnvironment: mobile ? "APP" : "WEB",
         }, token);
         if (payment.checkoutUrl) window.location.assign(payment.checkoutUrl);
         else setLocation("/payment/redotpay");
@@ -529,40 +533,19 @@ export default function Checkout() {
                 </Label>
               </RadioGroup>
 
-              <button
-                type="button"
-                disabled={!redotpay?.available}
-                aria-pressed={paymentMethod === "redotpay"}
-                aria-label="Pay with RedotPay using USDT or USDC"
-                onClick={() => setPaymentMethod("redotpay")}
-                data-testid="payment-redotpay"
-                className={`group mt-4 w-full border p-4 text-left transition-all ${
-                  paymentMethod === "redotpay"
-                    ? "border-[#2775ca] bg-[#eef6ff] shadow-[4px_4px_0_#26a17b]"
-                    : "border-border bg-background hover:border-[#2775ca] hover:bg-[#f5faff]"
-                } ${!redotpay?.available ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${paymentMethod === "redotpay" ? "border-[#2775ca]" : "border-muted-foreground/40"}`}>
-                      {paymentMethod === "redotpay" && <span className="h-2.5 w-2.5 rounded-full bg-[#2775ca]" />}
-                    </span>
-                    <div className="min-w-0">
-                      <span className="block font-medium">RedotPay</span>
-                      <span className="mt-1 block text-xs text-muted-foreground">Secure hosted checkout in USD</span>
-                    </div>
+              <label className={`flex items-center justify-between p-4 border ${!redotpay?.available ? "opacity-60" : "cursor-pointer"}`}>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <img src={usdtLogo} alt="USDT" className="h-6 w-6" />
+                    <img src={usdcLogo} alt="USDC" className="h-6 w-6" />
+                    <span className="font-medium">Powered by RedotPay</span>
                   </div>
-                  <PaymentBrandMarks className="shrink-0" />
+                  <p className="text-xs text-muted-foreground">Secure hosted crypto checkout.</p>
+                  {!redotpay?.available && <p className="text-xs">{redotpay?.message || "RedotPay unavailable — setup status not ready"}. Cash and bank transfer remain available.</p>}
                 </div>
-                {!redotpay?.available && (
-                  <p className="mt-3 border-t border-border/70 pt-3 text-xs">{redotpay?.message || "RedotPay is currently unavailable — cash and bank transfer remain available."}</p>
-                )}
-              </button>
-              {paymentMethod === "redotpay" && redotpay?.available && (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Your final USD total will be calculated securely by the server before you continue. Stock is reserved until verified payment or provider-confirmed cancellation.
-                </p>
-              )}
+                <input type="radio" name="redotpay-method" checked={paymentMethod === "redotpay"} disabled={!redotpay?.available} onChange={() => setPaymentMethod("redotpay")} aria-label="Pay with RedotPay" />
+              </label>
+              {paymentMethod === "redotpay" && <p className="text-sm">Stock is reserved until verified payment or provider-confirmed cancellation. Returning or closing the browser is not payment confirmation.</p>}
               {paymentMethod === "bank" && (
                 <div className="mt-4 p-4 bg-secondary/20 border border-dashed border-border text-sm space-y-4">
                   <div className="space-y-2">
