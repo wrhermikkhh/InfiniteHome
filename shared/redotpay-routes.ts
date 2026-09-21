@@ -145,10 +145,43 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
     return payment;
   }
   function view(p: any) {
-    return { id: p.id, trackingNumber: p.payload.trackingNumber, state: p.state, orderId: p.order_id, total: p.payload.total,
+    return { id: p.id, trackingNumber: p.payload.trackingNumber, state: p.state, orderId: p.order_id,
       usdAmount: (p.usd_cents / 100).toFixed(2), expiresAt: p.expires_at,
       checkoutUrl: p.state === "pending" ? p.checkout_url : null,
       reservationPolicy: "Stock is held until RedotPay confirms payment or closure. Closing this page does not cancel payment. Use Cancel and release; uncertain payments stay reserved for reconciliation." };
+  }
+  function summary(p: any) {
+    if (p.state !== "paid") throw Object.assign(new Error("Payment must be confirmed before viewing the order summary"), { status: 409 });
+    const payload = p.payload || {};
+    return {
+      paymentId: p.id,
+      orderId: p.order_id,
+      orderNumber: payload.orderNumber,
+      trackingNumber: payload.trackingNumber,
+      status: "confirmed",
+      paidAmount: (p.usd_cents / 100).toFixed(2),
+      customerName: payload.customerName,
+      customerEmail: payload.customerEmail,
+      customerPhone: payload.customerPhone,
+      shippingAddress: payload.shippingAddress,
+      deliveryType: payload.deliveryType,
+      shippingSpeed: payload.shippingSpeed,
+      boatName: payload.boatName,
+      boatNumber: payload.boatNumber,
+      boatLocation: payload.boatLocation,
+      boatAtollIsland: payload.boatAtollIsland,
+      notes: payload.notes,
+      items: Array.isArray(payload.items) ? payload.items.map((item: any) => ({
+        productId: item.productId,
+        name: item.name,
+        qty: item.qty,
+        size: item.size,
+        color: item.color,
+        isPreOrder: item.isPreOrder,
+        preOrderEta: item.preOrderEta,
+      })) : [],
+      confirmedAt: p.updated_at,
+    };
   }
   async function release(tx: any, p: any) {
     // Acquire ALL distinct rows in the same ascending ID order as checkout and
@@ -211,7 +244,8 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
   app.post("/api/payments/redotpay/quote", handle(async (req, res) => {
     await throttle(req, res, "quote", 30);
     await ready();
-    res.json((await quote(getDb(), req.body)).quote);
+    const result = (await quote(getDb(), req.body)).quote;
+    res.json({ usdCents: result.usdCents });
   }));
   app.post("/api/payments/redotpay/create", handle(async (req, res) => {
     const reservationOwner = await throttle(req, res, "create", 6);
@@ -238,7 +272,7 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
       }
       const { quote: q, products } = await quote(tx, input, true);
       if (q.items.reduce((sum: number, item: any) => sum + item.qty, 0) > 20) throw new Error("Maximum hosted payment reservation is 20 units");
-      if (input.expectedUsdCents !== q.usdCents || input.expectedTotal !== q.total) throw new Error("Checkout total changed. Request a new quote before paying.");
+      if (input.expectedUsdCents !== q.usdCents) throw new Error("Checkout total changed. Request a new quote before paying.");
       const allocations: any[] = [];
       for (const item of q.items) {
         const p = products.find(p => p.id === item.productId)!;
@@ -267,7 +301,8 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
       const timeStr = `${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}${String(now.getSeconds()).padStart(2,"0")}`;
       const payload = { customerName: text(input.customerName), customerEmail: text(input.customerEmail),
         customerPhone: text(input.customerPhone, 50), shippingAddress: text(input.shippingAddress, 1000),
-        deliveryType: input.deliveryType, notes: typeof input.notes === "string" ? input.notes.slice(0, 1000) : null,
+        deliveryType: input.deliveryType, shippingSpeed: input.shippingSpeed,
+        notes: typeof input.notes === "string" ? input.notes.slice(0, 1000) : null,
         ...(input.deliveryType === "boat" ? { boatName: text(input.boatName), boatNumber: text(input.boatNumber), boatLocation: text(input.boatLocation), boatAtollIsland: text(input.boatAtollIsland) } : {}),
         items: q.items, subtotal: q.subtotal, discount: q.discount, shipping: q.shipping, total: q.total,
         couponCode: input.couponCode || null, paymentMethod: "redotpay", status: "payment_pending",
@@ -304,6 +339,12 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
     const p = await authorized(req);
     if (p.state === "paid" || p.state === "closed") return res.json(view(p));
     res.json(view(await reconcile(p)));
+  }));
+  app.post("/api/payments/redotpay/summary", handle(async (req, res) => {
+    await throttle(req, res, "summary", 30);
+    let p = await authorized(req);
+    if (p.state !== "paid" && p.state !== "closed") p = await reconcile(p);
+    res.json(summary(p));
   }));
   app.post("/api/payments/redotpay/cancel", handle(async (req, res) => {
     await throttle(req, res, "cancel", 6);
@@ -394,21 +435,20 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
       const due = rows(await tx.execute(sql`SELECT * FROM redotpay_payments
         WHERE state NOT IN ('paid','closed') AND recovery_after <= now()
         AND updated_at < now() - interval '2 minutes'
-        ORDER BY recovery_after LIMIT 1 FOR UPDATE SKIP LOCKED`));
+        ORDER BY recovery_after LIMIT 3 FOR UPDATE SKIP LOCKED`));
       for (const p of due) await tx.execute(sql`UPDATE redotpay_payments SET recovery_after = now() + interval '5 minutes' WHERE id = ${p.id}`);
       return due;
     });
-    const result = [];
-    for (const p of batch) {
+    const result = await Promise.all(batch.map(async (p: any) => {
       await audit(p.id, actor, "recover", "requested");
       try {
         const current = new Date(p.expires_at).getTime() <= Date.now() ? await closePayment(p, actor) : await reconcile(p, actor);
-        result.push({ id: p.id, state: current.state });
+        return { id: p.id, state: current.state };
       } catch {
         await audit(p.id, actor, "recover", "unresolved; reservation retained");
-        result.push({ id: p.id, state: "unresolved" });
+        return { id: p.id, state: "unresolved" };
       }
-    }
+    }));
     // Rate-limit buckets have bounded retention, audit records do not.
     await getDb().execute(sql`DELETE FROM redotpay_limits WHERE reset_at < now() - interval '1 day'`);
     return { processed: result.length, results: result };

@@ -13,6 +13,7 @@ import OrderTracking from "@/pages/OrderTracking";
 import AdminPanel from "@/pages/AdminPanel";
 import Checkout from "@/pages/Checkout";
 import RedotPayReturn from "@/pages/RedotPayReturn";
+import RedotPayOrderSummary from "@/pages/RedotPayOrderSummary";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import Returns from "@/pages/Returns";
@@ -72,6 +73,7 @@ function Router() {
         <Route path="/admin" component={AdminPanel} />
         <Route path="/checkout" component={Checkout} />
         <Route path="/payment/redotpay" component={RedotPayReturn} />
+        <Route path="/order-summary/redotpay" component={RedotPayOrderSummary} />
         <Route path="/terms" component={Terms} />
         <Route path="/privacy" component={Privacy} />
         <Route path="/returns" component={Returns} />

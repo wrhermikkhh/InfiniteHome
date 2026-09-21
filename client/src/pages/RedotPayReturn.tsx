@@ -19,38 +19,30 @@ export default function RedotPayReturn() {
     try {
       const result = await paymentRequest(action, {}, token);
       setPayment(result);
-      if (result.state === "paid") {
-        clearCart();
-        localStorage.removeItem(PAYMENT_TOKEN_KEY);
-        const orderReference = result.trackingNumber || result.id;
-        window.location.replace(`/track?id=${encodeURIComponent(orderReference)}&status=confirmed`);
-      }
+      if (result.state === "paid") clearCart();
       return result;
     } catch (e: any) { setError(e.message); return null; }
     finally { setBusy(false); }
   }
+  useEffect(() => { void check(); }, []);
   useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let attempts = 0;
-    const poll = async () => {
-      const result = await check();
-      attempts += 1;
-      if (!cancelled && attempts < 40 && result && !["paid", "closed"].includes(result.state)) {
-        timer = setTimeout(() => void poll(), 3000);
-      }
-    };
-    void poll();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, []);
+    const token = localStorage.getItem(PAYMENT_TOKEN_KEY);
+    if (!token || ["paid", "closed"].includes(payment?.state)) return;
+    const timer = window.setInterval(() => void check(), 5000);
+    return () => window.clearInterval(timer);
+  }, [payment?.state]);
+  useEffect(() => {
+    if (payment?.state !== "paid") return;
+    const timer = window.setTimeout(() => {
+      window.location.assign("/order-summary/redotpay");
+    }, 1400);
+    return () => window.clearTimeout(timer);
+  }, [payment?.state]);
   return <><Navbar /><main className="max-w-2xl mx-auto px-6 py-20 space-y-6">
     <h1 className="text-3xl font-serif">RedotPay payment</h1>
-    <p>We are automatically verifying your payment with RedotPay. Once confirmed, you will be taken to your order tracking page.</p>
+    <p>We are automatically verifying your payment with RedotPay. Once confirmed, you will be taken to your order summary.</p>
     {payment && <section className="border p-6 space-y-4">
-      <h2 className="font-semibold text-xl">{payment.state === "paid" ? "Payment confirmed" : payment.state === "closed" ? "Payment cancelled — stock released" : payment.state === "failed" ? "Payment failed — stock still reserved" : "Payment pending — not yet confirmed"}</h2>
+      <h2 className="font-semibold text-xl">{payment.state === "paid" ? "Payment confirmed — opening your order summary…" : payment.state === "closed" ? "Payment cancelled — stock released" : payment.state === "failed" ? "Payment failed — stock still reserved" : "Payment pending — not yet confirmed"}</h2>
       <p>Order: {payment.trackingNumber || payment.id}</p>
       <p className="text-sm">Payment reference: {payment.id}</p>
       <p>Final server-verified charge: <strong>USD {payment.usdAmount}</strong>.</p>
@@ -59,10 +51,10 @@ export default function RedotPayReturn() {
         <Button onClick={() => window.location.assign(payment.checkoutUrl)}>Continue existing payment</Button>}
       {payment.state !== "paid" && payment.state !== "closed" &&
         <Button variant="outline" disabled={busy} onClick={() => void check("cancel")}>Request verified cancellation</Button>}
-      <p><Link href={`/track?id=${payment.trackingNumber || payment.id}`}>View order tracking</Link></p>
-      {(payment.state === "closed" || payment.state === "paid") && <Button variant="outline" onClick={() => {
-        localStorage.removeItem(PAYMENT_TOKEN_KEY); window.location.assign(payment.state === "paid" ? "/shop" : "/checkout");
-      }}>{payment.state === "paid" ? "Back to shop" : "Retry with a new checkout"}</Button>}
+      <p><Link href={payment.state === "paid" ? "/order-summary/redotpay" : `/track?id=${payment.trackingNumber || payment.id}`}>{payment.state === "paid" ? "Open order summary now" : "View order tracking"}</Link></p>
+      {payment.state === "closed" && <Button variant="outline" onClick={() => {
+        localStorage.removeItem(PAYMENT_TOKEN_KEY); window.location.assign("/checkout");
+      }}>Retry with a new checkout</Button>}
     </section>}
     {error && <p role="alert" className="text-red-700">{error} If the result is uncertain, stock remains reserved. Contact the store; do not start another payment.</p>}
     <Button disabled={busy} onClick={() => void check()}>{busy ? "Checking…" : "Refresh verified status"}</Button>

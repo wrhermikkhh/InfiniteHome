@@ -291,9 +291,15 @@ export default function Checkout() {
       if (paymentMethod === "redotpay") {
         if (!redotpay?.available) throw new Error(redotpay?.message || "RedotPay is not available");
         // An unfinished attempt must be reconciled, never silently replaced.
-        if (localStorage.getItem(PAYMENT_TOKEN_KEY)) {
-          setLocation("/payment/redotpay");
-          return;
+        // A terminal attempt may be retired so this browser can start a new order.
+        const existingToken = localStorage.getItem(PAYMENT_TOKEN_KEY);
+        if (existingToken) {
+          const existing = await paymentRequest("status", {}, existingToken);
+          if (!["paid", "closed"].includes(existing.state)) {
+            setLocation("/payment/redotpay");
+            return;
+          }
+          localStorage.removeItem(PAYMENT_TOKEN_KEY);
         }
         orderData.shippingSpeed = deliveryType;
         const quote = await paymentRequest("quote", orderData);
@@ -304,7 +310,6 @@ export default function Checkout() {
         const payment = await paymentRequest("create", {
           ...orderData,
           expectedUsdCents: quote.usdCents,
-          expectedTotal: quote.total,
           paymentEnvironment: mobile ? "APP" : "WEB",
         }, token);
         if (payment.checkoutUrl) window.location.assign(payment.checkoutUrl);

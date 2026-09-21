@@ -8,7 +8,6 @@ type PaymentView = {
   id: string;
   state: string;
   orderId: string;
-  total: number;
   usdAmount: string;
   expiresAt: string;
   checkoutUrl: string | null;

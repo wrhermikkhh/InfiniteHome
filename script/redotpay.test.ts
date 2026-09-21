@@ -250,6 +250,42 @@ test("authoritative closure releases once; paid/unknown/mismatched results never
   }
 });
 
+test("paid order summary requires authoritative payment and exposes no conversion inputs", async () => {
+  for (const nodePg of [true, false]) {
+    const f = recoveryFixture(nodePg);
+    Object.assign(f.p.payload, {
+      orderNumber: "ECOM-20260101-000001-1",
+      customerName: "Test Customer",
+      customerEmail: "customer@example.com",
+      customerPhone: "7000000",
+      shippingAddress: "Test address",
+      deliveryType: "male",
+      items: [{ productId: "p1", name: "Product", qty: 1, price: 154.2 }],
+    });
+    f.provider(2);
+    const result = await f.invoke("post /api/payments/redotpay/summary");
+    assert.equal(result.status, 200);
+    assert.equal(result.output.orderNumber, "ECOM-20260101-000001-1");
+    assert.equal(result.output.trackingNumber, "202601010000001001");
+    assert.equal(result.output.shippingAddress, "Test address");
+    assert.equal(result.output.paidAmount, "10.00");
+    assert.equal(result.output.total, undefined);
+    assert.equal(result.output.rate, undefined);
+    assert.equal(result.output.items[0].price, undefined);
+  }
+});
+
+test("customer payment views do not expose enough MVR data to derive the conversion rate", async () => {
+  for (const nodePg of [true, false]) {
+    const f = recoveryFixture(nodePg, "paid");
+    const status = await f.invoke("post /api/payments/redotpay/status");
+    assert.equal(status.status, 200);
+    assert.equal(status.output.usdAmount, "10.00");
+    assert.equal(status.output.total, undefined);
+    assert.equal(status.output.rate, undefined);
+  }
+});
+
 test("rate limits are shared DB decisions and prevent provider calls", async () => {
   const f = recoveryFixture(true); f.throttle();
   for (const action of ["quote", "create", "status", "cancel"]) {
