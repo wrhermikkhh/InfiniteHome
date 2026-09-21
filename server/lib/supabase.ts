@@ -1,4 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
+import { assertPreviewIsolation } from '@shared/preview-isolation';
+
+assertPreviewIsolation(process.env);
 
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';

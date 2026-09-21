@@ -1,6 +1,9 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "@shared/schema";
+import { assertPreviewIsolation } from "@shared/preview-isolation";
+
+assertPreviewIsolation(process.env);
 
 const { Pool } = pg;
 

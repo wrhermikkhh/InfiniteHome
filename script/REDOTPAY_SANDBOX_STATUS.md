@@ -27,8 +27,7 @@ Vercel settings changes, or publishing occurred during this preparation.
 
 This is database setup evidence, not checkout or concurrency acceptance.
 
-- Create an isolated Vercel Preview with sandbox-only database, storage, session,
-  and provider settings. Do not inherit live Supabase or email credentials.
+- Publish the updated code as an isolated Vercel Preview, not production.
 - Confirm the exact preview origin before sending webhook tests.
 - Provision disposable test products and operator access without copying live data.
 - Perform the remote webhook, provider sandbox, and deployed-database acceptance
@@ -37,3 +36,32 @@ This is database setup evidence, not checkout or concurrency acceptance.
 
 The sandbox is no longer empty. Do not rerun an empty-database bootstrap or use
 an unreviewed schema push against it.
+
+## Vercel Preview configuration prepared on 2026-09-21
+
+- Saved 19 settings scoped only to Preview: the sandbox database and provider
+  credentials, the expected sandbox project reference, disabled payment gates,
+  and empty storage/email/cron/origin/fixture settings.
+- Removed Preview from the four previously shared live storage/email variable
+  scopes. Their Production and Development targets and stored values were
+  verified unchanged. The production database setting was also unchanged.
+- Branch-scoped setup was rejected because the proposed Git branch does not
+  exist. Preview-wide setup was used only after confirming there were no existing
+  preview deployments or branch overrides. No Git branch was pushed.
+- Vercel deployment protection remains enabled. Remote webhook acceptance still
+  needs a reviewed way for its sender to reach the preview; do not claim it is
+  reachable or disable protection on the production project.
+- Added a runtime Preview guard before database, storage, and mail initialization.
+  Production/development behavior is unchanged. It rejects mismatched databases,
+  live payment configuration, inherited mail/storage/cron credentials, and unsafe
+  or missing origins when enabling payments or fixture acceptance.
+- Verification: TypeScript, 30 offline preview/payment tests, application build,
+  Vercel entrypoint bundle, running development workflow, and storefront screenshot
+  passed. A local invocation of the Vercel entrypoint using the real sandbox
+  database returned healthy DB status, an empty product list, and disabled payment
+  readiness. The unauthenticated email-status request returned 401, not a public
+  status response; no email was sent.
+
+No Vercel deployment, external webhook test, provider payment creation, production
+migration, or live payment activation has occurred. Empty origins deliberately
+prevent acceptance/checkout activation before a preview URL is confirmed.

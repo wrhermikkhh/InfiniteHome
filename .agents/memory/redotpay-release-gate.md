@@ -62,3 +62,14 @@ database does not by itself isolate inherited preview storage or email credentia
 **How to apply:** Verify RLS and effective browser-role privileges before the
 bootstrap transaction commits. Audit all preview credential scopes before
 publishing a test deployment; never inherit live storage or email credentials.
+
+Keep Vercel Preview isolated from Production/Development at the variable-scope
+level, not just through different database passwords.
+
+**Why:** This project's original Vercel storage/email variables covered all three
+environments. Vercel also rejects branch-specific variables before that Git branch
+exists, and creating/pushing a branch may trigger automatic publishing.
+
+**How to apply:** Do not create a branch merely to bypass environment setup gates.
+When no previews exist, explicitly scoped Preview settings can be prepared first;
+preserve and verify the other environments' stored values and target membership.

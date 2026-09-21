@@ -1,5 +1,8 @@
 
 import { Resend } from 'resend';
+import { assertPreviewIsolation } from '@shared/preview-isolation';
+
+assertPreviewIsolation(process.env);
 
 let connectionSettings: any;
 
