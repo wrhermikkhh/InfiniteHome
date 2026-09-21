@@ -9,6 +9,8 @@ import { readFileSync } from "node:fs";
 
 test("legacy ledger comparisons normalize order and UUID POS identifiers to text", () => {
   const source = readFileSync("shared/inventory-admin.ts", "utf8");
+  assert.match(source, /SELECT o\.id::text AS id FROM orders/);
+  assert.match(source, /UNION ALL SELECT p\.id::text AS id FROM pos_transactions/);
   assert.match(source, /s\.owner_id = o\.id::text/);
   assert.match(source, /s\.owner_id = p\.id::text/);
 });

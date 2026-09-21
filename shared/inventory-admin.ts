@@ -84,10 +84,10 @@ export async function inventoryProductEdit(db: any, id: string, input: any, upda
       protectAllocationStructure(current, data, await outstandingAllocations(tx, id), deleting);
       // Legacy active sales lack trustworthy allocations. Preserve their stock
       // structure until the operator explicitly records what remains reserved.
-      const legacy = inventoryRows(await tx.execute(sql`SELECT id FROM orders o WHERE status <> 'cancelled'
+      const legacy = inventoryRows(await tx.execute(sql`SELECT o.id::text AS id FROM orders o WHERE status <> 'cancelled'
         AND payment_method <> 'redotpay' AND EXISTS (SELECT 1 FROM jsonb_array_elements(o.items) i WHERE i->>'productId' = ${id})
         AND NOT EXISTS (SELECT 1 FROM legacy_inventory_reservations s WHERE s.owner_type = 'order' AND s.owner_id = o.id::text)
-        UNION ALL SELECT id FROM pos_transactions p WHERE status <> 'cancelled' AND converted_to_order_id IS NULL
+        UNION ALL SELECT p.id::text AS id FROM pos_transactions p WHERE status <> 'cancelled' AND converted_to_order_id IS NULL
         AND EXISTS (SELECT 1 FROM jsonb_array_elements(p.items) i WHERE i->>'productId' = ${id})
         AND NOT EXISTS (SELECT 1 FROM legacy_inventory_reservations s WHERE s.owner_type = 'pos' AND s.owner_id = p.id::text) LIMIT 1`));
       if (legacy.length) {
