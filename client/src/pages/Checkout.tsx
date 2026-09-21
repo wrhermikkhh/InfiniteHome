@@ -179,6 +179,24 @@ export default function Checkout() {
   
   const shipping = expressCharge;
   const total = Math.max(0, subtotal - discount + shipping);
+  const redotpayQuoteInput = useMemo(() => ({
+    deliveryType: deliveryLocation,
+    shippingSpeed: deliveryType,
+    couponCode: appliedCoupon?.code,
+    items: inStockItems.map(item => ({
+      productId: item.id,
+      qty: item.quantity || 1,
+      color: item.selectedColor,
+      size: item.selectedSize,
+      isPreOrder: (item as any).isPreOrder || false,
+    })),
+  }), [deliveryLocation, deliveryType, appliedCoupon?.code, inStockItems]);
+  const { data: redotpayQuote, isFetching: isRedotpayQuoteLoading } = useQuery({
+    queryKey: ["redotpay-order-summary", redotpayQuoteInput],
+    queryFn: () => paymentRequest("quote", redotpayQuoteInput),
+    enabled: paymentMethod === "redotpay" && !!redotpay?.available && inStockItems.length > 0,
+    retry: false,
+  });
 
   const handleApplyCoupon = async () => {
     try {
@@ -627,7 +645,8 @@ export default function Checkout() {
                 {appliedCoupon && (
                   <div className="space-y-1">
                     <p className="text-[10px] text-green-700 font-bold uppercase tracking-widest">
-                      Code {appliedCoupon.code} applied! (MVR {eligibleDiscount.toFixed(2)} off)
+                      Code {appliedCoupon.code} applied!
+                      {paymentMethod !== "redotpay" && ` (MVR ${eligibleDiscount.toFixed(2)} off)`}
                     </p>
                     {couponMessage && (
                       <p className="text-[10px] text-amber-600">{couponMessage}</p>
@@ -668,12 +687,12 @@ export default function Checkout() {
                         {isPreOrderItem && preOrderEta && (
                           <span className="text-[10px] text-amber-700">ETA: {preOrderEta}</span>
                         )}
-                        {isPreOrderItem && balanceDue > 0 && (
+                        {paymentMethod !== "redotpay" && isPreOrderItem && balanceDue > 0 && (
                           <span className="text-[10px] text-muted-foreground">Balance due on delivery: {formatCurrency(balanceDue)}</span>
                         )}
                       </div>
                       <div className="text-right">
-                        {isInStock ? (
+                        {paymentMethod === "redotpay" ? null : isInStock ? (
                           <span className={hasIssue ? 'text-destructive' : ''}>
                             {formatCurrency(item.price * (item.quantity || 0))}
                           </span>
@@ -694,28 +713,43 @@ export default function Checkout() {
                 </div>
               )}
               <div className="space-y-2 py-4 border-t border-border">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatCurrency(subtotal)}</span>
-                </div>
-                {appliedCoupon && (
-                  <div className="flex justify-between text-sm text-green-700">
-                    <span>Discount ({appliedCoupon.code})</span>
-                    <span>-{formatCurrency(discount)}</span>
+                {paymentMethod === "redotpay" ? (
+                  <div className="flex justify-between text-lg font-bold pt-2">
+                    <span>Total</span>
+                    <span data-testid="text-total">
+                      {isRedotpayQuoteLoading
+                        ? "Calculating…"
+                        : redotpayQuote
+                          ? `USD ${(redotpayQuote.usdCents / 100).toFixed(2)}`
+                          : "USD —"}
+                    </span>
                   </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span>{formatCurrency(subtotal)}</span>
+                    </div>
+                    {appliedCoupon && (
+                      <div className="flex justify-between text-sm text-green-700">
+                        <span>Discount ({appliedCoupon.code})</span>
+                        <span>-{formatCurrency(discount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {deliveryType === "express" ? "Express Delivery" : "Standard Delivery"}
+                      </span>
+                      <span className={expressCharge > 0 ? "" : "text-green-600"}>
+                        {expressCharge > 0 ? `+${formatCurrency(expressCharge)}` : "FREE"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-lg font-bold pt-2">
+                      <span>Total</span>
+                      <span data-testid="text-total">{formatCurrency(total)}</span>
+                    </div>
+                  </>
                 )}
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {deliveryType === "express" ? "Express Delivery" : "Standard Delivery"}
-                  </span>
-                  <span className={expressCharge > 0 ? "" : "text-green-600"}>
-                    {expressCharge > 0 ? `+${formatCurrency(expressCharge)}` : "FREE"}
-                  </span>
-                </div>
-                <div className="flex justify-between text-lg font-bold pt-2">
-                  <span>Total</span>
-                  <span data-testid="text-total">{formatCurrency(total)}</span>
-                </div>
               </div>
               <Button 
                 onClick={handlePlaceOrder}
