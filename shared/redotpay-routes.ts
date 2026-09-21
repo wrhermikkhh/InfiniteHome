@@ -65,7 +65,9 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
   const configure = dependencies.configure || (() => config({ ...process.env, REDOTPAY_ENABLED: "true" }));
   const request = dependencies.request || ((path, payload) => providerRequest(path, payload, fetch, configure()));
   async function readiness() {
+    let acceptance: ReturnType<typeof acceptanceWebhookConfig> = null;
     try {
+      acceptance = acceptanceWebhookConfig();
       if (!dependencies.configure) config();
       else configure();
       const result = rows(await getDb().execute(sql`SELECT version FROM redotpay_schema WHERE version = 2`));
@@ -75,10 +77,24 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
       await getDb().execute(sql`SELECT token_hash, expires_at FROM request_browser_identities LIMIT 0`);
       await getDb().execute(sql`SELECT payment_id, actor, action, outcome FROM redotpay_audit LIMIT 0`);
       await getDb().execute(sql`SELECT id, actor_id, payment_id, action, reason, outcome, created_at, completed_at FROM redotpay_operator_audit LIMIT 0`);
-      return { available: true, rate: REDOTPAY_RATE, currency: "USD", message: "" };
+      return {
+        available: true, rate: REDOTPAY_RATE, currency: "USD", message: "",
+        acceptanceFixture: acceptance ? {
+          enabled: true,
+          appKeySha256: hash(acceptance.appKey),
+          webhookKeySha256: hash(acceptance.webhookKey),
+        } : { enabled: false },
+      };
     } catch (error: any) {
       const message = /RedotPay|REDOTPAY/.test(error.message) ? error.message : "RedotPay payment migration is missing or unavailable";
-      return { available: false, rate: REDOTPAY_RATE, currency: "USD", message };
+      return {
+        available: false, rate: REDOTPAY_RATE, currency: "USD", message,
+        acceptanceFixture: acceptance ? {
+          enabled: true,
+          appKeySha256: hash(acceptance.appKey),
+          webhookKeySha256: hash(acceptance.webhookKey),
+        } : { enabled: false },
+      };
     }
   }
   const handle = (fn: (req: Request, res: Response) => Promise<any>) => async (req: Request, res: Response) => {
