@@ -2,3 +2,4 @@
 - [Vercel postgres-js result shape](vercel-driver-mismatch.md) — raw db.execute() returns an array on Vercel (postgres-js) but {rows} in dev (node-postgres); handle both or prod crashes while dev works.
 - [RedotPay activation safety](redotpay-release-gate.md) — merchant credentials alone do not clear live use; review the documented authentication, inventory, and provider-test blockers.
 - [Dependency runtime compatibility](dependency-runtime-compatibility.md) — firewall fixes must preserve the externally hosted runtime, not silently require a newer Node major.
+- [Vercel branch environment precedence](vercel-branch-env-precedence.md) — branch-scoped Preview variables can silently shadow Preview-wide settings; inspect both scopes before acceptance.
