@@ -49,3 +49,7 @@ DATABASE_URL_PROD = "sb_publishable_t5NSUcBLz2WIc5j_BEo_cw_xIH6KEYb"
 REDOTPAY_ENVIRONMENT = "production"
 REDOTPAY_KEY_VERSION = "1"
 REDOTPAY_MVR_PER_USD = "15.42"
+
+[postMerge]
+path = "script/post-merge.sh"
+timeoutMs = 240000
