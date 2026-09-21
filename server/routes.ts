@@ -1,12 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
-import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema, insertPosTransactionSchema } from "@shared/schema";
+import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema, insertPosTransactionSchema } from "../shared/schema.js";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage/index.js";
 import { sendOrderConfirmationEmail, sendOrderStatusEmail, sendOrderLabelEmail, sendPosLabelEmail, sendAdminPasswordResetEmail } from "./lib/email.js";
 import { hashPassword, comparePasswords } from "./auth.js";
 import { db } from "./db.js";
-import { orders } from "@shared/schema";
+import { orders } from "../shared/schema.js";
 import { registerRedotPay } from "../shared/redotpay-routes.js";
 import { registerInventoryAdmin } from "../shared/inventory-routes.js";
 import { registerAdminSecurity } from "../shared/admin-security.js";

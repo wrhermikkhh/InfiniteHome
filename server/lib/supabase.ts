@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { assertPreviewIsolation } from '@shared/preview-isolation';
+import { assertPreviewIsolation } from '../../shared/preview-isolation.js';
 
 assertPreviewIsolation(process.env);
 

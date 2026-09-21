@@ -7,7 +7,7 @@ import {
   coupons, type Coupon, type InsertCoupon,
   orders, type Order, type InsertOrder,
   posTransactions, type PosTransaction, type InsertPosTransaction
-} from "@shared/schema";
+} from "../shared/schema.js";
 import { db } from "./db.js";
 import { mutateInventory, recordInventory, restoreInventory, transferInventory } from "../shared/legacy-inventory.js";
 import { inventoryProductEdit } from "../shared/inventory-admin.js";

@@ -1,6 +1,6 @@
 
 import { Resend } from 'resend';
-import { assertPreviewIsolation } from '@shared/preview-isolation';
+import { assertPreviewIsolation } from '../../shared/preview-isolation.js';
 
 assertPreviewIsolation(process.env);
 
