@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign, verify } from "node:crypto";
 import { calculateQuote, providerCheckoutUrl, registerRedotPay } from "../shared/redotpay-routes";
-import { config, matchesPayment, providerRequest, publicOrigin, usdCents, verifyWebhook, SANDBOX_PUBLIC_KEY, PRODUCTION_PUBLIC_KEY } from "../shared/redotpay";
+import { checkoutBrowserFields, config, matchesPayment, providerRequest, publicOrigin, usdCents, verifyWebhook, SANDBOX_PUBLIC_KEY, PRODUCTION_PUBLIC_KEY } from "../shared/redotpay";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { BROWSER_ID_COOKIE, getBrowserIdentity, getReservationOwner, transportPeerBucket } from "../shared/request-identity";
 import { changeInventory } from "../shared/inventory";
@@ -12,12 +12,12 @@ const publicPem = publicKey.export({ type: "spki", format: "pem" }).toString();
 const product = { id: "p1", name: "Pillow", price: 210, stock: 10, express_charge: 21, variants: [], colors: [], category: "Bedding" };
 const input = { items: [{ productId: "p1", qty: 2 }], deliveryType: "male", shippingSpeed: "standard" };
 
-test("checkout uses RedotPay app deep links on mobile and HTTPS on web", () => {
+test("checkout accepts provider URLs only for the selected environment", () => {
   assert.equal(providerCheckoutUrl({ appUrl: "redotpay://checkout/order-1" }, "APP"), "redotpay://checkout/order-1");
-  assert.equal(providerCheckoutUrl({ appUrl: "intent://checkout/order-1" }, "APP"), "intent://checkout/order-1");
   assert.equal(providerCheckoutUrl({ webUrl: "https://connect.redotpay.com/order-1" }, "WEB"), "https://connect.redotpay.com/order-1");
+  assert.equal(providerCheckoutUrl({ webUrl: "https://connect.redotpay.com/order-1" }, "H5"), "https://connect.redotpay.com/order-1");
   assert.throws(() => providerCheckoutUrl({ appUrl: "javascript:alert(1)" }, "APP"));
-  assert.throws(() => providerCheckoutUrl({ webUrl: "http://connect.redotpay.com/order-1" }, "WEB"));
+  assert.throws(() => providerCheckoutUrl({ webUrl: "http://connect.redotpay.com/order-1" }, "H5"));
 });
 
 test("MVR / 15.42 rounds once to USD cents; rejects invalid totals", () => {
@@ -58,6 +58,19 @@ test("public callback origin cannot derive from headers or unsafe URL", () => {
   assert.equal(publicOrigin("https://shop.example.com/"), "https://shop.example.com");
   for (const value of [undefined, "http://example.com", "https://localhost", "https://127.0.0.1", "https://example.com/path", "https://user:pass@example.com", "https://example.com?x=y"]) assert.throws(() => publicOrigin(value));
   assert.throws(() => config({}), /disabled/);
+});
+test("mobile checkout uses RedotPay H5 deeplink while desktop uses web redirect", () => {
+  const desktop = checkoutBrowserFields("https://shop.example.com", "Mozilla/5.0");
+  assert.deepEqual(desktop, {
+    env: "WEB",
+    redirectUrl: "https://shop.example.com/payment/redotpay",
+  });
+  const mobile = checkoutBrowserFields("https://shop.example.com", "Mozilla/5.0 (iPhone; Mobile)");
+  assert.deepEqual(mobile, {
+    env: "H5",
+    redirectUrl: "https://shop.example.com/payment/redotpay",
+    deeplink: "https://shop.example.com/payment/redotpay",
+  });
 });
 test("request adapter signs exact body and documented URI; mocked transport only", async () => {
   const settings = { origin: "https://shop.example.com", key: privateKey, appKey: "test-app-key", version: "1" };

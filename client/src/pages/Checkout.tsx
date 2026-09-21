@@ -280,13 +280,10 @@ export default function Checkout() {
         const quote = await paymentRequest("quote", orderData);
         if (!window.confirm(`RedotPay charge: USD ${(quote.usdCents / 100).toFixed(2)}.\n\nThis final amount was calculated and verified securely by the server, including eligible discounts and shipping. Continue to hosted checkout?`)) return;
         const token = paymentToken();
-        const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-          (navigator as any).userAgentData?.mobile === true;
         const payment = await paymentRequest("create", {
           ...orderData,
           expectedUsdCents: quote.usdCents,
           expectedTotal: quote.total,
-          paymentEnvironment: mobile ? "APP" : "WEB",
         }, token);
         if (payment.checkoutUrl) window.location.assign(payment.checkoutUrl);
         else setLocation("/payment/redotpay");

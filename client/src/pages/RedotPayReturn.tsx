@@ -13,20 +13,42 @@ export default function RedotPayReturn() {
   const { clearCart } = useCart();
   async function check(action = "status") {
     const token = localStorage.getItem(PAYMENT_TOKEN_KEY);
-    if (!token) { setError("Payment session not found on this browser. Contact the store with your order reference; do not pay again."); return; }
+    if (!token) { setError("Payment session not found on this browser. Contact the store with your order reference; do not pay again."); return null; }
     setBusy(true);
     setError("");
     try {
       const result = await paymentRequest(action, {}, token);
       setPayment(result);
-      if (result.state === "paid") clearCart();
-    } catch (e: any) { setError(e.message); }
+      if (result.state === "paid") {
+        clearCart();
+        localStorage.removeItem(PAYMENT_TOKEN_KEY);
+        const orderReference = result.trackingNumber || result.id;
+        window.location.replace(`/track?id=${encodeURIComponent(orderReference)}&status=confirmed`);
+      }
+      return result;
+    } catch (e: any) { setError(e.message); return null; }
     finally { setBusy(false); }
   }
-  useEffect(() => { void check(); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let attempts = 0;
+    const poll = async () => {
+      const result = await check();
+      attempts += 1;
+      if (!cancelled && attempts < 40 && result && !["paid", "closed"].includes(result.state)) {
+        timer = setTimeout(() => void poll(), 3000);
+      }
+    };
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
   return <><Navbar /><main className="max-w-2xl mx-auto px-6 py-20 space-y-6">
     <h1 className="text-3xl font-serif">RedotPay payment</h1>
-    <p>Returning from checkout does not confirm payment. Only a verified RedotPay status confirms your order.</p>
+    <p>We are automatically verifying your payment with RedotPay. Once confirmed, you will be taken to your order tracking page.</p>
     {payment && <section className="border p-6 space-y-4">
       <h2 className="font-semibold text-xl">{payment.state === "paid" ? "Payment confirmed" : payment.state === "closed" ? "Payment cancelled — stock released" : payment.state === "failed" ? "Payment failed — stock still reserved" : "Payment pending — not yet confirmed"}</h2>
       <p>Order: {payment.trackingNumber || payment.id}</p>

@@ -44,6 +44,14 @@ export function publicOrigin(value: string | undefined): string {
   return url.origin;
 }
 
+export function checkoutBrowserFields(origin: string, userAgent = ""):
+    { env: "WEB"; redirectUrl: string } | { env: "H5"; redirectUrl: string; deeplink: string } {
+  const returnUrl = `${origin}/payment/redotpay`;
+  const mobileCheckout = /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
+  if (mobileCheckout) return { env: "H5", redirectUrl: returnUrl, deeplink: returnUrl };
+  return { env: "WEB", redirectUrl: returnUrl };
+}
+
 export type RedotPayConfig = {
   origin: string; key: KeyObject; appKey: string; version: string;
   apiOrigin?: string; webhookKey?: string;
