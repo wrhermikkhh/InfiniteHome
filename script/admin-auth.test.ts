@@ -42,7 +42,9 @@ test("both adapters install shared sessions before payment and admin routes; no 
 
 test("isolated sessions: origin, login, authorization, live revocation, throttling, logout", async () => {
   const previous = process.env.ADMIN_PUBLIC_ORIGIN;
+  const previousAllowed = process.env.ADMIN_ALLOWED_ORIGINS;
   process.env.ADMIN_PUBLIC_ORIGIN = "https://admin.example.test";
+  process.env.ADMIN_ALLOWED_ORIGINS = "https://store.example.test";
   const sessions = new Map<string, any>();
   const attempts = new Map<string, number>();
   const admin = { id: "operator", name: "Operator", email: "test@example.test", password, isSuperAdmin: false, permissions: { canManageProducts: true, canManageOrders: true } };
@@ -83,6 +85,7 @@ test("isolated sessions: origin, login, authorization, live revocation, throttli
     assert.equal((await request("/API/PRODUCTS/1/", "PATCH")).status, 401);
     assert.equal((await request("/api/admins", "POST", "", { isSuperAdmin: true })).status, 401);
     assert.equal((await request("/api/admin/login", "POST", "", { email: admin.email, password: "test-only-password" }, "https://evil.example")).status, 403);
+    assert.equal((await request("/api/admin/login", "POST", "", { email: admin.email, password: "test-only-password" }, "https://store.example.test")).status, 200);
     const login = await request("/api/admin/login", "POST", "", { email: admin.email, password: "test-only-password" });
     assert.equal(login.status, 200);
     const header = login.headers.get("set-cookie")!;
@@ -119,5 +122,7 @@ test("isolated sessions: origin, login, authorization, live revocation, throttli
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     if (previous === undefined) delete process.env.ADMIN_PUBLIC_ORIGIN;
     else process.env.ADMIN_PUBLIC_ORIGIN = previous;
+    if (previousAllowed === undefined) delete process.env.ADMIN_ALLOWED_ORIGINS;
+    else process.env.ADMIN_ALLOWED_ORIGINS = previousAllowed;
   }
 });

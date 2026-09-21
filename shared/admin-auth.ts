@@ -28,11 +28,16 @@ export function isAdminSameOrigin(req: Pick<Request, "headers" | "get">): boolea
     // Development previews may terminate HTTPS at the preview proxy. Host is
     // used only in development, never to infer a trusted production origin.
     const origin = configured || (process.env.NODE_ENV !== "production" && typeof req.headers.origin === "string" ? req.headers.origin : "");
-    const parsed = new URL(origin);
-    if (!configured && parsed.host !== req.get("host")) return false;
-    if (!["http:", "https:"].includes(parsed.protocol)) return false;
-    if (parsed.origin !== origin || (process.env.NODE_ENV === "production" && parsed.protocol !== "https:")) return false;
-    return req.headers.origin === origin && req.headers["sec-fetch-site"] !== "cross-site";
+    const allowed = [origin, ...(process.env.ADMIN_ALLOWED_ORIGINS || "").split(",").map(value => value.trim()).filter(Boolean)];
+    for (const value of allowed) {
+      const parsed = new URL(value);
+      if (!["http:", "https:"].includes(parsed.protocol) || parsed.origin !== value ||
+          (process.env.NODE_ENV === "production" && parsed.protocol !== "https:")) return false;
+    }
+    if (!configured && new URL(origin).host !== req.get("host")) return false;
+    return typeof req.headers.origin === "string" &&
+      allowed.includes(req.headers.origin) &&
+      req.headers["sec-fetch-site"] !== "cross-site";
   } catch { return false; }
 }
 
