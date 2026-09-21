@@ -23,7 +23,7 @@ test("server quote ignores forged prices, totals, shipping and discounts", () =>
   const q = calculateQuote({ ...input, subtotal: 1, shipping: -99, total: 1, discount: 999 }, [product]);
   assert.equal(q.total, 420);
   assert.equal(q.usdCents, 2724);
-  assert.equal(q.rate, 15.42);
+  assert.equal(Object.hasOwn(q, "rate"), false);
   assert.equal(calculateQuote({ ...input, shippingSpeed: "express" }, [product]).total, 462);
   assert.equal(calculateQuote({ ...input, deliveryType: "boat", shippingSpeed: "express" }, [product]).shipping, 0);
 });

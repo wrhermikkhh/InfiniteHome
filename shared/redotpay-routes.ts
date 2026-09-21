@@ -137,7 +137,7 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
   }
   function view(p: any) {
     return { id: p.id, trackingNumber: p.payload.trackingNumber, state: p.state, orderId: p.order_id, total: p.payload.total,
-      usdAmount: (p.usd_cents / 100).toFixed(2), rate: Number(p.rate), expiresAt: p.expires_at,
+      usdAmount: (p.usd_cents / 100).toFixed(2), expiresAt: p.expires_at,
       checkoutUrl: p.state === "pending" ? p.checkout_url : null,
       reservationPolicy: "Stock is held until RedotPay confirms payment or closure. Closing this page does not cancel payment. Use Cancel and release; uncertain payments stay reserved for reconciliation." };
   }

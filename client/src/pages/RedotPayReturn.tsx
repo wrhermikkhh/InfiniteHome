@@ -31,7 +31,7 @@ export default function RedotPayReturn() {
       <h2 className="font-semibold text-xl">{payment.state === "paid" ? "Payment confirmed" : payment.state === "closed" ? "Payment cancelled — stock released" : payment.state === "failed" ? "Payment failed — stock still reserved" : "Payment pending — not yet confirmed"}</h2>
       <p>Order: {payment.trackingNumber || payment.id}</p>
       <p className="text-sm">Payment reference: {payment.id}</p>
-      <p>MVR {Number(payment.total).toFixed(2)} ÷ {payment.rate} = <strong>USD {payment.usdAmount}</strong> (rounded to cents).</p>
+      <p>Payment amount: <strong>USD {payment.usdAmount}</strong></p>
       <p className="text-sm text-muted-foreground">{payment.reservationPolicy}</p>
       {payment.checkoutUrl && new Date(payment.expiresAt).getTime() > Date.now() &&
         <Button onClick={() => window.location.assign(payment.checkoutUrl)}>Continue existing payment</Button>}
