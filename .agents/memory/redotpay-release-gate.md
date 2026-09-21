@@ -51,3 +51,14 @@ preserved the existing RSA pair and allowed a signed sandbox lookup.
 **How to apply:** Validate locally without printing private material, use secure
 input for transfer, and confirm decoding/parsing before making provider calls.
 Never treat a successful lookup as full payment or webhook acceptance.
+
+For an empty Supabase sandbox, commit base schema creation and browser-access
+revocations together; keep application data accessible through the server only.
+
+**Why:** Supabase's default grants can expose newly created base tables even when
+the separate payment/security migrations protect their own tables. Isolating the
+database does not by itself isolate inherited preview storage or email credentials.
+
+**How to apply:** Verify RLS and effective browser-role privileges before the
+bootstrap transaction commits. Audit all preview credential scopes before
+publishing a test deployment; never inherit live storage or email credentials.
