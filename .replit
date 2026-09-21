@@ -46,3 +46,5 @@ integrations = ["javascript_database:1.0.0", "javascript_object_storage:2.0.0", 
 
 [userenv.shared]
 DATABASE_URL_PROD = "sb_publishable_t5NSUcBLz2WIc5j_BEo_cw_xIH6KEYb"
+REDOTPAY_ENVIRONMENT = "production"
+REDOTPAY_KEY_VERSION = "1"
