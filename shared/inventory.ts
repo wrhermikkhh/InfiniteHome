@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { recordInventory, restoreInventory, transferInventory } from "./legacy-inventory";
+import { recordInventory, restoreInventory, transferInventory } from "./legacy-inventory.js";
 
 export const inventoryRows = (result: any): any[] => Array.isArray(result) ? result : result.rows || [];
 type Allocation = { productId: string; preOrder: boolean; key?: string; total: boolean; qty: number };

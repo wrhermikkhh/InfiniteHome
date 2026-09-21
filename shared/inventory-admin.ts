@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { inventoryRows } from "./inventory";
+import { inventoryRows } from "./inventory.js";
 
 export class InventoryConflict extends Error {
   status = 409;

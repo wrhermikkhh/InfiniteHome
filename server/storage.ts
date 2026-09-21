@@ -8,10 +8,10 @@ import {
   orders, type Order, type InsertOrder,
   posTransactions, type PosTransaction, type InsertPosTransaction
 } from "@shared/schema";
-import { db } from "./db";
-import { mutateInventory, recordInventory, restoreInventory, transferInventory } from "../shared/legacy-inventory";
-import { inventoryProductEdit } from "../shared/inventory-admin";
-import { createCatalogOrder } from "../shared/checkout";
+import { db } from "./db.js";
+import { mutateInventory, recordInventory, restoreInventory, transferInventory } from "../shared/legacy-inventory.js";
+import { inventoryProductEdit } from "../shared/inventory-admin.js";
+import { createCatalogOrder } from "../shared/checkout.js";
 import { eq, ilike, or, sql, desc } from "drizzle-orm";
 
 export interface IStorage {

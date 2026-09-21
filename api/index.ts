@@ -3,8 +3,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { registerRoutes } from "../server/routes";
-import { storage } from "../server/storage";
+import { registerRoutes } from "../server/routes.js";
+import { storage } from "../server/storage.js";
 
 // Both deployments use the same auth, catalog quote and inventory transaction
 // implementation. Do not recreate schema/storage/payment routers in this entry.

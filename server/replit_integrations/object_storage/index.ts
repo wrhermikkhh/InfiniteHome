@@ -1,1 +1,1 @@
-export { registerObjectStorageRoutes } from "./routes";
+export { registerObjectStorageRoutes } from "./routes.js";

@@ -1,9 +1,9 @@
 import { createHash, randomBytes, randomInt, scryptSync } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { Express, Request, Response } from "express";
-import type { Admin } from "./schema";
-import { transportPeerBucket } from "./request-identity";
-import { hasAdminPermission as sessionPermission, isAdminSameOrigin } from "./admin-auth";
+import type { Admin } from "./schema.js";
+import { transportPeerBucket } from "./request-identity.js";
+import { hasAdminPermission as sessionPermission, isAdminSameOrigin } from "./admin-auth.js";
 
 type Database = { execute: (query: any) => Promise<any> };
 type Permission = "canManageProducts" | "canManageStock" | "canManageOrders" | "canManageCoupons" | "canAccessPOS";

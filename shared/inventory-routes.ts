@@ -1,8 +1,8 @@
 import type { Express, Request } from "express";
 import { sql } from "drizzle-orm";
-import { getAuthenticatedAdmin, hasAdminPermission, isSameOrigin } from "./admin-security";
-import { inventoryRows } from "./inventory";
-import { reconcileHistoricalInventory } from "./inventory-admin";
+import { getAuthenticatedAdmin, hasAdminPermission, isSameOrigin } from "./admin-security.js";
+import { inventoryRows } from "./inventory.js";
+import { reconcileHistoricalInventory } from "./inventory-admin.js";
 
 export function registerInventoryAdmin(app: Express, getDb: () => any) {
   async function operator(req: Request) {

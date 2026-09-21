@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import multer from "multer";
-import { supabaseAdmin } from "../../lib/supabase";
+import { supabaseAdmin } from "../../lib/supabase.js";
 import { randomUUID } from "crypto";
 
 interface MulterRequest extends Request {

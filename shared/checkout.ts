@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
-import { inventoryRows } from "./inventory";
-import { mutateInventory, recordInventory } from "./legacy-inventory";
+import { inventoryRows } from "./inventory.js";
+import { mutateInventory, recordInventory } from "./legacy-inventory.js";
 
 function cents(value: unknown) {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 10000000) throw new Error("Invalid catalog price");

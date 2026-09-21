@@ -1,16 +1,16 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage } from "./storage.js";
 import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema, insertPosTransactionSchema } from "@shared/schema";
-import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { sendOrderConfirmationEmail, sendOrderStatusEmail, sendOrderLabelEmail, sendPosLabelEmail, sendAdminPasswordResetEmail } from "./lib/email";
-import { hashPassword, comparePasswords } from "./auth";
-import { db } from "./db";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage/index.js";
+import { sendOrderConfirmationEmail, sendOrderStatusEmail, sendOrderLabelEmail, sendPosLabelEmail, sendAdminPasswordResetEmail } from "./lib/email.js";
+import { hashPassword, comparePasswords } from "./auth.js";
+import { db } from "./db.js";
 import { orders } from "@shared/schema";
-import { registerRedotPay } from "../shared/redotpay-routes";
-import { registerInventoryAdmin } from "../shared/inventory-routes";
-import { registerAdminSecurity } from "../shared/admin-security";
-import { registerAdminAuth } from "../shared/admin-auth";
+import { registerRedotPay } from "../shared/redotpay-routes.js";
+import { registerInventoryAdmin } from "../shared/inventory-routes.js";
+import { registerAdminSecurity } from "../shared/admin-security.js";
+import { registerAdminAuth } from "../shared/admin-auth.js";
 import { sql } from "drizzle-orm";
 
 export async function registerRoutes(

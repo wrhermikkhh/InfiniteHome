@@ -2,9 +2,9 @@
 import type { Express, Request, Response } from "express";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { sql } from "drizzle-orm";
-import { getReservationOwner, transportPeerBucket } from "./request-identity";
+import { getReservationOwner, transportPeerBucket } from "./request-identity.js";
 import { isIP } from "node:net";
-import { acceptanceWebhookConfig, config, matchesPayment, providerRequest, usdCents, verifyWebhook, REDOTPAY_RATE } from "./redotpay";
+import { acceptanceWebhookConfig, config, matchesPayment, providerRequest, usdCents, verifyWebhook, REDOTPAY_RATE } from "./redotpay.js";
 
 const rows = (result: any): any[] => Array.isArray(result) ? result : result.rows || [];
 const hash = (token: string) => createHash("sha256").update(token).digest("hex");
