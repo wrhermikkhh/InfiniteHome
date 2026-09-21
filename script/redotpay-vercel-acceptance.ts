@@ -84,6 +84,9 @@ const headers = {
   "x-r-ts": timestamp,
   "x-r-key-version": "1",
   "x-r-signature": signature,
+  ...(env.VERCEL_ACCEPTANCE_BYPASS_SECRET
+    ? { "x-vercel-protection-bypass": env.VERCEL_ACCEPTANCE_BYPASS_SECRET }
+    : {}),
 };
 
 type Observation = { name: string; status: number; result: string };
