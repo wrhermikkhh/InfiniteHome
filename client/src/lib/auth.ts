@@ -65,6 +65,7 @@ export const useAuth = create<AuthStore>()(
         return { success: false, message: result.message };
       },
       logout: () => {
+        void fetch("/api/customers/logout", { method: "POST", credentials: "same-origin" });
         const currentUser = get().user;
         if (currentUser) {
           useCart.getState().saveCartForUser(currentUser.id);
@@ -104,10 +105,10 @@ interface AdminAuthStore {
   isAdminAuthenticated: boolean;
   adminLogin: (email: string, password: string) => Promise<boolean>;
   adminLogout: () => void;
+  refreshAdmin: () => Promise<void>;
 }
 
 export const useAdminAuth = create<AdminAuthStore>()(
-  persist(
     (set) => ({
       admin: null,
       isAdminAuthenticated: false,
@@ -122,8 +123,20 @@ export const useAdminAuth = create<AdminAuthStore>()(
         }
         return false;
       },
-      adminLogout: () => set({ admin: null, isAdminAuthenticated: false }),
+      adminLogout: () => {
+        void fetch("/api/admin/logout", { method: "POST", credentials: "same-origin" });
+        set({ admin: null, isAdminAuthenticated: false });
+      },
+      refreshAdmin: async () => {
+        try {
+          const response = await fetch("/api/admin/session", { credentials: "same-origin", cache: "no-store" });
+          const result = await response.json();
+          set(response.ok && result.admin
+            ? { admin: result.admin, isAdminAuthenticated: true }
+            : { admin: null, isAdminAuthenticated: false });
+        } catch {
+          set({ admin: null, isAdminAuthenticated: false });
+        }
+      },
     }),
-    { name: "admin-auth-storage" }
-  )
 );

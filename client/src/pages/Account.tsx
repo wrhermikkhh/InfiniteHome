@@ -22,6 +22,11 @@ export default function Account() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
+  const [requiresVerification, setRequiresVerification] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verificationBusy, setVerificationBusy] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState("");
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [showAddAddress, setShowAddAddress] = useState(false);
   const [newAddress, setNewAddress] = useState({ 
@@ -49,14 +54,42 @@ export default function Account() {
   const loadOrders = async () => {
     if (!user?.email) return;
     setLoadingOrders(true);
+    setHistoryError("");
     try {
       const email = user.email.trim();
       const customerOrders = await api.getCustomerOrders(email);
       setOrders(customerOrders.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
-    } catch (error) {
-      console.error("Failed to load orders:", error);
+      setRequiresVerification(false);
+    } catch (error: any) {
+      setOrders([]);
+      setRequiresVerification(error.code === "EMAIL_VERIFICATION_REQUIRED");
+      setHistoryError(error.status === 401 ? "Your session has expired. Sign out and sign in again." : error.message || "Unable to load order history.");
     }
     setLoadingOrders(false);
+  };
+
+  const verifyEmail = async (action: "request" | "confirm") => {
+    setVerificationBusy(true);
+    setVerificationMessage("");
+    try {
+      const response = await fetch(`/api/customers/verify-email/${action}`, {
+        method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action === "confirm" ? { code: verificationCode.trim() } : {}),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Email verification failed");
+      if (action === "request") {
+        setVerificationMessage("Code sent to your account email. It expires in 15 minutes.");
+      } else {
+        setVerificationCode("");
+        setRequiresVerification(false);
+        await loadOrders();
+      }
+    } catch (error: any) {
+      setVerificationMessage(error.message || "Email verification failed. Please retry.");
+    } finally {
+      setVerificationBusy(false);
+    }
   };
 
   const loadAddresses = async () => {
@@ -431,6 +464,22 @@ export default function Account() {
             <CardContent className="pt-4">
               {loadingOrders ? (
                 <p className="text-muted-foreground text-sm">Loading orders...</p>
+              ) : requiresVerification ? (
+                <div className="space-y-4">
+                  <p className="text-sm">Verify that you own {user.email} before viewing orders associated with this address, including past guest purchases.</p>
+                  <Button variant="outline" disabled={verificationBusy} onClick={() => verifyEmail("request")}>Send verification code</Button>
+                  <div className="space-y-2">
+                    <Label htmlFor="history-verification-code">Six-digit email code</Label>
+                    <Input id="history-verification-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={verificationCode} onChange={event => setVerificationCode(event.target.value.replace(/\D/g, ""))} />
+                    <Button disabled={verificationBusy || verificationCode.length !== 6} onClick={() => verifyEmail("confirm")}>Verify email and view orders</Button>
+                  </div>
+                  {verificationMessage && <p role="status" className="text-sm">{verificationMessage}</p>}
+                </div>
+              ) : historyError ? (
+                <div className="space-y-3">
+                  <p role="alert" className="text-sm">{historyError}</p>
+                  <Button variant="outline" onClick={loadOrders}>Retry</Button>
+                </div>
               ) : orders.length === 0 ? (
                 <div className="text-center py-8">
                   <Package size={48} className="mx-auto text-muted-foreground/50 mb-4" />

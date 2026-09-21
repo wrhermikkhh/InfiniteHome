@@ -1,8 +1,10 @@
 // Shared by Express development and Vercel. No dependency on either DB driver.
 import type { Express, Request, Response } from "express";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { config, matchesPayment, providerRequest, usdCents, verifyWebhook, REDOTPAY_RATE } from "./redotpay";
+import { getAuthenticatedAdmin, hasAdminPermission } from "./admin-security";
+import { getReservationOwner, transportPeerBucket } from "./request-identity";
 
 const rows = (result: any): any[] => Array.isArray(result) ? result : result.rows || [];
 const hash = (token: string) => createHash("sha256").update(token).digest("hex");
@@ -57,15 +59,17 @@ export function calculateQuote(input: any, products: any[], coupon: any = null) 
 }
 
 export function registerRedotPay(app: Express, getDb: () => any, ordersTable: any,
-  dependencies: { configure?: typeof config; request?: typeof providerRequest } = {}) {
-  const configure = dependencies.configure || config;
-  const request = dependencies.request || providerRequest;
+  dependencies: { configure?: () => Omit<ReturnType<typeof config>, "apiOrigin" | "publicKey"> & { apiOrigin?: string; publicKey?: string }; request?: typeof providerRequest; authenticate?: typeof getAuthenticatedAdmin } = {}) {
+  // Disabling new checkouts must not disable signed callbacks or recovery.
+  const configure = dependencies.configure || (() => config({ ...process.env, REDOTPAY_ENABLED: "true" }));
+  const request = dependencies.request || ((path, payload) => providerRequest(path, payload, fetch, configure()));
   async function readiness() {
     try {
-      configure();
-      const result = rows(await getDb().execute(sql`SELECT version FROM redotpay_schema WHERE version = 1`));
+      if (!dependencies.configure) config();
+      else configure();
+      const result = rows(await getDb().execute(sql`SELECT version FROM redotpay_schema WHERE version = 3`));
       if (!result.length) throw new Error();
-      await getDb().execute(sql`SELECT id, token_hash, usd_cents, state, allocations, order_id, payload, provider_id, checkout_url, expires_at FROM redotpay_payments LIMIT 0`);
+      await getDb().execute(sql`SELECT id, token_hash, usd_cents, rate, owner_hash, recovery_after, state, allocations, order_id, payload, provider_id, checkout_url, expires_at FROM redotpay_payments LIMIT 0`);
       return { available: true, rate: REDOTPAY_RATE, currency: "USD", message: "" };
     } catch (error: any) {
       const message = /RedotPay|REDOTPAY/.test(error.message) ? error.message : "RedotPay payment migration is missing or unavailable";
@@ -76,12 +80,40 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
     try { await fn(req, res); } catch (error: any) {
       // Never return provider payloads, DB errors, signatures or keys.
       const safe = /^(Invalid|Missing|Product|Pre-order|Maximum|Coupon|Order |Stock |RedotPay|Payment |Checkout |No payment)/.test(error.message || "");
-      res.status(400).json({ message: safe ? error.message : "Payment request could not be completed. Check status before retrying." });
+      res.status(error.status || 400).json({ message: safe ? error.message : "Payment request could not be completed. Check status before retrying." });
     }
   };
   async function ready() {
     const status = await readiness();
     if (!status.available) throw new Error(status.message);
+  }
+  async function limit(key: string, max: number, seconds = 60) {
+    const result = rows(await getDb().execute(sql`INSERT INTO redotpay_limits(key, hits, reset_at)
+      VALUES (${key}, 1, now() + ${seconds} * interval '1 second')
+      ON CONFLICT (key) DO UPDATE SET
+        hits = CASE WHEN redotpay_limits.reset_at <= now() THEN 1 ELSE redotpay_limits.hits + 1 END,
+        reset_at = CASE WHEN redotpay_limits.reset_at <= now() THEN now() + ${seconds} * interval '1 second' ELSE redotpay_limits.reset_at END
+      RETURNING hits`));
+    if (!result.length || result[0].hits > max) throw Object.assign(new Error("Payment request limit reached. Please wait before retrying."), { status: 429 });
+  }
+  async function throttle(req: Request, res: Response, action: string, max: number) {
+    // Apply non-resettable global/transport budgets before issuing identities.
+    await limit(`global:${action}`, max * 20);
+    await limit(`peer:${action}:${transportPeerBucket(req)}`, max * 20);
+    const owner = await getReservationOwner(req, res, getDb());
+    await limit(`${action}:${owner}`, max);
+    return owner;
+  }
+  async function operator(req: Request) {
+    const admin = await (dependencies.authenticate || getAuthenticatedAdmin)(req, getDb());
+    if (!admin || !hasAdminPermission(admin, "canManageOrders")) throw Object.assign(new Error("Payment operator authorization required"), { status: 403 });
+    if (req.method !== "GET" && (req.get("origin") !== configure().origin || req.get("sec-fetch-site") === "cross-site")) {
+      throw Object.assign(new Error("Invalid operator request origin"), { status: 403 });
+    }
+    return `admin:${admin.id}`;
+  }
+  async function audit(id: string | null, actor: string, action: string, outcome: string, db = getDb()) {
+    await db.execute(sql`INSERT INTO redotpay_audit(payment_id, actor, action, outcome) VALUES (${id}, ${actor}, ${action}, ${outcome})`);
   }
   async function quote(db: any, input: any, lock = false) {
     const productRows = rows(await db.execute(lock ? sql`SELECT * FROM products ORDER BY id FOR UPDATE` : sql`SELECT * FROM products`));
@@ -97,32 +129,43 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
     return payment;
   }
   function view(p: any) {
-    return { id: p.id, state: p.state, orderId: p.order_id, total: p.payload.total,
-      usdAmount: (p.usd_cents / 100).toFixed(2), rate: REDOTPAY_RATE, expiresAt: p.expires_at,
+    return { id: p.id, trackingNumber: p.payload.trackingNumber, state: p.state, orderId: p.order_id, total: p.payload.total,
+      usdAmount: (p.usd_cents / 100).toFixed(2), rate: Number(p.rate), expiresAt: p.expires_at,
       checkoutUrl: p.state === "pending" ? p.checkout_url : null,
       reservationPolicy: "Stock is held until RedotPay confirms payment or closure. Closing this page does not cancel payment. Use Cancel and release; uncertain payments stay reserved for reconciliation." };
   }
   async function release(tx: any, p: any) {
-    for (const a of p.allocations) {
-      const product = rows(await tx.execute(sql`SELECT * FROM products WHERE id = ${a.productId} FOR UPDATE`))[0];
+    // Acquire ALL distinct rows in the same ascending ID order as checkout and
+    // legacy inventory. Allocation/cart ordering must not determine lock order.
+    const products = new Map<string, any>();
+    for (const id of Array.from(new Set<string>(p.allocations.map((a: any) => a.productId))).sort()) {
+      const product = rows(await tx.execute(sql`SELECT * FROM products WHERE id = ${id} FOR UPDATE`))[0];
       if (!product) throw new Error("Stock reconciliation requires administrator review");
+      products.set(id, product);
+    }
+    for (const a of p.allocations) {
+      const product = products.get(a.productId)!;
       if (a.preOrder) {
         const map = product.pre_order_variant_stock || {};
         if (a.key) map[a.key] = (map[a.key] || 0) + a.qty;
-        await tx.execute(sql`UPDATE products SET pre_order_stock = ${a.total ? (product.pre_order_stock ?? 0) + a.qty : product.pre_order_stock},
+        if (a.total) product.pre_order_stock = (product.pre_order_stock ?? 0) + a.qty;
+        product.pre_order_variant_stock = map;
+        await tx.execute(sql`UPDATE products SET pre_order_stock = ${product.pre_order_stock},
           pre_order_variant_stock = ${JSON.stringify(map)}::jsonb WHERE id = ${a.productId}`);
       } else if (a.key) {
         const map = product.variant_stock || {};
         map[a.key] = (map[a.key] || 0) + a.qty;
+        product.variant_stock = map;
         await tx.execute(sql`UPDATE products SET variant_stock = ${JSON.stringify(map)}::jsonb WHERE id = ${a.productId}`);
       } else await tx.execute(sql`UPDATE products SET stock = stock + ${a.qty} WHERE id = ${a.productId}`);
     }
   }
-  async function reconcile(p: any) {
+  async function reconcile(p: any, actor = "system:reconcile") {
     const detail = await request("/openapi/v2/order/detail", { outerOrderSn: p.id });
     if (!matchesPayment(detail, p)) throw new Error("Payment details do not match; administrator review required");
     return getDb().transaction(async (tx: any) => {
       const current = rows(await tx.execute(sql`SELECT * FROM redotpay_payments WHERE id = ${p.id} FOR UPDATE`))[0];
+      if (!matchesPayment(detail, current)) throw new Error("Payment details changed; administrator review required");
       if (current.state === "paid" || current.state === "closed") return current;
       if (detail.orderStatus === 2) {
         // Stock was reserved exactly once. Never deduct it again on a callback.
@@ -142,16 +185,19 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
         await tx.execute(sql`UPDATE redotpay_payments SET state = ${state}, provider_id = ${detail.orderSn}, updated_at = now() WHERE id = ${p.id}`);
         current.state = state;
       }
+      await audit(p.id, actor, "reconcile", current.state, tx);
       return current;
     });
   }
 
   app.get("/api/payments/redotpay/readiness", handle(async (_req, res) => { res.json(await readiness()); }));
   app.post("/api/payments/redotpay/quote", handle(async (req, res) => {
+    await throttle(req, res, "quote", 30);
     await ready();
     res.json((await quote(getDb(), req.body)).quote);
   }));
   app.post("/api/payments/redotpay/create", handle(async (req, res) => {
+    const reservationOwner = await throttle(req, res, "create", 6);
     await ready();
     const token = req.get("authorization")?.replace(/^Bearer /, "") || "";
     if (!/^[a-f0-9]{64}$/.test(token)) throw new Error("Payment authorization required");
@@ -162,6 +208,12 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${tokenHash}, 0))`);
       const old = rows(await tx.execute(sql`SELECT * FROM redotpay_payments WHERE token_hash = ${tokenHash}`))[0];
       if (old) return old;
+      // A shared lock bounds concurrent reservations even across serverless instances.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended('redotpay-reservations', 0))`);
+      const active = rows(await tx.execute(sql`SELECT count(*)::int AS total,
+        count(*) FILTER (WHERE owner_hash = ${reservationOwner})::int AS owned
+        FROM redotpay_payments WHERE state NOT IN ('paid','closed')`))[0];
+      if (!active || active.total >= 100 || active.owned >= 2) throw new Error("Payment reservation limit reached. Recover or close your existing checkout first.");
       const { quote: q, products } = await quote(tx, input, true);
       if (input.expectedUsdCents !== q.usdCents || input.expectedTotal !== q.total) throw new Error("Checkout total changed. Request a new quote before paying.");
       const allocations: any[] = [];
@@ -186,17 +238,21 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
         }
       }
       const id = `RP${randomBytes(14).toString("hex")}`;
+      const seq = rows(await tx.execute(sql`SELECT nextval('invoice_seq') AS seq`))[0].seq;
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}`;
+      const timeStr = `${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}${String(now.getSeconds()).padStart(2,"0")}`;
       const payload = { customerName: text(input.customerName), customerEmail: text(input.customerEmail),
         customerPhone: text(input.customerPhone, 50), shippingAddress: text(input.shippingAddress, 1000),
         deliveryType: input.deliveryType, notes: typeof input.notes === "string" ? input.notes.slice(0, 1000) : null,
         ...(input.deliveryType === "boat" ? { boatName: text(input.boatName), boatNumber: text(input.boatNumber), boatLocation: text(input.boatLocation), boatAtollIsland: text(input.boatAtollIsland) } : {}),
         items: q.items, subtotal: q.subtotal, discount: q.discount, shipping: q.shipping, total: q.total,
         couponCode: input.couponCode || null, paymentMethod: "redotpay", status: "payment_pending",
-        orderNumber: id, trackingNumber: id, statusHistory: [{ status: "payment_pending", timestamp: new Date().toISOString() }] };
+        orderNumber: `ECOM-${dateStr}-${timeStr}-${seq}`, trackingNumber: `${dateStr}${timeStr}${seq}`, statusHistory: [{ status: "payment_pending", timestamp: new Date().toISOString() }] };
       const [order] = await tx.insert(ordersTable).values(payload).returning();
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-      return rows(await tx.execute(sql`INSERT INTO redotpay_payments (id, token_hash, usd_cents, state, order_id, payload, allocations, expires_at)
-        VALUES (${id}, ${tokenHash}, ${q.usdCents}, 'creating', ${order.id}, ${JSON.stringify(payload)}::jsonb, ${JSON.stringify(allocations)}::jsonb, ${expiresAt})
+      return rows(await tx.execute(sql`INSERT INTO redotpay_payments (id, token_hash, usd_cents, rate, owner_hash, state, order_id, payload, allocations, expires_at)
+        VALUES (${id}, ${tokenHash}, ${q.usdCents}, ${REDOTPAY_RATE}, ${reservationOwner}, 'creating', ${order.id}, ${JSON.stringify(payload)}::jsonb, ${JSON.stringify(allocations)}::jsonb, ${expiresAt})
         RETURNING *`))[0];
     });
     // Claim once. A crash/timeout is ambiguous: never issue another create.
@@ -220,17 +276,19 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
     res.json(view(current));
   }));
   app.post("/api/payments/redotpay/status", handle(async (req, res) => {
-    await ready();
+    await throttle(req, res, "status", 30);
     const p = await authorized(req);
     if (p.state === "paid" || p.state === "closed") return res.json(view(p));
     res.json(view(await reconcile(p)));
   }));
   app.post("/api/payments/redotpay/cancel", handle(async (req, res) => {
-    await ready();
+    await throttle(req, res, "cancel", 6);
     let p = await authorized(req);
     p = await reconcile(p);
     if (p.state !== "paid" && p.state !== "closed") {
       const fresh = rows(await getDb().execute(sql`SELECT * FROM redotpay_payments WHERE id = ${p.id}`))[0];
+      if (!fresh.provider_id) throw new Error("Payment identity is uncertain; administrator review required");
+      await audit(p.id, "customer", "close", "requested");
       await request("/openapi/v2/order/close", { orderSn: fresh.provider_id });
       p = await reconcile(fresh);
     }
@@ -239,20 +297,112 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
   app.post("/api/payments/redotpay/webhook", handle(async (req, res) => {
     const settings = configure();
     const raw = (req as any).rawBody;
-    if (!Buffer.isBuffer(raw) || !verifyWebhook(raw, req.get("X-R-Ts") || "", req.get("X-R-Signature") || "", req.get("X-R-Key-Version") || "", settings.appKey)) {
+    if (!Buffer.isBuffer(raw) || !verifyWebhook(raw, req.get("X-R-Ts") || "", req.get("X-R-Signature") || "", req.get("X-R-Key-Version") || "", settings.appKey, settings.publicKey)) {
       return res.status(401).json({ message: "Invalid payment signature" });
     }
-    if (req.body.actionType !== "ACQUIRER_PAY") return res.status(400).json({ message: "Unsupported payment notification" });
-    const id = req.body.outerOrderSn || req.body.outerOrder;
+    // Only the authenticated bytes may determine which payment is reconciled.
+    const notification = JSON.parse(raw.toString("utf8"));
+    if (notification.actionType !== "ACQUIRER_PAY") return res.status(400).json({ message: "Unsupported payment notification" });
+    const id = notification.outerOrderSn || notification.outerOrder;
     const p = rows(await getDb().execute(sql`SELECT * FROM redotpay_payments WHERE id = ${String(id)}`))[0];
     if (!p) return res.status(404).json({ message: "No payment found" });
-    await reconcile(p);
+    await reconcile(p, "provider:webhook");
     res.status(200).json({ code: "SUCCESS", requestId: randomUUID() });
   }));
 
+  async function closePayment(p: any, actor: string) {
+    p = await reconcile(p, actor);
+    if (p.state === "paid" || p.state === "closed") return p;
+    const fresh = rows(await getDb().execute(sql`SELECT * FROM redotpay_payments WHERE id = ${p.id}`))[0];
+    if (!fresh.provider_id) throw new Error("Payment identity is uncertain; administrator review required");
+    await audit(p.id, actor, "close", "requested");
+    await request("/openapi/v2/order/close", { orderSn: fresh.provider_id });
+    // A successful close response is NOT proof of closure; query again.
+    return reconcile(fresh, actor);
+  }
+  app.get("/api/admin/redotpay", handle(async (req, res) => {
+    await operator(req);
+    const payments = rows(await getDb().execute(sql`SELECT p.*, o.status AS order_status FROM redotpay_payments p
+      JOIN orders o ON o.id = p.order_id ORDER BY (p.state NOT IN ('paid','closed')) DESC, p.updated_at DESC LIMIT 100`));
+    const events = rows(await getDb().execute(sql`SELECT payment_id, actor, action, outcome, created_at FROM redotpay_audit ORDER BY id DESC LIMIT 100`));
+    res.json({ payments: payments.map(p => ({ ...view(p), orderStatus: p.order_status })), events });
+  }));
+  app.post("/api/admin/redotpay/:id/action", handle(async (req, res) => {
+    const actor = await operator(req);
+    await limit(`operator:${actor}`, 20);
+    const p = rows(await getDb().execute(sql`SELECT * FROM redotpay_payments WHERE id = ${req.params.id}`))[0];
+    if (!p) throw new Error("No payment found");
+    const action = req.body.action;
+    if (!["reconcile", "close", "fulfill"].includes(action)) throw new Error("Invalid operator action");
+    await audit(p.id, actor, action, "requested");
+    try {
+      if (action === "fulfill") {
+        const result = await getDb().transaction(async (tx: any) => {
+          const current = rows(await tx.execute(sql`SELECT * FROM redotpay_payments WHERE id = ${p.id} FOR UPDATE`))[0];
+          if (current.state !== "paid") throw new Error("Payment must be provider-confirmed before fulfillment");
+          const order = rows(await tx.execute(sql`SELECT status FROM orders WHERE id = ${p.order_id} AND payment_method = 'redotpay' FOR UPDATE`))[0];
+          const flow = ["confirmed", "processing", "shipped", "out_for_delivery", "delivered"];
+          const from = flow.indexOf(order?.status), to = flow.indexOf(req.body.status);
+          if (from < 0 || to < from || to < 0) throw new Error("Invalid fulfillment transition; cancellations and refunds require verified provider handling");
+          if (to !== from) await tx.execute(sql`UPDATE orders SET status = ${req.body.status},
+            status_history = COALESCE(status_history, '[]'::jsonb) || ${JSON.stringify([{ status: req.body.status, timestamp: new Date().toISOString() }])}::jsonb
+            WHERE id = ${p.order_id}`);
+          await audit(p.id, actor, "fulfill", req.body.status, tx);
+          return current;
+        });
+        return res.json(view(result));
+      }
+      res.json(view(action === "close" ? await closePayment(p, actor) : await reconcile(p, actor)));
+    } catch (error) {
+      await audit(p.id, actor, action, "unresolved; reservation retained");
+      throw error;
+    }
+  }));
+
+  // Durable, bounded serverless worker. Invoke POST with a real admin session
+  // and Origin, or schedule GET using an existing CRON_SECRET bearer. No secret
+  // means cron access is disabled. Never use setInterval in a Vercel function.
+  async function recover(actor: string) {
+    const batch = await getDb().transaction(async (tx: any) => {
+      const due = rows(await tx.execute(sql`SELECT * FROM redotpay_payments
+        WHERE state NOT IN ('paid','closed') AND recovery_after <= now()
+        AND updated_at < now() - interval '2 minutes'
+        ORDER BY recovery_after LIMIT 1 FOR UPDATE SKIP LOCKED`));
+      for (const p of due) await tx.execute(sql`UPDATE redotpay_payments SET recovery_after = now() + interval '5 minutes' WHERE id = ${p.id}`);
+      return due;
+    });
+    const result = [];
+    for (const p of batch) {
+      await audit(p.id, actor, "recover", "requested");
+      try {
+        const current = new Date(p.expires_at).getTime() <= Date.now() ? await closePayment(p, actor) : await reconcile(p, actor);
+        result.push({ id: p.id, state: current.state });
+      } catch {
+        await audit(p.id, actor, "recover", "unresolved; reservation retained");
+        result.push({ id: p.id, state: "unresolved" });
+      }
+    }
+    // Rate-limit buckets have bounded retention, audit records do not.
+    await getDb().execute(sql`DELETE FROM redotpay_limits WHERE reset_at < now() - interval '1 day'`);
+    return { processed: result.length, results: result };
+  }
+  app.post("/api/admin/redotpay/recover", handle(async (req, res) => {
+    const actor = await operator(req);
+    await limit("recovery", 1);
+    res.json(await recover(actor));
+  }));
+  app.get("/api/payments/redotpay/recover", handle(async (req, res) => {
+    const secret = process.env.CRON_SECRET;
+    const authorization = req.get("authorization") || "";
+    if (!secret || !timingSafeEqual(Buffer.from(hash(authorization)), Buffer.from(hash(`Bearer ${secret}`)))) {
+      return res.status(401).json({ message: "Payment recovery authorization required" });
+    }
+    await limit("recovery", 1);
+    res.json(await recover("system:cron"));
+  }));
+
   // Existing public mutation routes must never act as a payment confirmation or
-  // restore RedotPay stock a second time. Fulfillment requires a future audited
-  // authenticated admin workflow; deliberately fail closed here.
+  // restore RedotPay stock a second time. Use the audited operator route above.
   app.post("/api/orders", (req, res, next) => {
     if (!["cod", "bank"].includes(req.body.paymentMethod)) {
       return res.status(400).json({ message: "Use the dedicated hosted payment checkout" });

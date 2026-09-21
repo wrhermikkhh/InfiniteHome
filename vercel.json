@@ -29,7 +29,7 @@
   "functions": {
     "api/index.ts": {
       "memory": 1024,
-      "maxDuration": 30
+      "maxDuration": 60
     },
     "api/test.ts": {
       "memory": 128,

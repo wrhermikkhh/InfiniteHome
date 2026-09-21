@@ -10,6 +10,9 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, sql, desc } from "drizzle-orm";
+import { changeInventory, inventorySale, inventoryOrderStatus, inventoryPosUpdate } from "../shared/inventory";
+import { inventoryProductEdit } from "../shared/inventory-admin";
+import { createCatalogOrder } from "../shared/checkout";
 
 export interface IStorage {
   // Customers
@@ -49,7 +52,7 @@ export interface IStorage {
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: string): Promise<boolean>;
-  updateProductStock(id: string, stock: number): Promise<Product | undefined>;
+  updateProductStock(id: string, stock: number, expectedStock?: number): Promise<Product | undefined>;
   
   // Coupons
   getAllCoupons(): Promise<Coupon[]>;
@@ -62,7 +65,7 @@ export interface IStorage {
   getOrder(id: string): Promise<Order | undefined>;
   getOrderByNumber(orderNumber: string): Promise<Order | undefined>;
   getOrdersByEmail(email: string): Promise<Order[]>;
-  createOrder(order: InsertOrder): Promise<Order>;
+  createOrder(order: InsertOrder, sourcePosId?: string): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
   updateOrderDeliveryStatus(id: string, deliveryStatus: string, location?: string): Promise<Order | undefined>;
   invoiceOrder(id: string, invoiceNumber: string): Promise<Order | undefined>;
@@ -231,18 +234,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined> {
-    const [updated] = await db.update(products).set(product).where(eq(products.id, id)).returning();
-    return updated || undefined;
+    return inventoryProductEdit(db, id, product, async (tx, data) => {
+      if (!Object.keys(data).length) return (await tx.select().from(products).where(eq(products.id, id)))[0];
+      const [updated] = await tx.update(products).set(data).where(eq(products.id, id)).returning();
+      return updated;
+    });
   }
 
   async deleteProduct(id: string): Promise<boolean> {
-    const result = await db.delete(products).where(eq(products.id, id));
-    return true;
+    return !!await inventoryProductEdit(db, id, {}, async tx => {
+      await tx.delete(products).where(eq(products.id, id));
+      return true;
+    }, true);
   }
 
-  async updateProductStock(id: string, stock: number): Promise<Product | undefined> {
-    const [updated] = await db.update(products).set({ stock }).where(eq(products.id, id)).returning();
-    return updated || undefined;
+  async updateProductStock(id: string, stock: number, expectedStock?: number): Promise<Product | undefined> {
+    return this.updateProduct(id, { stock, expectedInventory: { stock: expectedStock } } as any);
   }
 
   // Coupons
@@ -280,13 +287,21 @@ export class DatabaseStorage implements IStorage {
     return order || undefined;
   }
 
-  async createOrder(order: InsertOrder): Promise<Order> {
-    const [newOrder] = await db.insert(orders).values(order).returning();
-    return newOrder;
+  async createOrder(order: InsertOrder, sourcePosId?: string): Promise<Order> {
+    if (order.status === "cancelled") throw new Error("Cannot create a cancelled order");
+    if (!sourcePosId) return createCatalogOrder(db, order, async (tx, payload) => {
+      const [created] = await tx.insert(orders).values(payload).returning();
+      return created;
+    });
+    return inventorySale(db, order.items as any[], "order", async tx => {
+      const [newOrder] = await tx.insert(orders).values(order).returning();
+      return newOrder;
+    }, sourcePosId);
   }
 
   async updateOrderStatus(id: string, status: string, location?: string): Promise<Order | undefined> {
-    const existing = await db.select().from(orders).where(eq(orders.id, id));
+    return inventoryOrderStatus(db, id, status, async tx => {
+    const existing = await tx.select().from(orders).where(eq(orders.id, id));
     if (!existing[0]) return undefined;
     // Build status history: backfill from createdAt if history is empty (old orders)
     let currentHistory = (existing[0].statusHistory as { status: string; timestamp: string; location?: string }[]) || [];
@@ -297,8 +312,9 @@ export class DatabaseStorage implements IStorage {
     const newEntry: { status: string; timestamp: string; location?: string } = { status, timestamp: new Date().toISOString() };
     if (location) newEntry.location = location;
     const newHistory = [...currentHistory, newEntry];
-    const [updated] = await db.update(orders).set({ status, statusHistory: newHistory }).where(eq(orders.id, id)).returning();
+    const [updated] = await tx.update(orders).set({ status, statusHistory: newHistory }).where(eq(orders.id, id)).returning();
     return updated || undefined;
+    });
   }
 
   async updateOrderDeliveryStatus(id: string, deliveryStatus: string, location?: string): Promise<Order | undefined> {
@@ -394,127 +410,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deductStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
-    const product = await this.getProduct(productId);
-    if (!product) return;
-
-    const variantKey = `${size}-${color}`;
-    const variantStock = (product.variantStock as { [key: string]: number } | null) || {};
-    
-    if (Object.keys(variantStock).length > 0) {
-      const newVariantStock = { ...variantStock };
-      let matchedKey = variantKey;
-      
-      if (newVariantStock[variantKey] === undefined) {
-        const lowerKey = variantKey.toLowerCase();
-        const caseMatch = Object.keys(newVariantStock).find(k => k.toLowerCase() === lowerKey);
-        if (caseMatch) {
-          matchedKey = caseMatch;
-        } else {
-          const sizeMatch = Object.keys(newVariantStock).find(k => 
-            k.toLowerCase().startsWith(size.toLowerCase() + '-')
-          );
-          const colorMatch = Object.keys(newVariantStock).find(k => 
-            k.toLowerCase().endsWith('-' + color.toLowerCase())
-          );
-          if (sizeMatch) matchedKey = sizeMatch;
-          else if (colorMatch) matchedKey = colorMatch;
-        }
-      }
-      
-      if (newVariantStock[matchedKey] !== undefined) {
-        newVariantStock[matchedKey] = Math.max(0, (newVariantStock[matchedKey] || 0) - quantity);
-        await db.update(products).set({ variantStock: newVariantStock }).where(eq(products.id, productId));
-      }
-    }
+    await db.transaction(tx => changeInventory(tx, [{ productId, size, color, qty: quantity }]));
   }
 
   async restoreStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
-    const product = await this.getProduct(productId);
-    if (!product) return;
-
-    const variantKey = `${size}-${color}`;
-    const variantStock = (product.variantStock as { [key: string]: number } | null) || {};
-    
-    if (Object.keys(variantStock).length > 0) {
-      const newVariantStock = { ...variantStock };
-      let matchedKey = variantKey;
-      
-      if (newVariantStock[variantKey] === undefined) {
-        const lowerKey = variantKey.toLowerCase();
-        const caseMatch = Object.keys(newVariantStock).find(k => k.toLowerCase() === lowerKey);
-        if (caseMatch) {
-          matchedKey = caseMatch;
-        } else {
-          const sizeMatch = Object.keys(newVariantStock).find(k => 
-            k.toLowerCase().startsWith(size.toLowerCase() + '-')
-          );
-          const colorMatch = Object.keys(newVariantStock).find(k => 
-            k.toLowerCase().endsWith('-' + color.toLowerCase())
-          );
-          if (sizeMatch) matchedKey = sizeMatch;
-          else if (colorMatch) matchedKey = colorMatch;
-        }
-      }
-      
-      if (newVariantStock[matchedKey] !== undefined) {
-        newVariantStock[matchedKey] = (newVariantStock[matchedKey] || 0) + quantity;
-        await db.update(products).set({ variantStock: newVariantStock }).where(eq(products.id, productId));
-      }
-    }
+    await db.transaction(tx => changeInventory(tx, [{ productId, size, color, qty: quantity }], true));
   }
 
   async deductPreOrderStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
-    await db.transaction(async (tx) => {
-      const [product] = await tx.select().from(products).where(eq(products.id, productId)).for("update");
-      if (!product) throw new Error("Product not found");
-      const updates: Partial<{ preOrderStock: number; preOrderVariantStock: { [key: string]: number } }> = {};
-      const pvs = (product.preOrderVariantStock as { [key: string]: number } | null) || {};
-      if (Object.keys(pvs).length > 0) {
-        const variantKey = `${size}-${color}`;
-        const matchedKey = pvs[variantKey] !== undefined
-          ? variantKey
-          : Object.keys(pvs).find(k => k.toLowerCase() === variantKey.toLowerCase());
-        if (matchedKey === undefined) {
-          throw new Error(`${product.name} (${size}/${color}) is not available for pre-order`);
-        }
-        const avail = pvs[matchedKey] || 0;
-        if (avail < quantity) {
-          throw new Error(`${product.name} (${size}/${color}) pre-order only has ${avail} available`);
-        }
-        updates.preOrderVariantStock = { ...pvs, [matchedKey]: avail - quantity };
-      }
-      if (product.preOrderStock !== null && product.preOrderStock !== undefined) {
-        if (product.preOrderStock < quantity) {
-          throw new Error(`${product.name} pre-order only has ${product.preOrderStock} units available`);
-        }
-        updates.preOrderStock = product.preOrderStock - quantity;
-      }
-      if (Object.keys(updates).length > 0) {
-        await tx.update(products).set(updates).where(eq(products.id, productId));
-      }
-    });
+    await db.transaction(tx => changeInventory(tx, [{ productId, size, color, qty: quantity, isPreOrder: true }]));
   }
 
   async restorePreOrderStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
-    const product = await this.getProduct(productId);
-    if (!product) return;
-    const updates: Partial<{ preOrderStock: number; preOrderVariantStock: { [key: string]: number } }> = {};
-    const pvs = (product.preOrderVariantStock as { [key: string]: number } | null) || {};
-    if (Object.keys(pvs).length > 0) {
-      const variantKey = `${size}-${color}`;
-      const matchedKey = pvs[variantKey] !== undefined
-        ? variantKey
-        : Object.keys(pvs).find(k => k.toLowerCase() === variantKey.toLowerCase());
-      if (matchedKey !== undefined) {
-        updates.preOrderVariantStock = { ...pvs, [matchedKey]: (pvs[matchedKey] || 0) + quantity };
-      }
-    }
-    if (product.preOrderStock !== null && product.preOrderStock !== undefined) {
-      updates.preOrderStock = product.preOrderStock + quantity;
-    }
-    if (Object.keys(updates).length > 0) {
-      await db.update(products).set(updates).where(eq(products.id, productId));
-    }
+    await db.transaction(tx => changeInventory(tx, [{ productId, size, color, qty: quantity, isPreOrder: true }], true));
   }
 
   async balanceInvoiceOrder(id: string, balanceInvoiceNumber: string): Promise<Order | undefined> {
@@ -581,19 +489,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPosTransaction(transaction: InsertPosTransaction): Promise<PosTransaction> {
-    const [newTransaction] = await db.insert(posTransactions).values(transaction).returning();
-    return newTransaction;
+    if (transaction.status === "cancelled") throw new Error("Cannot create a cancelled POS sale");
+    return inventorySale(db, transaction.items as any[], "pos", async tx => {
+      const [newTransaction] = await tx.insert(posTransactions).values(transaction).returning();
+      return newTransaction;
+    });
   }
 
   async updatePosTransaction(id: string, data: Partial<InsertPosTransaction>): Promise<PosTransaction | undefined> {
+    return inventoryPosUpdate(db, id, data, async tx => {
     let finalData: any = { ...data };
     if (data.deliveryStatus !== undefined) {
       const existing = await this.getPosTransaction(id);
       const history: { status: string; timestamp: string }[] = (existing as any)?.deliveryStatusHistory || [];
       finalData.deliveryStatusHistory = [...history, { status: data.deliveryStatus, timestamp: new Date().toISOString() }];
     }
-    const [updated] = await db.update(posTransactions).set(finalData).where(eq(posTransactions.id, id)).returning();
+    const [updated] = await tx.update(posTransactions).set(finalData).where(eq(posTransactions.id, id)).returning();
     return updated || undefined;
+    });
   }
 
   async markPosTransactionConverted(id: string, orderId: string): Promise<PosTransaction | undefined> {

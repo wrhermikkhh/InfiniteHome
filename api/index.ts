@@ -12,6 +12,11 @@ import { promisify } from "util";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { registerRedotPay } from "../shared/redotpay-routes";
+import { registerAdminSecurity } from "../shared/admin-security";
+import { changeInventory, inventorySale, inventoryOrderStatus, inventoryPosUpdate } from "../shared/inventory";
+import { inventoryProductEdit } from "../shared/inventory-admin";
+import { createCatalogOrder } from "../shared/checkout";
+import { registerInventoryAdmin } from "../shared/inventory-routes";
 
 // ============ PASSWORD HASHING ============
 const scryptAsync = promisify(scrypt);
@@ -303,19 +308,18 @@ async function getSupabaseClient() {
 const app = express();
 
 app.use((req, res, next) => {
-  const origin = req.headers.origin || '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  // Same-origin storefront and dashboard only; never reflect arbitrary credentialed origins.
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    return res.status(204).end();
   }
   next();
 });
 
 app.use(express.json({ verify: (req, _res, buf) => { (req as any).rawBody = buf; } }));
 app.use(express.urlencoded({ extended: false }));
+
+// Shared security gate precedes all API routes on both hosting runtimes.
+registerAdminSecurity(app, () => db, sendAdminPasswordResetEmail);
 
 app.use((req, res, next) => {
   if (req.path === '/api/health') {
@@ -541,18 +545,22 @@ class DatabaseStorage {
   }
 
   async updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined> {
-    const [updated] = await this.getDb().update(products).set(product).where(eq(products.id, id)).returning();
-    return updated || undefined;
+    return inventoryProductEdit(this.getDb(), id, product, async (tx, data) => {
+      if (!Object.keys(data).length) return (await tx.select().from(products).where(eq(products.id, id)))[0];
+      const [updated] = await tx.update(products).set(data).where(eq(products.id, id)).returning();
+      return updated;
+    });
   }
 
   async deleteProduct(id: string): Promise<boolean> {
-    await this.getDb().delete(products).where(eq(products.id, id));
-    return true;
+    return !!await inventoryProductEdit(this.getDb(), id, {}, async tx => {
+      await tx.delete(products).where(eq(products.id, id));
+      return true;
+    }, true);
   }
 
-  async updateProductStock(id: string, stock: number): Promise<Product | undefined> {
-    const [updated] = await this.getDb().update(products).set({ stock }).where(eq(products.id, id)).returning();
-    return updated || undefined;
+  async updateProductStock(id: string, stock: number, expectedStock?: number): Promise<Product | undefined> {
+    return this.updateProduct(id, { stock, expectedInventory: { stock: expectedStock } } as any);
   }
 
   async getAllCoupons(): Promise<Coupon[]> {
@@ -612,13 +620,21 @@ class DatabaseStorage {
     return await this.getDb().select().from(orders).where(eq(orders.customerEmail, email));
   }
 
-  async createOrder(order: InsertOrder): Promise<Order> {
-    const [newOrder] = await this.getDb().insert(orders).values(order).returning();
-    return newOrder;
+  async createOrder(order: InsertOrder, sourcePosId?: string): Promise<Order> {
+    if (order.status === "cancelled") throw new Error("Cannot create a cancelled order");
+    if (!sourcePosId) return createCatalogOrder(this.getDb(), order, async (tx, payload) => {
+      const [created] = await tx.insert(orders).values(payload).returning();
+      return created;
+    });
+    return inventorySale(this.getDb(), order.items as any[], "order", async tx => {
+      const [newOrder] = await tx.insert(orders).values(order).returning();
+      return newOrder;
+    }, sourcePosId);
   }
 
   async updateOrderStatus(id: string, status: string, location?: string): Promise<Order | undefined> {
-    const existing = await this.getDb().select().from(orders).where(eq(orders.id, id));
+    return inventoryOrderStatus(this.getDb(), id, status, async tx => {
+    const existing = await tx.select().from(orders).where(eq(orders.id, id));
     if (!existing[0]) return undefined;
     let currentHistory = (existing[0].statusHistory as { status: string; timestamp: string; location?: string }[]) || [];
     if (currentHistory.length === 0 && existing[0].createdAt) {
@@ -627,8 +643,9 @@ class DatabaseStorage {
     const newEntry: { status: string; timestamp: string; location?: string } = { status, timestamp: new Date().toISOString() };
     if (location) newEntry.location = location;
     const newHistory = [...currentHistory, newEntry];
-    const [updated] = await this.getDb().update(orders).set({ status, statusHistory: newHistory }).where(eq(orders.id, id)).returning();
+    const [updated] = await tx.update(orders).set({ status, statusHistory: newHistory }).where(eq(orders.id, id)).returning();
     return updated || undefined;
+    });
   }
 
   async updateOrderDeliveryStatus(id: string, deliveryStatus: string, location?: string): Promise<Order | undefined> {
@@ -695,89 +712,19 @@ class DatabaseStorage {
   }
 
   async deductStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
-    const product = await this.getProduct(productId);
-    if (!product) return;
-
-    const variantStock = (product.variantStock as { [key: string]: number } | null) || {};
-    const variantKey = `${size}-${color}`;
-
-    if (variantStock[variantKey] !== undefined) {
-      variantStock[variantKey] = Math.max(0, variantStock[variantKey] - quantity);
-      await this.getDb().update(products).set({ variantStock }).where(eq(products.id, productId));
-    } else {
-      const newStock = Math.max(0, (product.stock || 0) - quantity);
-      await this.getDb().update(products).set({ stock: newStock }).where(eq(products.id, productId));
-    }
+    await this.getDb().transaction((tx: any) => changeInventory(tx, [{ productId, size, color, qty: quantity }]));
   }
 
   async restoreStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
-    const product = await this.getProduct(productId);
-    if (!product) return;
-
-    const variantStock = (product.variantStock as { [key: string]: number } | null) || {};
-    const variantKey = `${size}-${color}`;
-
-    if (variantStock[variantKey] !== undefined) {
-      variantStock[variantKey] = variantStock[variantKey] + quantity;
-      await this.getDb().update(products).set({ variantStock }).where(eq(products.id, productId));
-    } else {
-      const newStock = (product.stock || 0) + quantity;
-      await this.getDb().update(products).set({ stock: newStock }).where(eq(products.id, productId));
-    }
+    await this.getDb().transaction((tx: any) => changeInventory(tx, [{ productId, size, color, qty: quantity }], true));
   }
 
   async deductPreOrderStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
-    await this.getDb().transaction(async (tx: any) => {
-      const [product] = await tx.select().from(products).where(eq(products.id, productId)).for("update");
-      if (!product) throw new Error("Product not found");
-      const updates: Partial<{ preOrderStock: number; preOrderVariantStock: { [key: string]: number } }> = {};
-      const pvs = (product.preOrderVariantStock as { [key: string]: number } | null) || {};
-      if (Object.keys(pvs).length > 0) {
-        const variantKey = `${size}-${color}`;
-        const matchedKey = pvs[variantKey] !== undefined
-          ? variantKey
-          : Object.keys(pvs).find((k: string) => k.toLowerCase() === variantKey.toLowerCase());
-        if (matchedKey === undefined) {
-          throw new Error(`${product.name} (${size}/${color}) is not available for pre-order`);
-        }
-        const avail = pvs[matchedKey] || 0;
-        if (avail < quantity) {
-          throw new Error(`${product.name} (${size}/${color}) pre-order only has ${avail} available`);
-        }
-        updates.preOrderVariantStock = { ...pvs, [matchedKey]: avail - quantity };
-      }
-      if (product.preOrderStock !== null && product.preOrderStock !== undefined) {
-        if (product.preOrderStock < quantity) {
-          throw new Error(`${product.name} pre-order only has ${product.preOrderStock} units available`);
-        }
-        updates.preOrderStock = product.preOrderStock - quantity;
-      }
-      if (Object.keys(updates).length > 0) {
-        await tx.update(products).set(updates).where(eq(products.id, productId));
-      }
-    });
+    await this.getDb().transaction((tx: any) => changeInventory(tx, [{ productId, size, color, qty: quantity, isPreOrder: true }]));
   }
 
   async restorePreOrderStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
-    const product = await this.getProduct(productId);
-    if (!product) return;
-    const updates: Partial<{ preOrderStock: number; preOrderVariantStock: { [key: string]: number } }> = {};
-    const pvs = (product.preOrderVariantStock as { [key: string]: number } | null) || {};
-    if (Object.keys(pvs).length > 0) {
-      const variantKey = `${size}-${color}`;
-      const matchedKey = pvs[variantKey] !== undefined
-        ? variantKey
-        : Object.keys(pvs).find(k => k.toLowerCase() === variantKey.toLowerCase());
-      if (matchedKey !== undefined) {
-        updates.preOrderVariantStock = { ...pvs, [matchedKey]: (pvs[matchedKey] || 0) + quantity };
-      }
-    }
-    if (product.preOrderStock !== null && product.preOrderStock !== undefined) {
-      updates.preOrderStock = product.preOrderStock + quantity;
-    }
-    if (Object.keys(updates).length > 0) {
-      await this.getDb().update(products).set(updates).where(eq(products.id, productId));
-    }
+    await this.getDb().transaction((tx: any) => changeInventory(tx, [{ productId, size, color, qty: quantity, isPreOrder: true }], true));
   }
 
   async balanceInvoiceOrder(id: string, balanceInvoiceNumber: string): Promise<Order | undefined> {
@@ -845,18 +792,24 @@ class DatabaseStorage {
   }
 
   async createPosTransaction(data: any): Promise<PosTransaction> {
-    const [transaction] = await this.getDb().insert(posTransactions).values(data).returning();
-    return transaction;
+    if (data.status === "cancelled") throw new Error("Cannot create a cancelled POS sale");
+    return inventorySale(this.getDb(), data.items, "pos", async tx => {
+      const [transaction] = await tx.insert(posTransactions).values(data).returning();
+      return transaction;
+    });
   }
 
   async updatePosTransaction(id: string, data: Partial<any>): Promise<PosTransaction | undefined> {
-    const [updated] = await this.getDb().update(posTransactions).set(data).where(eq(posTransactions.id, id)).returning();
-    return updated || undefined;
+    return inventoryPosUpdate(this.getDb(), id, data, async tx => {
+      const [updated] = await tx.update(posTransactions).set(data).where(eq(posTransactions.id, id)).returning();
+      return updated || undefined;
+    });
   }
 }
 
 const storage = new DatabaseStorage();
 registerRedotPay(app, () => db, orders);
+registerInventoryAdmin(app, () => db);
 
 // ============ EMAIL FUNCTIONS ============
 
@@ -903,11 +856,13 @@ function getItemsHtml(items: any[]) {
   `).join('');
 }
 
-async function sendAdminPasswordResetEmail(adminEmail: string, adminName: string, otp: string) {
+async function sendAdminPasswordResetEmail(adminEmail: string, adminName: string, otp: string, purpose?: "customer-verification") {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error('RESEND_API_KEY not set');
   const resend = new Resend(apiKey);
-  const html = `
+  const html = purpose === "customer-verification"
+    ? `<h1>Verify your INFINITE HOME email</h1><p>Enter this code in your signed-in account to view orders associated with this email address:</p><p style="font-size:32px;letter-spacing:6px">${otp}</p><p>This code expires in 15 minutes. Never share it with anyone. If you did not request email verification, ignore this message. This code does not reset a password.</p>`
+    : `
     <!DOCTYPE html><html><body style="margin:0;padding:0;background:#fcfaf7;font-family:'Helvetica Neue',Arial,sans-serif;">
     <div style="max-width:600px;margin:0 auto;background:#fff;">
       <div style="padding:40px 20px;text-align:center;background:#1a1a1a;color:#fff;">
@@ -931,7 +886,7 @@ async function sendAdminPasswordResetEmail(adminEmail: string, adminName: string
   const { data, error } = await resend.emails.send({
     from: `INFINITE HOME <noreply@infinitehome.mv>`,
     to: adminEmail,
-    subject: `Your Admin Password Reset Code — ${otp}`,
+    subject: purpose === "customer-verification" ? "Verify your INFINITE HOME email" : `Your Admin Password Reset Code — ${otp}`,
     html,
   });
   if (error) {
@@ -1292,62 +1247,7 @@ app.post("/api/customers/:customerId/addresses/:addressId/default", async (req, 
 });
 
 // Admin Auth
-app.post("/api/admin/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const admin = await storage.getAdminByEmail(email);
-    if (admin && await comparePasswords(password, admin.password)) {
-      res.json({ success: true, admin: { id: admin.id, name: admin.name, email: admin.email, isSuperAdmin: admin.isSuperAdmin, permissions: admin.permissions } });
-    } else {
-      res.status(401).json({ success: false, message: "Invalid credentials" });
-    }
-  } catch (err) {
-    console.error("Admin login error:", err);
-    res.status(500).json({ success: false, message: "Server error during login" });
-  }
-});
-
-// Forgot password — sends OTP to admin email
-app.post("/api/admin/forgot-password", async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ message: "Email is required" });
-    const admin = await storage.getAdminByEmail(email);
-    if (!admin) return res.json({ success: true }); // avoid enumeration
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiry = new Date(Date.now() + 15 * 60 * 1000);
-    await storage.setAdminResetToken(email, otp, expiry);
-    await sendAdminPasswordResetEmail(admin.email, admin.name, otp);
-    res.json({ success: true });
-  } catch (error: any) {
-    console.error("Forgot password error:", error);
-    res.status(500).json({ message: error?.message || "Failed to send reset email" });
-  }
-});
-
-// Reset password — validates OTP and sets new password
-app.post("/api/admin/reset-password", async (req, res) => {
-  try {
-    const { email, otp, newPassword } = req.body;
-    if (!email || !otp || !newPassword) return res.status(400).json({ message: "Email, OTP, and new password are required" });
-    if (newPassword.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
-    const admin = await storage.getAdminByEmail(email);
-    if (!admin || !admin.resetToken || !admin.resetTokenExpiry) {
-      return res.status(400).json({ message: "Invalid or expired OTP" });
-    }
-    if (admin.resetToken !== otp) return res.status(400).json({ message: "Invalid OTP" });
-    if (new Date() > new Date(admin.resetTokenExpiry)) {
-      return res.status(400).json({ message: "OTP has expired. Please request a new one." });
-    }
-    const hashedPassword = await hashPassword(newPassword);
-    await storage.updateAdmin(admin.id, { password: hashedPassword });
-    await storage.clearAdminResetToken(admin.id);
-    res.json({ success: true });
-  } catch (error: any) {
-    console.error("Reset password error:", error);
-    res.status(500).json({ message: "Failed to reset password" });
-  }
-});
+// Admin login/reset/session/logout are implemented by registerAdminSecurity above.
 
 app.get("/api/admins", async (req, res) => {
   const allAdmins = await storage.getAllAdmins();
@@ -1484,13 +1384,17 @@ app.patch("/api/products/:id", async (req, res) => {
       res.status(404).json({ message: "Product not found" });
     }
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.status === 409 ? 409 : 400).json({ message: error.message });
   }
 });
 
 app.delete("/api/products/:id", async (req, res) => {
-  await storage.deleteProduct(req.params.id);
-  res.json({ success: true });
+  try {
+    await storage.deleteProduct(req.params.id);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(error.status === 409 ? 409 : 400).json({ message: error.message });
+  }
 });
 
 app.patch("/api/products/:id/stock", async (req, res) => {
@@ -1499,14 +1403,14 @@ app.patch("/api/products/:id/stock", async (req, res) => {
     if (typeof stock !== "number" || stock < 0) {
       return res.status(400).json({ message: "Invalid stock value" });
     }
-    const product = await storage.updateProductStock(req.params.id, stock);
+    const product = await storage.updateProductStock(req.params.id, stock, req.body.expectedStock);
     if (product) {
       res.json(product);
     } else {
       res.status(404).json({ message: "Product not found" });
     }
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.status === 409 ? 409 : 400).json({ message: error.message });
   }
 });
 
@@ -1786,44 +1690,12 @@ app.post("/api/orders", async (req, res) => {
     const trkTime = `${String(trkNow.getHours()).padStart(2,'0')}${String(trkNow.getMinutes()).padStart(2,'0')}${String(trkNow.getSeconds()).padStart(2,'0')}`;
     const orderNumber = `ECOM-${trkDate}-${trkTime}-${invoiceSeq}`;
     const trackingNumber = `${trkDate}${trkTime}${invoiceSeq}`;
-    const initialStatus = req.body.status || "pending";
-    const data = insertOrderSchema.parse({ ...req.body, orderNumber, trackingNumber, statusHistory: [{ status: initialStatus, timestamp: new Date().toISOString() }] });
+    // Storage accepts only an explicit allowlist and derives all money/status
+    // from the locked catalog. Preserve shippingSpeed for that calculation.
+    const data = { ...req.body, orderNumber, trackingNumber };
 
-    // Atomically deduct pre-order stock BEFORE creating the order (throws if insufficient)
-    const deductedPreOrders: { productId: string; size: string; color: string; qty: number }[] = [];
-    try {
-      for (const item of items) {
-        if (item.productId && item.isPreOrder) {
-          const size = item.size || 'Standard';
-          const color = item.color || 'Default';
-          await storage.deductPreOrderStock(item.productId, size, color, item.qty);
-          deductedPreOrders.push({ productId: item.productId, size, color, qty: item.qty });
-        }
-      }
-    } catch (deductError) {
-      for (const d of deductedPreOrders) {
-        await storage.restorePreOrderStock(d.productId, d.size, d.color, d.qty).catch(() => {});
-      }
-      throw deductError;
-    }
-
-    let order;
-    try {
-      order = await storage.createOrder(data);
-    } catch (createError) {
-      for (const d of deductedPreOrders) {
-        await storage.restorePreOrderStock(d.productId, d.size, d.color, d.qty).catch(() => {});
-      }
-      throw createError;
-    }
-    
-    for (const item of items) {
-      if (item.productId && !item.isPreOrder) {
-        const size = item.size || 'Standard';
-        const color = item.color || 'Default';
-        await storage.deductStock(item.productId, size, color, item.qty);
-      }
-    }
+    // Inventory reservation and order insertion share one transaction.
+    const order = await storage.createOrder(data);
     
     sendOrderConfirmationEmail(order).catch(err => {
       console.error("Email delivery failed:", err);
@@ -1854,20 +1726,7 @@ app.patch("/api/orders/:id/status", async (req, res) => {
     }
     
     if (order) {
-      if (status === 'cancelled' && previousStatus !== 'cancelled') {
-        const items = order.items as { productId?: string; name: string; qty: number; size?: string; color?: string; isPreOrder?: boolean }[];
-        for (const item of items) {
-          if (item.productId) {
-            const size = item.size || 'Standard';
-            const color = item.color || 'Default';
-            if (item.isPreOrder) {
-              await storage.restorePreOrderStock(item.productId, size, color, item.qty);
-            } else {
-              await storage.restoreStock(item.productId, size, color, item.qty);
-            }
-          }
-        }
-      }
+      // Cancellation restoration already committed atomically with status.
       
       // Send status update email if status changed
       if (previousStatus !== status) {
@@ -2231,9 +2090,7 @@ app.post("/api/pos/transactions/:id/convert-to-order", async (req, res) => {
       deliveryStatus: tx.deliveryStatus || undefined,
       statusHistory: [{ status: "confirmed", timestamp: new Date().toISOString() }],
       notes: tx.notes || undefined,
-    } as any);
-
-    await storage.markPosTransactionConverted(tx.id, order.id);
+    } as any, tx.id);
 
     res.json({ order, transaction: { ...tx, convertedToOrderId: order.id } });
   } catch (error: any) {
@@ -2342,16 +2199,7 @@ app.post("/api/pos/transactions", async (req, res) => {
     };
     const transaction = await storage.createPosTransaction(data);
 
-    // Deduct stock for each item
-    for (const item of items) {
-      const product = await storage.getProduct(item.productId);
-      if (!product) continue;
-
-      const size = item.size || (product.variants && product.variants.length > 0 ? product.variants[0].size : 'Standard');
-      const color = item.color || (product.colors && product.colors.length > 0 ? product.colors[0] : 'Default');
-      
-      await storage.deductStock(item.productId, size, color, item.qty);
-    }
+    // POS insertion and inventory reservation are atomic.
 
     res.json(transaction);
   } catch (error: any) {

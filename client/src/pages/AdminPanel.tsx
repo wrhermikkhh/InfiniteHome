@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { RedotPayAdmin } from "@/components/RedotPayAdmin";
+import { InventoryReconciliation } from "@/components/InventoryReconciliation";
 import { useAdminAuth, AdminPermissions, DEFAULT_PERMISSIONS } from "@/lib/auth";
+import { allowedAdminTabs, resolveAdminTab, type AdminTab } from "@/lib/admin-navigation";
 import { useUpload } from "@/hooks/use-upload";
 import { useLocation } from "wouter";
 import { api, Coupon, Order, Admin, Category } from "@/lib/api";
@@ -305,16 +308,35 @@ function ColorVariantRow({
 
 export default function AdminPanel() {
   const { admin: user, adminLogin: login, adminLogout: logout, isAdminAuthenticated } = useAdminAuth();
+  useEffect(() => {
+    // Never hydrate admin privileges from localStorage.
+    localStorage.removeItem("admin-auth-storage");
+    void useAdminAuth.getState().refreshAdmin();
+  }, []);
   const { toast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState(() => window.location.hash.replace('#', '') || "Products");
+  const [requestedTab, setRequestedTab] = useState(() => {
+    try { return decodeURIComponent(window.location.hash.replace('#', '')) || "Products"; }
+    catch { return "Products"; }
+  });
+  const permittedTabs = allowedAdminTabs(isAdminAuthenticated ? user : null);
+  // Every content branch uses this derived value, preventing a forbidden-tab
+  // frame on login, rehydration, identity changes or permission downgrades.
+  const activeTab = resolveAdminTab(requestedTab, permittedTabs);
+  const permissionKey = permittedTabs.join("|");
+  useEffect(() => {
+    if (!activeTab) return;
+    setRequestedTab(activeTab);
+    window.location.hash = activeTab;
+  }, [activeTab, user?.id, permissionKey]);
 
   const switchTab = (tab: string) => {
-    setActiveTab(tab);
+    if (!permittedTabs.includes(tab as AdminTab)) return;
+    setRequestedTab(tab);
     window.location.hash = tab;
   };
   const [isLoading, setIsLoading] = useState(false);
@@ -344,6 +366,7 @@ export default function AdminPanel() {
   const [posNoteText, setPosNoteText] = useState("");
   const [savingPosNote, setSavingPosNote] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [inventoryFormSnapshot, setInventoryFormSnapshot] = useState<any>(null);
   const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
   
   const [newCouponCode, setNewCouponCode] = useState("");
@@ -461,7 +484,7 @@ export default function AdminPanel() {
     if (isAdminAuthenticated) {
       loadData();
     }
-  }, [isAdminAuthenticated]);
+  }, [isAdminAuthenticated, user?.id, permissionKey]);
 
   useEffect(() => {
     if (selectedOrder) setOrderNoteText((selectedOrder as any).adminNote || "");
@@ -475,13 +498,15 @@ export default function AdminPanel() {
 
   const loadData = async () => {
     try {
+      const allowed = (permission: keyof AdminPermissions) =>
+        !!user && (user.isSuperAdmin || !user.permissions || user.permissions[permission]);
       const [productsData, ordersData, couponsData, adminsData, categoriesData, posDeliveriesData] = await Promise.all([
         api.getProducts(),
-        api.getOrders(),
-        api.getCoupons(),
-        api.getAdmins(),
+        allowed("canManageOrders") ? api.getOrders() : Promise.resolve([]),
+        allowed("canManageCoupons") ? api.getCoupons() : Promise.resolve([]),
+        user?.isSuperAdmin ? api.getAdmins() : Promise.resolve([]),
         api.getCategories(),
-        api.getPosTransactionsWithLabels(),
+        allowed("canAccessPOS") ? api.getPosTransactionsWithLabels() : Promise.resolve([]),
       ]);
       setProducts(productsData);
       setOrders(ordersData);
@@ -1081,7 +1106,7 @@ export default function AdminPanel() {
   const handleForgotResetPassword = async () => {
     setForgotError("");
     if (!forgotOtp || forgotOtp.length !== 6) { setForgotError("Enter the 6-digit code from your email"); return; }
-    if (!forgotNewPassword || forgotNewPassword.length < 6) { setForgotError("New password must be at least 6 characters"); return; }
+    if (!forgotNewPassword || forgotNewPassword.length < 8) { setForgotError("New password must be at least 8 characters"); return; }
     if (forgotNewPassword !== forgotConfirmPassword) { setForgotError("Passwords do not match"); return; }
     setForgotLoading(true);
     try {
@@ -1328,15 +1353,15 @@ export default function AdminPanel() {
       preOrderPrice: productForm.isPreOrder && productForm.preOrderPrice ? Number(productForm.preOrderPrice) : null,
       preOrderInitialPayment: productForm.isPreOrder && productForm.preOrderInitialPayment ? Number(productForm.preOrderInitialPayment) : null,
       preOrderEta: productForm.isPreOrder ? productForm.preOrderEta : null,
-      preOrderStock: productForm.isPreOrder && productForm.preOrderStock !== "" ? parseInt(productForm.preOrderStock) || 0 : null,
+      preOrderStock: productForm.preOrderStock !== "" ? parseInt(productForm.preOrderStock) || 0 : null,
       preOrderDeadline: productForm.isPreOrder && productForm.preOrderDeadline ? productForm.preOrderDeadline : null,
-      preOrderVariantStock: productForm.isPreOrder ? (() => {
+      preOrderVariantStock: (() => {
         const out: { [key: string]: number } = {};
         Object.entries(productForm.preOrderVariantStock).forEach(([key, val]) => {
           if (val !== "") out[key] = parseInt(val) || 0;
         });
         return out;
-      })() : {},
+      })(),
       productDetails: productForm.productDetails || null,
       materialsAndCare: productForm.materialsAndCare || null,
       maxOrderQty: productForm.maxOrderQty ? Number(productForm.maxOrderQty) : null
@@ -1344,7 +1369,27 @@ export default function AdminPanel() {
 
     try {
       if (editingProduct) {
-        await api.updateProduct(editingProduct.id, formattedProduct);
+        const patch: any = { ...formattedProduct };
+        delete patch.stock; // This form has no scalar-stock control.
+        if (inventoryFormSnapshot) {
+          // Formatting adds default variants to old scalar products. Do not
+          // mistake that presentation normalization for an inventory command.
+          const same = (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b);
+          const sameStructure = same(productForm.variants.map(v => v.size), inventoryFormSnapshot.sizes)
+            && same(productForm.colorVariants.map(v => v.name), inventoryFormSnapshot.colors);
+          if (sameStructure && same(productForm.variantStock, inventoryFormSnapshot.variantStock)) delete patch.variantStock;
+          if (same(productForm.preOrderVariantStock, inventoryFormSnapshot.preOrderVariantStock)) delete patch.preOrderVariantStock;
+          if (productForm.preOrderStock === inventoryFormSnapshot.preOrderStock) delete patch.preOrderStock;
+        }
+        await api.updateProduct(editingProduct.id, {
+          ...patch,
+          expectedInventory: {
+            stock: editingProduct.stock,
+            variantStock: editingProduct.variantStock || {},
+            preOrderStock: editingProduct.preOrderStock ?? null,
+            preOrderVariantStock: editingProduct.preOrderVariantStock || {},
+          },
+        } as any);
         toast({ title: "Product updated", description: "Changes saved successfully" });
       } else {
         await api.createProduct(formattedProduct);
@@ -1356,7 +1401,7 @@ export default function AdminPanel() {
       resetProductForm();
     } catch (error) {
       console.error("Failed to save product:", error);
-      toast({ title: "Error", description: "Failed to save product", variant: "destructive" });
+      toast({ title: "Product not saved", description: error instanceof Error ? error.message : "Failed to save product", variant: "destructive" });
     }
   };
 
@@ -1400,7 +1445,7 @@ export default function AdminPanel() {
     Object.entries(existingVariantStock).forEach(([key, val]) => {
       variantStockStrings[key] = String(val);
     });
-    setProductForm({
+    const form = {
       name: product.name,
       price: product.price.toString(),
       salePrice: ((product as any).salePrice || "").toString(),
@@ -1445,7 +1490,12 @@ export default function AdminPanel() {
       productDetails: (product as any).productDetails || "",
       materialsAndCare: (product as any).materialsAndCare || "",
       maxOrderQty: ((product as any).maxOrderQty || "").toString()
-    });
+    };
+    setProductForm(form);
+    setInventoryFormSnapshot(structuredClone({
+      variantStock: form.variantStock, preOrderVariantStock: form.preOrderVariantStock,
+      preOrderStock: form.preOrderStock, sizes: form.variants.map(v => v.size), colors: form.colorVariants.map(v => v.name),
+    }));
     setShowNewCategoryInput(false);
     setNewCategoryName("");
     setIsProductDialogOpen(true);
@@ -1458,7 +1508,7 @@ export default function AdminPanel() {
       toast({ title: "Product deleted", description: "Product removed successfully" });
     } catch (error) {
       console.error("Failed to delete product:", error);
-      toast({ title: "Error", description: "Failed to delete product", variant: "destructive" });
+      toast({ title: "Product not deleted", description: error instanceof Error ? error.message : "Failed to delete product", variant: "destructive" });
     }
   };
 
@@ -1470,7 +1520,7 @@ export default function AdminPanel() {
       toast({ title: "Order updated", description: `Status changed to ${newStatus.replace(/_/g, ' ')}` });
     } catch (error) {
       console.error("Failed to update order status:", error);
-      toast({ title: "Error", description: "Failed to update order status", variant: "destructive" });
+      toast({ title: "Order not updated", description: error instanceof Error ? error.message : "Failed to update order status", variant: "destructive" });
     }
   };
 
@@ -1527,7 +1577,7 @@ export default function AdminPanel() {
         name: newAdminName,
         email: newAdminEmail,
         password: newAdminPassword,
-        permissions: newAdminPermissions,
+        permissions: { ...newAdminPermissions },
       });
       await loadData();
       setNewAdminEmail("");
@@ -1562,8 +1612,8 @@ export default function AdminPanel() {
 
   const handleChangeAdminPassword = async (adminId: string) => {
     const pw = adminPasswordInputs[adminId];
-    if (!pw || pw.length < 6) {
-      toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
+    if (!pw || pw.length < 8) {
+      toast({ title: "Error", description: "Password must be at least 8 characters", variant: "destructive" });
       return;
     }
     setSavingPassword(p => ({ ...p, [adminId]: true }));
@@ -1594,18 +1644,17 @@ export default function AdminPanel() {
   };
 
   const isSuperAdmin = user?.isSuperAdmin === true;
-  const perms = user?.permissions ?? DEFAULT_PERMISSIONS;
 
   const menuItems = [
     { icon: LayoutDashboard, label: "Overview" },
-    ...(isSuperAdmin || perms.canManageProducts ? [{ icon: ShoppingBag, label: "Products" }] : []),
-    ...(isSuperAdmin || perms.canManageStock ? [{ icon: Warehouse, label: "Inventory" }] : []),
-    ...(isSuperAdmin || perms.canAccessPOS ? [{ icon: CreditCard, label: "POS" }] : []),
-    ...(isSuperAdmin || perms.canManageOrders ? [{ icon: Package, label: "Orders" }] : []),
-    ...(isSuperAdmin || perms.canManageOrders ? [{ icon: Receipt, label: "Transactions" }] : []),
-    ...(isSuperAdmin || perms.canManageCoupons ? [{ icon: Tag, label: "Coupons" }] : []),
-    ...(isSuperAdmin ? [{ icon: Settings, label: "Admin Management" }] : []),
-  ];
+    { icon: ShoppingBag, label: "Products" },
+    { icon: Warehouse, label: "Inventory" },
+    { icon: CreditCard, label: "POS" },
+    { icon: Package, label: "Orders" },
+    { icon: Receipt, label: "Transactions" },
+    { icon: Tag, label: "Coupons" },
+    { icon: Settings, label: "Admin Management" },
+  ].filter(item => permittedTabs.includes(item.label as AdminTab));
 
   // Dashboard Analytics Calculations - must be before conditional returns
   const analytics = useMemo(() => {
@@ -1763,7 +1812,7 @@ export default function AdminPanel() {
                   />
                   <Input
                     type="password"
-                    placeholder="New password (min 6 characters)"
+                    placeholder="New password (min 8 characters)"
                     value={forgotNewPassword}
                     onChange={(e) => setForgotNewPassword(e.target.value)}
                     className="rounded-none h-12"
@@ -2909,6 +2958,7 @@ export default function AdminPanel() {
                 <h1 className="text-3xl font-serif">Inventory Management</h1>
                 <p className="text-muted-foreground">Manage product visibility and stock levels</p>
               </div>
+              <InventoryReconciliation />
 
               {/* Inventory Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -3074,7 +3124,7 @@ export default function AdminPanel() {
                                           await loadData();
                                           toast({ title: "Product deleted", description: "Product has been removed successfully" });
                                         } catch (error) {
-                                          toast({ title: "Error", description: "Failed to delete product", variant: "destructive" });
+                                          toast({ title: "Product not deleted", description: error instanceof Error ? error.message : "Failed to delete product", variant: "destructive" });
                                         }
                                       }
                                     }}
@@ -3544,6 +3594,7 @@ export default function AdminPanel() {
                 <h1 className="text-3xl font-serif">Orders</h1>
                 <p className="text-muted-foreground">Manage and track customer orders</p>
               </div>
+              <RedotPayAdmin />
 
               {/* Order Filter */}
               <div className="flex gap-2 mb-6">
@@ -4410,7 +4461,7 @@ export default function AdminPanel() {
       </div>
 
       {/* POS Variant Selection Modal */}
-      <Dialog open={showPosVariantModal} onOpenChange={setShowPosVariantModal}>
+      <Dialog open={permittedTabs.includes("POS") && showPosVariantModal} onOpenChange={setShowPosVariantModal}>
         <DialogContent className="max-w-md rounded-none">
           <DialogHeader>
             <DialogTitle className="font-serif text-xl">Select Variant</DialogTitle>
@@ -4564,7 +4615,7 @@ export default function AdminPanel() {
       </Dialog>
 
       {/* POS Shipping Label Modal */}
-      <Dialog open={showPosLabelModal} onOpenChange={setShowPosLabelModal}>
+      <Dialog open={permittedTabs.includes("POS") && showPosLabelModal} onOpenChange={setShowPosLabelModal}>
         <DialogContent className="max-w-md rounded-none">
           <DialogHeader>
             <DialogTitle className="font-serif text-xl">Shipping Label Details</DialogTitle>
@@ -4651,7 +4702,7 @@ export default function AdminPanel() {
       </Dialog>
 
       {/* Invoice Modal */}
-      <Dialog open={showInvoiceModal} onOpenChange={setShowInvoiceModal}>
+      <Dialog open={permittedTabs.includes("POS") && showInvoiceModal} onOpenChange={setShowInvoiceModal}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-none p-0">
           <DialogHeader className="sr-only">
             <DialogTitle>Invoice</DialogTitle>

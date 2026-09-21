@@ -18,10 +18,41 @@ CREATE TABLE IF NOT EXISTS public.redotpay_payments (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 -- Direct browser Supabase clients must never access payment capabilities/state.
+-- Existing payments were all quoted at 15.42; backfill before enforcing immutability.
+ALTER TABLE public.redotpay_payments ADD COLUMN IF NOT EXISTS rate numeric(10,4) NOT NULL DEFAULT 15.42;
+ALTER TABLE public.redotpay_payments ADD COLUMN IF NOT EXISTS owner_hash text;
+ALTER TABLE public.redotpay_payments ADD COLUMN IF NOT EXISTS recovery_after timestamptz NOT NULL DEFAULT now();
+CREATE INDEX IF NOT EXISTS redotpay_recovery_due ON public.redotpay_payments(recovery_after) WHERE state NOT IN ('paid','closed');
+CREATE TABLE IF NOT EXISTS public.redotpay_limits (
+  key text PRIMARY KEY, hits integer NOT NULL, reset_at timestamptz NOT NULL
+);
+CREATE TABLE IF NOT EXISTS public.request_browser_identities (
+  token_hash text PRIMARY KEY, expires_at timestamptz NOT NULL
+);
+ALTER TABLE public.request_browser_identities ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.request_browser_identities FROM PUBLIC;
+CREATE TABLE IF NOT EXISTS public.redotpay_audit (
+  id bigserial PRIMARY KEY, payment_id text REFERENCES public.redotpay_payments(id),
+  actor text NOT NULL, action text NOT NULL, outcome text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE SEQUENCE IF NOT EXISTS public.invoice_seq START 1000 INCREMENT 1;
+ALTER TABLE public.redotpay_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.redotpay_audit ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.redotpay_limits, public.redotpay_audit FROM PUBLIC;
 ALTER TABLE public.redotpay_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.redotpay_schema ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.redotpay_payments FROM anon, authenticated;
-REVOKE ALL ON public.redotpay_schema FROM anon, authenticated;
+REVOKE ALL ON public.redotpay_payments, public.redotpay_schema FROM PUBLIC;
+DO $$
+DECLARE browser_role text;
+BEGIN
+  FOREACH browser_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = browser_role) THEN
+      EXECUTE format('REVOKE ALL ON public.request_browser_identities, public.redotpay_limits, public.redotpay_audit, public.redotpay_payments, public.redotpay_schema FROM %I', browser_role);
+    END IF;
+  END LOOP;
+END
+$$;
 CREATE OR REPLACE FUNCTION public.redotpay_immutable_expectations()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -31,6 +62,9 @@ BEGIN
     OR NEW.expires_at IS DISTINCT FROM OLD.expires_at THEN
     RAISE EXCEPTION 'RedotPay payment expectations are immutable';
   END IF;
+  IF NEW.rate IS DISTINCT FROM OLD.rate OR NEW.owner_hash IS DISTINCT FROM OLD.owner_hash THEN
+    RAISE EXCEPTION 'RedotPay rate and reservation owner are immutable';
+  END IF;
   RETURN NEW;
 END;
 $$;
@@ -38,4 +72,6 @@ DROP TRIGGER IF EXISTS redotpay_immutable_expectations ON public.redotpay_paymen
 CREATE TRIGGER redotpay_immutable_expectations BEFORE UPDATE ON public.redotpay_payments
   FOR EACH ROW EXECUTE FUNCTION public.redotpay_immutable_expectations();
 INSERT INTO public.redotpay_schema(version) VALUES (1) ON CONFLICT DO NOTHING;
+INSERT INTO public.redotpay_schema(version) VALUES (2) ON CONFLICT DO NOTHING;
+INSERT INTO public.redotpay_schema(version) VALUES (3) ON CONFLICT DO NOTHING;
 COMMIT;

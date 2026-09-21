@@ -55,13 +55,14 @@ Since Vercel is serverless, you need an external PostgreSQL database. Recommende
 
 ## Step 4: Run Database Migrations
 
-After deployment, you need to push the database schema:
+For the RedotPay/auth/inventory safety release, follow `REDOTPAY_SETUP.md` and
+apply its reviewed additive SQL migrations in Supabase **before deploying the
+new code**. The session and inventory tables are required even with RedotPay
+disabled. Take the normal database backup first.
 
-```bash
-npx drizzle-kit push
-```
-
-Make sure your local DATABASE_URL points to the production database when running this command.
+Do not blindly run `drizzle-kit push` against production: this project also
+maintains protected raw-SQL tables that are not all represented in the Drizzle
+schema. Review any proposed schema diff rather than accepting table deletions.
 
 ## Environment Variables Required
 

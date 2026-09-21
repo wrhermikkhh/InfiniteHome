@@ -416,11 +416,13 @@ export async function sendPosLabelEmail(transaction: any) {
   }
 }
 
-export async function sendAdminPasswordResetEmail(adminEmail: string, adminName: string, otp: string) {
+export async function sendAdminPasswordResetEmail(adminEmail: string, adminName: string, otp: string, purpose?: "customer-verification") {
   try {
     const { apiKey, fromEmail } = await getCredentials();
     const resend = new Resend(apiKey);
-    const html = `
+    const html = purpose === "customer-verification"
+      ? `<h1>Verify your INFINITE HOME email</h1><p>Enter this code in your signed-in account to view orders associated with this email address:</p><p style="font-size:32px;letter-spacing:6px">${otp}</p><p>This code expires in 15 minutes. Never share it with anyone. If you did not request email verification, ignore this message. This code does not reset a password.</p>`
+      : `
       <!DOCTYPE html>
       <html>
       <body style="margin: 0; padding: 0; background-color: #fcfaf7; font-family: 'Helvetica Neue', Arial, sans-serif;">
@@ -449,7 +451,7 @@ export async function sendAdminPasswordResetEmail(adminEmail: string, adminName:
     const { data, error } = await resend.emails.send({
       from: `INFINITE HOME <${fromEmail}>`,
       to: adminEmail,
-      subject: `Your Admin Password Reset Code — ${otp}`,
+      subject: purpose === "customer-verification" ? "Verify your INFINITE HOME email" : `Your Admin Password Reset Code — ${otp}`,
       html,
     });
     if (error) {

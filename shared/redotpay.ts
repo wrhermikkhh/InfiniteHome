@@ -2,6 +2,17 @@
 import { createPrivateKey, sign, verify } from "node:crypto";
 
 export const REDOTPAY_RATE = 15.42;
+// Official v2 Getting Started environment table and signature guide (key v1).
+// Never accept a key or API host supplied by a checkout request.
+export const SANDBOX_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuctrVK3eP8hpoJf7FMet
+lcR77FYcj9HtrkySyGDRt5HHwdwgM8jK0kfE4ag/zI8goe8M0iJ2o7n3VCfTzn8O
+yfU0bu6KzDti1WOJV9fv4XtSmhm9W4WKjIc8uDQViR7E8trzcrbKFVbKVGng1+z0
+KobQBDtWhjUeXKktUq1lpiejTS+XjXej26ANPfwbqbY+/6kBB3sWbt9BLDI/WhPY
+XnFV9oJWod9I/dYUgUUA/b/+bI1wlobNntBDxiNmX0kbqpGZbzO6l9wWFXZiFCD2
+5QtBOZlMbn9noH4KW3DnKGc2nKNz/f2FEM9DJKn3P7NGFVy6O/Q5NzcbFs+DI6nT
+ywIDAQAB
+-----END PUBLIC KEY-----`;
 export const PRODUCTION_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzMn4r06M/cp2amkbCxIs
 PSr030JoCFeymwjTZrBnI8kW4mtL6JtUPYpJTFgCB8ZQoV75lEmUw8gSLbN770Cc
@@ -34,7 +45,7 @@ export function publicOrigin(value: string | undefined): string {
 export function config(env: NodeJS.ProcessEnv = process.env) {
   if (env.REDOTPAY_ENABLED !== "true") throw new Error("RedotPay is disabled pending deployment and security review");
   const origin = publicOrigin(env.REDOTPAY_PUBLIC_ORIGIN);
-  if (env.REDOTPAY_ENVIRONMENT !== "production") throw new Error("RedotPay production environment is required");
+  if (!["production", "sandbox"].includes(env.REDOTPAY_ENVIRONMENT || "")) throw new Error("RedotPay environment must be production or sandbox");
   if (Number(env.REDOTPAY_MVR_PER_USD) !== REDOTPAY_RATE) throw new Error(`RedotPay exchange rate must be ${REDOTPAY_RATE} MVR per USD`);
   if (!env.REDOTPAY_APP_KEY || !env.REDOTPAY_PRIVATE_KEY || !/^[1-9]\d*$/.test(env.REDOTPAY_KEY_VERSION || "")) {
     throw new Error("RedotPay merchant credentials or key version are missing");
@@ -42,7 +53,9 @@ export function config(env: NodeJS.ProcessEnv = process.env) {
   try {
     const key = createPrivateKey(env.REDOTPAY_PRIVATE_KEY.replace(/\\n/g, "\n"));
     if (key.asymmetricKeyType !== "rsa" || (key.asymmetricKeyDetails?.modulusLength || 0) < 2048) throw new Error();
-    return { origin, key, appKey: env.REDOTPAY_APP_KEY, version: env.REDOTPAY_KEY_VERSION! };
+    return { origin, key, appKey: env.REDOTPAY_APP_KEY, version: env.REDOTPAY_KEY_VERSION!,
+      apiOrigin: env.REDOTPAY_ENVIRONMENT === "sandbox" ? "https://acquirersandbox.rp-2023app.com" : "https://acquirer.redotpay.com",
+      publicKey: env.REDOTPAY_ENVIRONMENT === "sandbox" ? SANDBOX_PUBLIC_KEY : PRODUCTION_PUBLIC_KEY };
   } catch {
     throw new Error("RedotPay signing key is invalid; RSA 2048-bit or stronger is required");
   }
@@ -58,12 +71,15 @@ export function verifyWebhook(raw: Buffer, timestamp: string, signature: string,
   } catch { return false; }
 }
 
-export async function providerRequest(path: "/openapi/v2/order/create" | "/openapi/v2/order/detail" | "/openapi/v2/order/close", payload: unknown, fetcher: typeof fetch = fetch, settings = config()) {
+export async function providerRequest(path: "/openapi/v2/order/create" | "/openapi/v2/order/detail" | "/openapi/v2/order/close", payload: unknown, fetcher: typeof fetch = fetch, settings: { origin: string; key: ReturnType<typeof createPrivateKey>; appKey: string; version: string; apiOrigin?: string } = config()) {
   const body = JSON.stringify(payload);
   const timestamp = String(Date.now());
   const signature = sign("RSA-SHA256", Buffer.from(`POST ${path}\n${settings.appKey}.${timestamp}.${body}`), settings.key).toString("base64");
-  const response = await fetcher(`https://acquirer.redotpay.com${path}`, {
-    method: "POST", redirect: "error", signal: AbortSignal.timeout(12000),
+  const apiOrigin = settings.apiOrigin || "https://acquirer.redotpay.com";
+  if (!["https://acquirer.redotpay.com", "https://acquirersandbox.rp-2023app.com"].includes(apiOrigin)) throw new Error("Invalid RedotPay API origin");
+  const response = await fetcher(`${apiOrigin}${path}`, {
+    // Recovery may perform detail → close → detail within a bounded invocation.
+    method: "POST", redirect: "error", signal: AbortSignal.timeout(8000),
     headers: { "Content-Type": "application/json", "X-R-AK": settings.appKey,
       "X-R-Ts": timestamp, "X-R-Key-Version": settings.version, "X-R-Signature": signature },
     body,

@@ -232,6 +232,7 @@ export default function Checkout() {
         customerPhone: formData.customerPhone,
         shippingAddress: formData.shippingAddress,
         deliveryType: deliveryLocation,
+        shippingSpeed: deliveryType,
         items: inStockItems.map(item => {
           const stock = getItemLiveStock(item);
           const cappedQty = stock === Infinity ? item.quantity : Math.min(item.quantity, stock);

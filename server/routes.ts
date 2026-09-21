@@ -8,12 +8,16 @@ import { hashPassword, comparePasswords } from "./auth";
 import { db } from "./db";
 import { orders } from "@shared/schema";
 import { registerRedotPay } from "../shared/redotpay-routes";
+import { registerInventoryAdmin } from "../shared/inventory-routes";
+import { registerAdminSecurity } from "../shared/admin-security";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  registerAdminSecurity(app, () => db, sendAdminPasswordResetEmail);
   registerRedotPay(app, () => db, orders);
+  registerInventoryAdmin(app, () => db);
   
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);
@@ -113,61 +117,7 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  // ============ ADMIN AUTH ============
-  app.post("/api/admin/login", async (req, res) => {
-    const { email, password } = req.body;
-    const admin = await storage.getAdminByEmail(email);
-    if (admin && await comparePasswords(password, admin.password)) {
-      res.json({ success: true, admin: { id: admin.id, name: admin.name, email: admin.email, isSuperAdmin: admin.isSuperAdmin, permissions: admin.permissions } });
-    } else {
-      res.status(401).json({ success: false, message: "Invalid credentials" });
-    }
-  });
-
-  // Forgot password — sends OTP to admin email
-  app.post("/api/admin/forgot-password", async (req, res) => {
-    try {
-      const { email } = req.body;
-      if (!email) return res.status(400).json({ message: "Email is required" });
-      const admin = await storage.getAdminByEmail(email);
-      // Always respond success to avoid email enumeration
-      if (!admin) return res.json({ success: true });
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-      await storage.setAdminResetToken(email, otp, expiry);
-      await sendAdminPasswordResetEmail(admin.email, admin.name, otp);
-      res.json({ success: true });
-    } catch (error: any) {
-      console.error("Forgot password error:", error);
-      res.status(500).json({ message: "Failed to send reset email" });
-    }
-  });
-
-  // Reset password — validates OTP and sets new password
-  app.post("/api/admin/reset-password", async (req, res) => {
-    try {
-      const { email, otp, newPassword } = req.body;
-      if (!email || !otp || !newPassword) return res.status(400).json({ message: "Email, OTP, and new password are required" });
-      if (newPassword.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
-      const admin = await storage.getAdminByEmail(email);
-      if (!admin || !admin.resetToken || !admin.resetTokenExpiry) {
-        return res.status(400).json({ message: "Invalid or expired OTP" });
-      }
-      if (admin.resetToken !== otp) {
-        return res.status(400).json({ message: "Invalid OTP" });
-      }
-      if (new Date() > new Date(admin.resetTokenExpiry)) {
-        return res.status(400).json({ message: "OTP has expired. Please request a new one." });
-      }
-      const hashedPassword = await hashPassword(newPassword);
-      await storage.updateAdmin(admin.id, { password: hashedPassword });
-      await storage.clearAdminResetToken(admin.id);
-      res.json({ success: true });
-    } catch (error: any) {
-      console.error("Reset password error:", error);
-      res.status(500).json({ message: "Failed to reset password" });
-    }
-  });
+  // Admin login/reset/session/logout are implemented by registerAdminSecurity above.
 
   app.get("/api/admins", async (req, res) => {
     const admins = await storage.getAllAdmins();
@@ -304,13 +254,17 @@ export async function registerRoutes(
         res.status(404).json({ message: "Product not found" });
       }
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      res.status(error.status === 409 ? 409 : 400).json({ message: error.message });
     }
   });
 
   app.delete("/api/products/:id", async (req, res) => {
-    await storage.deleteProduct(req.params.id);
-    res.json({ success: true });
+    try {
+      await storage.deleteProduct(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(error.status === 409 ? 409 : 400).json({ message: error.message });
+    }
   });
 
   app.patch("/api/products/:id/stock", async (req, res) => {
@@ -319,14 +273,14 @@ export async function registerRoutes(
       if (typeof stock !== "number" || stock < 0) {
         return res.status(400).json({ message: "Invalid stock value" });
       }
-      const product = await storage.updateProductStock(req.params.id, stock);
+      const product = await storage.updateProductStock(req.params.id, stock, req.body.expectedStock);
       if (product) {
         res.json(product);
       } else {
         res.status(404).json({ message: "Product not found" });
       }
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      res.status(error.status === 409 ? 409 : 400).json({ message: error.message });
     }
   });
 
@@ -613,49 +567,12 @@ export async function registerRoutes(
       const timeStr = `${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
       const orderNumber = `ECOM-${dateStr}-${timeStr}-${invoiceSeq}`;
       const trackingNumber = `${dateStr}${timeStr}${invoiceSeq}`;
-      // Record initial status with timestamp in statusHistory
-      const initialStatus = req.body.status || "pending";
-      const data = insertOrderSchema.parse({ ...req.body, orderNumber, trackingNumber, statusHistory: [{ status: initialStatus, timestamp: new Date().toISOString() }] });
+      // Storage accepts only an explicit allowlist and derives all money/status
+      // from the locked catalog. Preserve shippingSpeed for that calculation.
+      const data = { ...req.body, orderNumber, trackingNumber };
 
-      // Atomically deduct pre-order stock BEFORE creating the order (throws if insufficient)
-      const deductedPreOrders: { productId: string; size: string; color: string; qty: number }[] = [];
-      try {
-        for (const item of items) {
-          if (item.productId && item.isPreOrder) {
-            const size = item.size || 'Standard';
-            const color = item.color || 'Default';
-            await storage.deductPreOrderStock(item.productId, size, color, item.qty);
-            deductedPreOrders.push({ productId: item.productId, size, color, qty: item.qty });
-            console.log(`Pre-order stock deducted: ${item.name} (${size}/${color}) x${item.qty}`);
-          }
-        }
-      } catch (deductError) {
-        for (const d of deductedPreOrders) {
-          await storage.restorePreOrderStock(d.productId, d.size, d.color, d.qty).catch(() => {});
-        }
-        throw deductError;
-      }
-
-      let order;
-      try {
-        order = await storage.createOrder(data);
-      } catch (createError) {
-        for (const d of deductedPreOrders) {
-          await storage.restorePreOrderStock(d.productId, d.size, d.color, d.qty).catch(() => {});
-        }
-        throw createError;
-      }
-      console.log("Order created:", order.id, "Order Number:", order.orderNumber);
-      
-      // Deduct regular stock for each non-pre-order item
-      for (const item of items) {
-        if (item.productId && !item.isPreOrder) {
-          const size = item.size || 'Standard';
-          const color = item.color || 'Default';
-          await storage.deductStock(item.productId, size, color, item.qty);
-          console.log(`Stock deducted: ${item.name} (${size}/${color}) x${item.qty}`);
-        }
-      }
+      // Inventory reservation and order insertion share one transaction.
+      const order = await storage.createOrder(data);
       
       // Send confirmation email asynchronously
       sendOrderConfirmationEmail(order).catch(err => {
@@ -689,23 +606,7 @@ export async function registerRoutes(
       }
 
       if (order) {
-        // Restore stock if order is being cancelled (and wasn't cancelled before)
-        if (status === 'cancelled' && previousStatus !== 'cancelled') {
-          const items = order.items as { productId?: string; name: string; qty: number; size?: string; color?: string; isPreOrder?: boolean }[];
-          for (const item of items) {
-            if (item.productId) {
-              const size = item.size || 'Standard';
-              const color = item.color || 'Default';
-              if (item.isPreOrder) {
-                await storage.restorePreOrderStock(item.productId, size, color, item.qty);
-                console.log(`Pre-order stock restored: ${item.name} (${size}/${color}) x${item.qty}`);
-              } else {
-                await storage.restoreStock(item.productId, size, color, item.qty);
-                console.log(`Stock restored: ${item.name} (${size}/${color}) x${item.qty}`);
-              }
-            }
-          }
-        }
+        // Cancellation restoration already committed atomically with status.
         
         // Send email notification for status change
         if (status !== previousStatus) {
@@ -870,9 +771,7 @@ export async function registerRoutes(
         deliveryStatus: tx.deliveryStatus || undefined,
         statusHistory: [{ status: "confirmed", timestamp: new Date().toISOString() }],
         notes: tx.notes || undefined,
-      } as any);
-
-      await storage.markPosTransactionConverted(tx.id, order.id);
+      } as any, tx.id);
 
       res.json({ order, transaction: { ...tx, convertedToOrderId: order.id } });
     } catch (error: any) {
@@ -981,17 +880,7 @@ export async function registerRoutes(
       };
       const transaction = await storage.createPosTransaction(data as any);
 
-      // Deduct stock for each item
-      for (const item of items) {
-        const product = await storage.getProduct(item.productId);
-        if (!product) continue;
-
-        const size = item.size || (product.variants && product.variants.length > 0 ? product.variants[0].size : 'Standard');
-        const color = item.color || (product.colors && product.colors.length > 0 ? product.colors[0] : 'Default');
-        
-        await storage.deductStock(item.productId, size, color, item.qty);
-        console.log(`POS Stock deducted: ${item.name} (${size}/${color}) x${item.qty}`);
-      }
+      // POS insertion and inventory reservation are atomic.
 
       res.json(transaction);
     } catch (error: any) {

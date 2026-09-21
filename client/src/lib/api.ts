@@ -158,20 +158,28 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(product),
     });
-    return res.json();
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message || "Product update failed");
+    return result;
   },
 
   async deleteProduct(id: string): Promise<void> {
-    await fetch(`${API_BASE}/products/${id}`, { method: "DELETE" });
+    const res = await fetch(`${API_BASE}/products/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const result = await res.json();
+      throw new Error(result.message || "Product deletion failed");
+    }
   },
 
-  async updateProductStock(id: string, stock: number): Promise<Product> {
+  async updateProductStock(id: string, stock: number, expectedStock: number): Promise<Product> {
     const res = await fetch(`${API_BASE}/products/${id}/stock`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stock }),
+      body: JSON.stringify({ stock, expectedStock }),
     });
-    return res.json();
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message || "Stock update failed");
+    return result;
   },
 
   // Coupons
@@ -224,8 +232,10 @@ export const api = {
   },
 
   async getCustomerOrders(email: string): Promise<Order[]> {
-    const res = await fetch(`${API_BASE}/orders/customer/${encodeURIComponent(email)}`);
-    return res.json();
+    const res = await fetch(`${API_BASE}/orders/customer/${encodeURIComponent(email)}`, { credentials: "same-origin", cache: "no-store" });
+    const body = await res.json();
+    if (!res.ok) throw Object.assign(new Error(body.message || "Unable to load order history"), { code: body.code, status: res.status });
+    return body;
   },
 
   async searchProducts(query: string): Promise<Product[]> {
@@ -239,7 +249,9 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(order),
     });
-    return res.json();
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message || "Checkout could not be completed");
+    return result;
   },
 
   async updateOrderStatus(id: string, status: string, location?: string): Promise<Order> {
@@ -248,7 +260,9 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status, ...(location ? { location } : {}) }),
     });
-    return res.json();
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message || "Order status update failed");
+    return result;
   },
 
   async updateOrderDeliveryStatus(id: string, deliveryStatus: string, location?: string): Promise<Order> {
@@ -435,7 +449,9 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    return res.json();
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message || "POS update failed");
+    return result;
   },
 
   async convertPosToOrder(posTransactionId: string): Promise<{ order: any; transaction: PosTransaction }> {
@@ -468,6 +484,7 @@ export interface PosTransaction {
   transactionNumber: string;
   trackingNumber?: string | null;
   labelRecipientName?: string | null;
+  labelRecipientEmail?: string | null;
   labelAddress?: string | null;
   labelPhone?: string | null;
   labelDeliveryType?: string | null;

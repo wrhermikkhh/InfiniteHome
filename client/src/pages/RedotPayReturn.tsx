@@ -29,14 +29,15 @@ export default function RedotPayReturn() {
     <p>Returning from checkout does not confirm payment. Only a verified RedotPay status confirms your order.</p>
     {payment && <section className="border p-6 space-y-4">
       <h2 className="font-semibold text-xl">{payment.state === "paid" ? "Payment confirmed" : payment.state === "closed" ? "Payment cancelled — stock released" : payment.state === "failed" ? "Payment failed — stock still reserved" : "Payment pending — not yet confirmed"}</h2>
-      <p>Order: {payment.id}</p>
+      <p>Order: {payment.trackingNumber || payment.id}</p>
+      <p className="text-sm">Payment reference: {payment.id}</p>
       <p>MVR {Number(payment.total).toFixed(2)} ÷ {payment.rate} = <strong>USD {payment.usdAmount}</strong> (rounded to cents).</p>
       <p className="text-sm text-muted-foreground">{payment.reservationPolicy}</p>
       {payment.checkoutUrl && new Date(payment.expiresAt).getTime() > Date.now() &&
         <Button onClick={() => window.location.assign(payment.checkoutUrl)}>Continue existing payment</Button>}
       {payment.state !== "paid" && payment.state !== "closed" &&
-        <Button variant="outline" disabled={busy} onClick={() => void check("cancel")}>Cancel and release reservation</Button>}
-      <p><Link href={`/track?id=${payment.id}`}>View order tracking</Link></p>
+        <Button variant="outline" disabled={busy} onClick={() => void check("cancel")}>Request verified cancellation</Button>}
+      <p><Link href={`/track?id=${payment.trackingNumber || payment.id}`}>View order tracking</Link></p>
       {(payment.state === "closed" || payment.state === "paid") && <Button variant="outline" onClick={() => {
         localStorage.removeItem(PAYMENT_TOKEN_KEY); window.location.assign(payment.state === "paid" ? "/shop" : "/checkout");
       }}>{payment.state === "paid" ? "Back to shop" : "Retry with a new checkout"}</Button>}
