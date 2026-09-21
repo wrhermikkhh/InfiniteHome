@@ -4,7 +4,15 @@ const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 // This client is used for server-side operations with full access
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+let client: ReturnType<typeof createClient> | undefined;
+export const supabaseAdmin = new Proxy({} as ReturnType<typeof createClient>, {
+  get(_target, property) {
+    if (!supabaseUrl || !supabaseServiceKey) throw new Error("Storage not configured: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required");
+    client ||= createClient(supabaseUrl, supabaseServiceKey);
+    const value = Reflect.get(client, property, client);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
 
 /**
  * Normalizes the Supabase storage path to a standard format used in the app.

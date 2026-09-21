@@ -9,10 +9,10 @@ import {
   posTransactions, type PosTransaction, type InsertPosTransaction
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, ilike, or, sql, desc } from "drizzle-orm";
-import { changeInventory, inventorySale, inventoryOrderStatus, inventoryPosUpdate } from "../shared/inventory";
+import { mutateInventory, recordInventory, restoreInventory, transferInventory } from "../shared/legacy-inventory";
 import { inventoryProductEdit } from "../shared/inventory-admin";
 import { createCatalogOrder } from "../shared/checkout";
+import { eq, ilike, or, sql, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Customers
@@ -65,7 +65,7 @@ export interface IStorage {
   getOrder(id: string): Promise<Order | undefined>;
   getOrderByNumber(orderNumber: string): Promise<Order | undefined>;
   getOrdersByEmail(email: string): Promise<Order[]>;
-  createOrder(order: InsertOrder, sourcePosId?: string): Promise<Order>;
+  createOrder(order: InsertOrder, fromPosId?: string): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
   updateOrderDeliveryStatus(id: string, deliveryStatus: string, location?: string): Promise<Order | undefined>;
   invoiceOrder(id: string, invoiceNumber: string): Promise<Order | undefined>;
@@ -75,10 +75,6 @@ export interface IStorage {
   getOrderByTrackingNumber(trackingNumber: string): Promise<Order | undefined>;
   
   // Stock Management
-  deductStock(productId: string, size: string, color: string, quantity: number): Promise<void>;
-  restoreStock(productId: string, size: string, color: string, quantity: number): Promise<void>;
-  deductPreOrderStock(productId: string, size: string, color: string, quantity: number): Promise<void>;
-  restorePreOrderStock(productId: string, size: string, color: string, quantity: number): Promise<void>;
   balanceInvoiceOrder(id: string, balanceInvoiceNumber: string): Promise<Order | undefined>;
   getNextBalanceInvoiceNumber(): Promise<string>;
   
@@ -95,7 +91,6 @@ export interface IStorage {
   getPosTransactionByTrackingNumber(trackingNumber: string): Promise<PosTransaction | undefined>;
   createPosTransaction(transaction: InsertPosTransaction): Promise<PosTransaction>;
   updatePosTransaction(id: string, data: Partial<InsertPosTransaction>): Promise<PosTransaction | undefined>;
-  markPosTransactionConverted(id: string, orderId: string): Promise<PosTransaction | undefined>;
   getTodayPosTransactions(): Promise<PosTransaction[]>;
 }
 
@@ -235,9 +230,8 @@ export class DatabaseStorage implements IStorage {
 
   async updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined> {
     return inventoryProductEdit(db, id, product, async (tx, data) => {
-      if (!Object.keys(data).length) return (await tx.select().from(products).where(eq(products.id, id)))[0];
       const [updated] = await tx.update(products).set(data).where(eq(products.id, id)).returning();
-      return updated;
+      return updated || undefined;
     });
   }
 
@@ -287,22 +281,37 @@ export class DatabaseStorage implements IStorage {
     return order || undefined;
   }
 
-  async createOrder(order: InsertOrder, sourcePosId?: string): Promise<Order> {
-    if (order.status === "cancelled") throw new Error("Cannot create a cancelled order");
-    if (!sourcePosId) return createCatalogOrder(db, order, async (tx, payload) => {
+  async createOrder(order: InsertOrder, fromPosId?: string): Promise<Order> {
+    if (!fromPosId) return createCatalogOrder(db, order, async (tx, payload) => {
       const [created] = await tx.insert(orders).values(payload).returning();
       return created;
     });
-    return inventorySale(db, order.items as any[], "order", async tx => {
+    return db.transaction(async tx => {
+      if (order.paymentMethod === "redotpay") throw new Error("Use RedotPay checkout");
+      if (order.status === "cancelled") throw new Error("Cannot create a cancelled order");
+      if (fromPosId) {
+        const [pos] = await tx.select().from(posTransactions).where(eq(posTransactions.id, fromPosId)).for("update");
+        if (!pos || pos.status === "cancelled" || pos.convertedToOrderId) throw new Error("POS transaction unavailable or already converted");
+        order = { ...order, items: pos.items as any };
+      }
+      const allocations = fromPosId ? null : await mutateInventory(tx, order.items);
       const [newOrder] = await tx.insert(orders).values(order).returning();
+      if (fromPosId) {
+        await transferInventory(tx, fromPosId, newOrder.id);
+        await tx.update(posTransactions).set({ convertedToOrderId: newOrder.id }).where(eq(posTransactions.id, fromPosId));
+      } else await recordInventory(tx, "order", newOrder.id, allocations!);
       return newOrder;
-    }, sourcePosId);
+    });
   }
 
   async updateOrderStatus(id: string, status: string, location?: string): Promise<Order | undefined> {
-    return inventoryOrderStatus(db, id, status, async tx => {
-    const existing = await tx.select().from(orders).where(eq(orders.id, id));
+    return db.transaction(async tx => {
+    const existing = await tx.select().from(orders).where(eq(orders.id, id)).for("update");
     if (!existing[0]) return undefined;
+    if (existing[0].status === "cancelled" && status !== "cancelled") throw new Error("Cancelled orders cannot be reopened; create a new order");
+    if (existing[0].paymentMethod === "redotpay" && status === "cancelled") throw new Error("Close and reconcile RedotPay payment before cancellation");
+    if (status === "cancelled" && existing[0].status !== "cancelled") await restoreInventory(tx, "order", id);
+    if (existing[0].status === status) return existing[0];
     // Build status history: backfill from createdAt if history is empty (old orders)
     let currentHistory = (existing[0].statusHistory as { status: string; timestamp: string; location?: string }[]) || [];
     if (currentHistory.length === 0 && existing[0].createdAt) {
@@ -409,22 +418,6 @@ export class DatabaseStorage implements IStorage {
     );
   }
 
-  async deductStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
-    await db.transaction(tx => changeInventory(tx, [{ productId, size, color, qty: quantity }]));
-  }
-
-  async restoreStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
-    await db.transaction(tx => changeInventory(tx, [{ productId, size, color, qty: quantity }], true));
-  }
-
-  async deductPreOrderStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
-    await db.transaction(tx => changeInventory(tx, [{ productId, size, color, qty: quantity, isPreOrder: true }]));
-  }
-
-  async restorePreOrderStock(productId: string, size: string, color: string, quantity: number): Promise<void> {
-    await db.transaction(tx => changeInventory(tx, [{ productId, size, color, qty: quantity, isPreOrder: true }], true));
-  }
-
   async balanceInvoiceOrder(id: string, balanceInvoiceNumber: string): Promise<Order | undefined> {
     const [updated] = await db.update(orders).set({ balanceInvoiceNumber, balanceInvoicedAt: new Date() }).where(eq(orders.id, id)).returning();
     return updated || undefined;
@@ -490,28 +483,31 @@ export class DatabaseStorage implements IStorage {
 
   async createPosTransaction(transaction: InsertPosTransaction): Promise<PosTransaction> {
     if (transaction.status === "cancelled") throw new Error("Cannot create a cancelled POS sale");
-    return inventorySale(db, transaction.items as any[], "pos", async tx => {
+    return db.transaction(async tx => {
+      const allocations = await mutateInventory(tx, transaction.items, false, true);
       const [newTransaction] = await tx.insert(posTransactions).values(transaction).returning();
+      await recordInventory(tx, "pos", newTransaction.id, allocations);
       return newTransaction;
     });
   }
 
   async updatePosTransaction(id: string, data: Partial<InsertPosTransaction>): Promise<PosTransaction | undefined> {
-    return inventoryPosUpdate(db, id, data, async tx => {
+    if (data.items !== undefined || data.convertedToOrderId !== undefined) throw new Error("POS inventory cannot be edited after sale");
+    return db.transaction(async tx => {
+    const [current] = await tx.select().from(posTransactions).where(eq(posTransactions.id, id)).for("update");
+    if (!current) return undefined;
+    if (data.status !== undefined && data.status !== current.status) {
+      if (data.status !== "cancelled" || current.status === "cancelled" || current.convertedToOrderId) throw new Error("Only an unconverted POS sale can be cancelled");
+      await restoreInventory(tx, "pos", id);
+    }
     let finalData: any = { ...data };
     if (data.deliveryStatus !== undefined) {
-      const existing = await this.getPosTransaction(id);
-      const history: { status: string; timestamp: string }[] = (existing as any)?.deliveryStatusHistory || [];
+      const history: { status: string; timestamp: string }[] = (current as any)?.deliveryStatusHistory || [];
       finalData.deliveryStatusHistory = [...history, { status: data.deliveryStatus, timestamp: new Date().toISOString() }];
     }
     const [updated] = await tx.update(posTransactions).set(finalData).where(eq(posTransactions.id, id)).returning();
     return updated || undefined;
     });
-  }
-
-  async markPosTransactionConverted(id: string, orderId: string): Promise<PosTransaction | undefined> {
-    const [updated] = await db.update(posTransactions).set({ convertedToOrderId: orderId }).where(eq(posTransactions.id, id)).returning();
-    return updated || undefined;
   }
 
   async getTodayPosTransactions(): Promise<PosTransaction[]> {

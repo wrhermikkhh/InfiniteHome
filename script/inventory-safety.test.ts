@@ -43,24 +43,33 @@ class FakeDb {
           result = this.coupons[p[0]] ? [structuredClone(this.coupons[p[0]])] : [];
         }
         else if (sql.startsWith("UPDATE products")) {
-          this.products[p[4]] = { ...this.products[p[4]], stock: p[0], variant_stock: JSON.parse(p[1]), pre_order_stock: p[2], pre_order_variant_stock: JSON.parse(p[3]) };
-        } else if (sql.startsWith("INSERT INTO inventory_sales")) {
+          const field = sql.match(/SET "([^"]+)"/)?.[1];
+          if (field) this.products[p[1]][field] = sql.includes("::jsonb") ? JSON.parse(p[0]) : p[0];
+          else this.products[p[4]] = { ...this.products[p[4]], stock: p[0], variant_stock: JSON.parse(p[1]), pre_order_stock: p[2], pre_order_variant_stock: JSON.parse(p[3]) };
+        } else if (sql.startsWith("INSERT INTO legacy_inventory_reservations")) {
           const key = `${p[0]}:${p[1]}`;
           assert.ok(!this.sales[key], "unique ledger");
-          this.sales[key] = { kind: p[0], sale_id: p[1], allocations: JSON.parse(p[2]), released: false,
+          this.sales[key] = { owner_type: p[0], owner_id: p[1], allocations: JSON.parse(p[2]), restored_at: null,
             ...(p.length > 3 ? { reconciled_by: p[3], reconciliation_note: p[4] } : {}) };
-        } else if (sql.startsWith("SELECT * FROM inventory_sales")) {
+        } else if (sql.startsWith("SELECT * FROM legacy_inventory_reservations")) {
           const key = p.length === 2 ? `${p[0]}:${p[1]}` : `${sql.includes("'pos'") ? "pos" : "order"}:${p[0]}`;
           result = this.sales[key] ? [structuredClone(this.sales[key])] : [];
-        } else if (sql.startsWith("SELECT a.value AS allocation FROM inventory_sales")) {
-          result = Object.values(this.sales).filter(s => !s.released).flatMap(s => s.allocations)
+        } else if (sql.startsWith("SELECT a.value AS allocation FROM legacy_inventory_reservations")) {
+          result = Object.values(this.sales).filter(s => !s.restored_at).flatMap(s => s.allocations)
             .filter(a => a.productId === p[0]).map(a => ({ allocation: structuredClone(a) }));
         } else if (sql.startsWith("SELECT to_regclass")) {
           result = [{ relation: null }];
         } else if (sql.startsWith("SELECT id FROM orders")) {
           result = [];
-        } else if (sql.startsWith("UPDATE inventory_sales")) {
-          this.sales[`${sql.includes("'pos'") ? "pos" : "order"}:${p[0]}`].released = true;
+        } else if (sql.startsWith("UPDATE legacy_inventory_reservations SET owner_type")) {
+          const source = this.sales[`pos:${p[1]}`];
+          if (source && !source.restored_at) {
+            this.sales[`order:${p[0]}`] = { ...source, owner_type: "order", owner_id: p[0] };
+            delete this.sales[`pos:${p[1]}`];
+            result = [{ owner_id: p[0] }];
+          }
+        } else if (sql.startsWith("UPDATE legacy_inventory_reservations")) {
+          this.sales[`${p[0]}:${p[1]}`].restored_at = "restored";
         } else if (sql.startsWith("SELECT * FROM orders")) result = this.orders[p[0]] ? [structuredClone(this.orders[p[0]])] : [];
         else if (sql.startsWith("SELECT * FROM pos_transactions")) result = this.pos[p[0]] ? [structuredClone(this.pos[p[0]])] : [];
         else if (sql.startsWith("UPDATE pos_transactions")) this.pos[p[1]].converted_to_order_id = p[0];
@@ -148,7 +157,7 @@ for (const pgShape of [false, true]) {
     await inventorySale(db, [item(2)], "order", async () => db.orders.a);
     await assert.rejects(inventoryOrderStatus(db, "a", "cancelled", async () => { throw new Error("status failure"); }), /status failure/);
     assert.equal(db.products.p.stock, 3);
-    assert.equal(db.sales["order:a"].released, false);
+    assert.equal(db.sales["order:a"].restored_at, null);
     await inventoryOrderStatus(db, "a", "cancelled", async () => { db.orders.a.status = "cancelled"; });
     assert.equal(db.products.p.stock, 5);
   });
@@ -289,13 +298,14 @@ test("both runtime entrypoints delegate public creation to locked catalog quote 
   const server = readFileSync("server/storage.ts", "utf8");
   const api = readFileSync("api/index.ts", "utf8");
   const routes = readFileSync("server/routes.ts", "utf8");
-  for (const source of [server, api]) {
+  assert.match(api, /registerRoutes\(createServer\(app\), app\)/);
+  for (const source of [server]) {
     const method = source.slice(source.indexOf("  async createOrder("), source.indexOf("  async updateOrderStatus("));
-    assert.match(method, /if \(!sourcePosId\) return createCatalogOrder\(/);
+    assert.match(method, /if \(!fromPosId\) return createCatalogOrder\(/);
     assert.match(method, /\.values\(payload\)/);
-    assert.match(method, /inventorySale\(/, "authenticated POS conversion remains separate");
+    assert.match(method, /transferInventory\(/, "authenticated POS conversion remains separate");
   }
-  for (const source of [routes, api]) {
+  for (const source of [routes]) {
     assert.match(source, /const data = \{ \.\.\.req\.body, orderNumber, trackingNumber \};/);
     assert.match(source, /const order = await storage\.createOrder\(data\)/);
   }
@@ -346,11 +356,12 @@ test("operator reconciliation routes authenticate, check both permissions and re
   const run = async (cookie: boolean, origin = "https://store.test") => {
     const result: any = { statusCode: 200 };
     const req: any = {
-      method: "POST", secure: true, headers: { cookie: cookie ? `veltrix_admin_session=${"a".repeat(64)}` : "" },
+      method: "POST", secure: true, headers: { origin },
       params: { kind: "order", id: "old" }, body: {},
       get: (name: string) => ({ origin, host: "store.test", "sec-fetch-site": origin === "https://store.test" ? "same-origin" : "cross-site" } as any)[name],
     };
-    const res: any = { setHeader: () => {}, status: (code: number) => { result.statusCode = code; return res; }, json: (body: any) => { result.body = body; } };
+    const res: any = { locals: { admin: cookie ? actor : null }, setHeader: () => {}, status: (code: number) => { result.statusCode = code; return res; }, json: (body: any) => { result.body = body; } };
+    req.res = res;
     await handlers["POST /api/inventory/reconcile/:kind/:id"](req, res);
     return result;
   };

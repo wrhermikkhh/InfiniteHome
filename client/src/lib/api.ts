@@ -2,6 +2,14 @@ import { Product } from "./products";
 
 const API_BASE = "/api";
 
+const fetch: typeof globalThis.fetch = async (input, init) => {
+  const response = await globalThis.fetch(input, { credentials: "same-origin", ...init });
+  if ((response.status === 401 || response.status === 403) && !String(input).includes("/login")) {
+    const body = await response.clone().json().catch(() => ({}));
+    throw new Error(body.message || "Your session or permissions do not allow this operation.");
+  }
+  return response;
+};
 export interface Coupon {
   id: string;
   code: string;

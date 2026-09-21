@@ -5,10 +5,12 @@ import express from "express";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { readFileSync } from "node:fs";
 import { adminPermissionForRoute, getAuthenticatedAdmin, hasAdminPermission, registerAdminSecurity } from "../shared/admin-security";
+import { registerAdminAuth } from "../shared/admin-auth";
 
 const dialect = new PgDialect();
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
-const password = `${scryptSync("correct-password", "salt", 64).toString("hex")}.salt`;
+const salt = "ab".repeat(16);
+const password = `${scryptSync("correct-password", salt, 64).toString("hex")}.${salt}`;
 const permissions = { canManageProducts: false, canManageStock: false, canManageOrders: true, canManageCoupons: false, canAccessPOS: false };
 function mockDb(arrayShape = false) {
   const admin = { id: "admin-1", name: "Operator", email: "operator@example.test", password, isSuperAdmin: false, permissions };
@@ -43,14 +45,14 @@ function mockDb(arrayShape = false) {
       customerSessions.delete(params[0] as string);
     } else if (sql.includes("FROM customer_addresses")) {
       if (params[0] === "address-1" && params[1] === customer.id) rows = [{ id: "address-1" }];
-    } else if (sql.includes("INSERT INTO admin_auth_limits")) {
+    } else if (sql.includes("INSERT INTO admin_auth_limits") || sql.includes("INSERT INTO admin_auth_throttle")) {
       const key = params[0] as string;
       const count = (limits.get(key) || 0) + 1;
       limits.set(key, count);
       rows = [{ attempts: count }];
     } else if (sql.includes("JOIN admins a")) {
       const session = sessions.get(params[0] as string);
-      if (session && !session.expired && session.fingerprint === admin.password) rows = [session.admin];
+      if (session && !session.expired && session.fingerprint === admin.password) rows = [{ ...session.admin, password_fingerprint: hash(session.fingerprint) }];
     } else if (sql.includes("FROM admins WHERE lower(email)")) {
       if (params[0] === admin.email) rows = [admin];
     } else if (sql.includes("INSERT INTO admin_sessions")) {
@@ -73,6 +75,7 @@ async function harness(arrayShape = false) {
   app.use(express.json());
   const sentCodes: string[] = [];
   const sentEmails: { email: string; purpose?: string; code: string }[] = [];
+  registerAdminAuth(app, () => db);
   registerAdminSecurity(app, () => db, async (email, _name, otp, purpose) => {
     sentCodes.push(otp); sentEmails.push({ email, purpose, code: otp });
   });
@@ -111,7 +114,7 @@ test("permission map protects management, uploads, customer-data and preserves p
   assert.equal(adminPermissionForRoute("/api/coupons/validate", "POST"), null);
   assert.equal(hasAdminPermission({ isSuperAdmin: false, permissions }, "canManageProducts"), false);
   assert.equal(hasAdminPermission({ isSuperAdmin: true, permissions }, "canManageProducts"), true);
-  assert.equal(hasAdminPermission({ isSuperAdmin: false, permissions: null }, "canManageProducts"), true);
+  assert.equal(hasAdminPermission({ isSuperAdmin: false, permissions: null }, "canManageProducts"), false);
 });
 
 for (const arrayShape of [false, true]) {
@@ -123,7 +126,9 @@ for (const arrayShape of [false, true]) {
       assert.equal((await h.request("/api/orders", "GET", undefined, { Authorization: "Bearer forged", Cookie: "admin-auth-storage=super" })).status, 401);
       const login = await h.login();
       assert.equal(login.status, 200);
-      assert.match(login.headers.get("set-cookie")!, /HttpOnly; SameSite=Strict; Max-Age=28800/);
+      assert.match(login.headers.get("set-cookie")!, /HttpOnly/);
+      assert.match(login.headers.get("set-cookie")!, /SameSite=Strict/);
+      assert.match(login.headers.get("set-cookie")!, /Max-Age=28800/);
       assert.equal((await h.request("/api/orders")).status, 200);
       assert.equal((await h.request("/api/admin/redotpay")).status, 200);
       assert.equal((await h.request("/api/admins", "POST", { isSuperAdmin: true })).status, 403);
@@ -184,12 +189,15 @@ test("public COD/bank creation strips server-owned state; provider bypass and ad
   } finally { await h.close(); }
 });
 
-test("invalid tokens never query DB and DB failure does not authorize", async () => {
+test("policy adapter never authenticates a second cookie or queries sessions", async () => {
   let calls = 0;
   const db = { execute: async () => { calls++; throw new Error("offline"); } };
   assert.equal(await getAuthenticatedAdmin({ headers: { cookie: "veltrix_admin_session=forged" } } as any, db), null);
   assert.equal(calls, 0);
-  await assert.rejects(getAuthenticatedAdmin({ headers: { cookie: `veltrix_admin_session=${"a".repeat(64)}` } } as any, db), /offline/);
+  assert.equal(await getAuthenticatedAdmin({ headers: { cookie: `veltrix_admin_session=${"a".repeat(64)}` } } as any, db), null);
+  const admin = { id: "authenticated-by-shared-session" };
+  assert.equal(await getAuthenticatedAdmin({ res: { locals: { admin } } } as any, db), admin);
+  assert.equal(calls, 0);
 });
 
 test("customer login issues session, ownership is enforced, logout revokes and profile cannot reassign identity", async () => {
@@ -274,7 +282,7 @@ test("customer email proof has shared brute-force limits and requires a customer
 test("auth and inventory migrations enable server-only RLS and conditional browser-role revocation", () => {
   for (const [file, tables] of [
     ["admin-security-migration.sql", ["admin_sessions", "customer_sessions", "admin_auth_limits", "customer_email_proofs"]],
-    ["inventory-safety-migration.sql", ["inventory_sales"]],
+    ["inventory-safety-migration.sql", ["legacy_inventory_reservations"]],
   ] as const) {
     const text = readFileSync(new URL(file, import.meta.url), "utf8");
     for (const table of tables) assert.match(text, new RegExp(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`));

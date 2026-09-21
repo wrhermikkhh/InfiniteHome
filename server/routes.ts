@@ -10,14 +10,28 @@ import { orders } from "@shared/schema";
 import { registerRedotPay } from "../shared/redotpay-routes";
 import { registerInventoryAdmin } from "../shared/inventory-routes";
 import { registerAdminSecurity } from "../shared/admin-security";
+import { registerAdminAuth } from "../shared/admin-auth";
+import { sql } from "drizzle-orm";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  registerAdminAuth(app, () => db);
   registerAdminSecurity(app, () => db, sendAdminPasswordResetEmail);
   registerRedotPay(app, () => db, orders);
   registerInventoryAdmin(app, () => db);
+  app.get("/api/ping", (_req, res) => res.json({ pong: true, timestamp: new Date().toISOString() }));
+  app.get("/api/health", async (_req, res) => {
+    try {
+      await db.execute(sql`SELECT 1`);
+      res.json({ status: "ok", database: true });
+    } catch {
+      res.status(503).json({ status: "error", database: false, message: "Database unavailable" });
+    }
+  });
+  app.get("/api/email/status", (_req, res) => res.json({ configured: !!process.env.RESEND_API_KEY }));
+  app.get("/objects/{*path}", (_req, res) => res.status(404).json({ error: "Object not found" }));
   
   // Register object storage routes for file uploads
   registerObjectStorageRoutes(app);

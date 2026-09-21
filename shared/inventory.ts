@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { recordInventory, restoreInventory, transferInventory } from "./legacy-inventory";
 
 export const inventoryRows = (result: any): any[] => Array.isArray(result) ? result : result.rows || [];
 type Allocation = { productId: string; preOrder: boolean; key?: string; total: boolean; qty: number };
@@ -84,9 +85,9 @@ export async function inventorySale(db: any, items: any[], kind: string, insert:
     if (sourcePosId) {
       const pos = inventoryRows(await tx.execute(sql`SELECT * FROM pos_transactions WHERE id = ${sourcePosId} FOR UPDATE`))[0];
       if (!pos || pos.converted_to_order_id || pos.status === "cancelled") throw new Error("POS transaction cannot be converted");
-      const source = inventoryRows(await tx.execute(sql`SELECT * FROM inventory_sales WHERE kind = 'pos' AND sale_id = ${sourcePosId} FOR UPDATE`))[0];
-      if (!source || source.released) throw new Error("Historical POS inventory needs reconciliation before conversion. Open Admin → Inventory → Historical inventory reconciliation and verify the outstanding deductions.");
-      allocations = source.allocations;
+      const source = inventoryRows(await tx.execute(sql`SELECT * FROM legacy_inventory_reservations WHERE owner_type = 'pos' AND owner_id = ${sourcePosId} FOR UPDATE`))[0];
+      if (!source || source.restored_at) throw new Error("Historical POS inventory needs reconciliation before conversion. Open Admin → Inventory → Historical inventory reconciliation and verify the outstanding deductions.");
+      allocations = source.allocations.map((a: any) => ({ productId: a.productId, preOrder: a.preorder, total: a.capped, key: a.key ?? undefined, qty: a.qty }));
     } else {
       // Custom POS lines carry no catalog inventory, but still require valid quantities.
       if (!Array.isArray(items) || !items.length || items.some(i => !Number.isSafeInteger(i.qty) || i.qty <= 0)) throw new Error("Invalid inventory quantity");
@@ -94,11 +95,10 @@ export async function inventorySale(db: any, items: any[], kind: string, insert:
       allocations = catalog.length ? await changeInventory(tx, catalog) : [];
     }
     const sale = await insert(tx);
-    await tx.execute(sql`INSERT INTO inventory_sales (kind, sale_id, allocations) VALUES (${kind}, ${sale.id}, ${JSON.stringify(allocations)}::jsonb)`);
     if (sourcePosId) {
+      await transferInventory(tx, sourcePosId, sale.id);
       await tx.execute(sql`UPDATE pos_transactions SET converted_to_order_id = ${sale.id} WHERE id = ${sourcePosId}`);
-      await tx.execute(sql`UPDATE inventory_sales SET released = true WHERE kind = 'pos' AND sale_id = ${sourcePosId}`);
-    }
+    } else await recordInventory(tx, kind, sale.id, allocations.map(a => ({ productId: a.productId, qty: a.qty, key: a.key ?? null, preorder: a.preOrder, capped: a.total })));
     return sale;
   });
 }
@@ -111,12 +111,7 @@ export async function inventoryPosUpdate(db: any, id: string, data: any, update:
     if (pos.status === "cancelled" && data.status && data.status !== "cancelled") throw new Error("Cancelled POS sales cannot be reopened");
     if (data.status === "cancelled" && pos.status !== "cancelled") {
       if (pos.converted_to_order_id) throw new Error("Cancel the converted order instead");
-      const ledger = inventoryRows(await tx.execute(sql`SELECT * FROM inventory_sales WHERE kind = 'pos' AND sale_id = ${id} FOR UPDATE`))[0];
-      if (!ledger) throw new Error("Historical POS inventory needs reconciliation before cancellation. Open Admin → Inventory → Historical inventory reconciliation and verify the outstanding deductions.");
-      if (!ledger.released) {
-        await restoreAllocations(tx, ledger.allocations);
-        await tx.execute(sql`UPDATE inventory_sales SET released = true WHERE kind = 'pos' AND sale_id = ${id}`);
-      }
+      await restoreInventory(tx, "pos", id);
     }
     return update(tx);
   });
@@ -130,17 +125,7 @@ export async function inventoryOrderStatus(db: any, id: string, status: string, 
     if (order.payment_method === "redotpay") throw new Error("RedotPay orders require payment reconciliation");
     if (order.status === "cancelled" && status !== "cancelled") throw new Error("Cancelled orders cannot be reopened");
     if (status === "cancelled" && order.status !== "cancelled") {
-      const ledger = inventoryRows(await tx.execute(sql`SELECT * FROM inventory_sales WHERE kind = 'order' AND sale_id = ${id} FOR UPDATE`))[0];
-      if (ledger) {
-        if (!ledger.released) {
-          await restoreAllocations(tx, ledger.allocations);
-          await tx.execute(sql`UPDATE inventory_sales SET released = true WHERE kind = 'order' AND sale_id = ${id}`);
-        }
-      } else {
-        // Old runtimes disagreed about scalar/variant deductions and may already
-        // have restored stock separately. Never guess and inflate live inventory.
-        throw new Error("Historical order inventory needs reconciliation before cancellation. Open Admin → Inventory → Historical inventory reconciliation and verify the outstanding deductions.");
-      }
+      await restoreInventory(tx, "order", id);
     }
     return update(tx);
   });

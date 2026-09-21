@@ -22,12 +22,12 @@ test("identity and permission changes cannot retain unauthorized content", () =>
   assert.equal(resolveAdminTab("Products", allowedAdminTabs(null)), null);
 });
 
-test("super admins retain all tabs; legacy permissions never confer account management", () => {
+test("super admins retain all tabs; missing permissions fail closed", () => {
   const superTabs = allowedAdminTabs({ isSuperAdmin: true, permissions: denied });
   for (const tab of superTabs) assert.equal(resolveAdminTab(tab, superTabs), tab);
   assert.equal(superTabs.length, 8);
   assert.equal(resolveAdminTab("Admin Management", superTabs), "Admin Management");
   const legacy = allowedAdminTabs({ permissions: null });
-  assert.ok(legacy.includes("Products"));
+  assert.deepEqual(legacy, ["Overview"]);
   assert.ok(!legacy.includes("Admin Management"));
 });

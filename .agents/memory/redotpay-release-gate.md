@@ -3,14 +3,39 @@ name: RedotPay activation safety
 description: Why configured merchant credentials do not mean RedotPay is cleared for live use.
 ---
 
-Do not treat merchant credential setup or successful mocked payment tests as permission to activate RedotPay.
+Do not treat merchant credential setup, local tests, or successful mocked
+payments as permission to activate RedotPay.
 
-**Why:** Integration exposed existing unprotected admin mutation routes and incompatible legacy inventory updates. These prompted a combined auth/inventory/payment safety implementation, but offline tests still cannot prove a merchant account, proxy behavior, or live notification delivery works. Activation remains a separate externally verified step.
+**Why:** The implementation adds server-side authorization, atomic inventory
+handling, throttling, recovery controls, and provider verification, but local
+signature tests and isolated SQL concurrency tests cannot prove the merchant
+account, Vercel transport behavior, deployed database behavior, or live
+notification delivery. The user authorized safety implementation, not a
+production migration, deployment, real payment, or live activation. Production
+merchant credentials are not sandbox credentials.
 
-**How to apply:** Review the current release findings in `REDOTPAY_SETUP.md`, confirm they are actually resolved, and perform controlled provider acceptance testing before recommending live activation. The user corrected the exchange rate to MVR 15.42 per USD on 2026-09-21; this replaces the earlier MVR 21 choice and is not inferred from financial market data.
+**How to apply:** Keep both live gates disabled until the migration, isolated
+Vercel acceptance, provider sandbox acceptance, and production rollout are
+separately approved and evidenced. Use MVR 15.42 per USD and the confirmed
+canonical production origin `https://infinite-home.vercel.app`; neither value is
+evidence that deployment or acceptance occurred.
 
-Historical stock allocations must be reconciled from operator evidence rather than reconstructed automatically from old order items.
+The Vercel entrypoint delegates to the shared server routes and storage; do not
+maintain a second backend. The release prerequisites are, in order,
+`admin-security-migration.sql`, `redotpay-migration.sql` schema v2, then
+`inventory-safety-migration.sql`. Admin auth has one session authority in
+`shared/admin-auth.ts`; old MD5-era sessions require re-login.
 
-**Why:** The previous development/Vercel paths differed in scalar-stock deductions and could separately commit restoration. Old line items cannot establish how much stock remains deducted; guessing would inflate inventory.
+Historical inventory recovery must use reviewed allocation evidence, not
+reconstruct deductions from current stock or order lines alone.
 
-**How to apply:** Preserve the explicit audited historical reconciliation path and do not add an automatic allocation backfill merely to make old-order cancellation pass.
+**Why:** Earlier development and Vercel paths deducted stock differently, so
+historical order records do not reliably prove which stock buckets were
+deducted. Guessing during cancellation can inflate inventory.
+
+**How to apply:** Require explicit reviewed historical allocation records before
+restoring old orders or transferring old POS allocations. Keep uncertain records
+blocked and explain the operational impact before rollout. If an earlier
+deployment contains `inventory_sales`, treat it as evidence requiring reviewed
+reconciliation; never silently migrate it into the canonical
+`legacy_inventory_reservations` ledger.

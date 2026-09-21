@@ -1,7 +1,9 @@
 // Server-only RedotPay protocol adapter. Never import this module into the client.
-import { createPrivateKey, sign, verify } from "node:crypto";
+import { createPrivateKey, createPublicKey, sign, verify, type KeyObject } from "node:crypto";
 
 export const REDOTPAY_RATE = 15.42;
+
+export const SANDBOX_API_ORIGIN = "https://acquirersandbox.rp-2023app.com";
 // Official v2 Getting Started environment table and signature guide (key v1).
 // Never accept a key or API host supplied by a checkout request.
 export const SANDBOX_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
@@ -42,11 +44,17 @@ export function publicOrigin(value: string | undefined): string {
   return url.origin;
 }
 
-export function config(env: NodeJS.ProcessEnv = process.env) {
+export type RedotPayConfig = {
+  origin: string; key: KeyObject; appKey: string; version: string;
+  apiOrigin?: string; webhookKey?: string;
+};
+export function config(env: NodeJS.ProcessEnv = process.env): RedotPayConfig {
   if (env.REDOTPAY_ENABLED !== "true") throw new Error("RedotPay is disabled pending deployment and security review");
   const origin = publicOrigin(env.REDOTPAY_PUBLIC_ORIGIN);
-  if (!["production", "sandbox"].includes(env.REDOTPAY_ENVIRONMENT || "")) throw new Error("RedotPay environment must be production or sandbox");
-  if (Number(env.REDOTPAY_MVR_PER_USD) !== REDOTPAY_RATE) throw new Error(`RedotPay exchange rate must be ${REDOTPAY_RATE} MVR per USD`);
+  const sandbox = env.REDOTPAY_ENVIRONMENT === "sandbox";
+  if (!sandbox && env.REDOTPAY_ENVIRONMENT !== "production") throw new Error("RedotPay environment must be sandbox or production");
+  if (!sandbox && env.REDOTPAY_LIVE_APPROVED !== "true") throw new Error("RedotPay live payments remain disabled pending sandbox acceptance and security review");
+  if (env.REDOTPAY_MVR_PER_USD !== String(REDOTPAY_RATE)) throw new Error(`RedotPay exchange rate must be ${REDOTPAY_RATE} MVR per USD`);
   if (!env.REDOTPAY_APP_KEY || !env.REDOTPAY_PRIVATE_KEY || !/^[1-9]\d*$/.test(env.REDOTPAY_KEY_VERSION || "")) {
     throw new Error("RedotPay merchant credentials or key version are missing");
   }
@@ -54,8 +62,8 @@ export function config(env: NodeJS.ProcessEnv = process.env) {
     const key = createPrivateKey(env.REDOTPAY_PRIVATE_KEY.replace(/\\n/g, "\n"));
     if (key.asymmetricKeyType !== "rsa" || (key.asymmetricKeyDetails?.modulusLength || 0) < 2048) throw new Error();
     return { origin, key, appKey: env.REDOTPAY_APP_KEY, version: env.REDOTPAY_KEY_VERSION!,
-      apiOrigin: env.REDOTPAY_ENVIRONMENT === "sandbox" ? "https://acquirersandbox.rp-2023app.com" : "https://acquirer.redotpay.com",
-      publicKey: env.REDOTPAY_ENVIRONMENT === "sandbox" ? SANDBOX_PUBLIC_KEY : PRODUCTION_PUBLIC_KEY };
+      apiOrigin: sandbox ? SANDBOX_API_ORIGIN : "https://acquirer.redotpay.com",
+      webhookKey: sandbox ? SANDBOX_PUBLIC_KEY : PRODUCTION_PUBLIC_KEY };
   } catch {
     throw new Error("RedotPay signing key is invalid; RSA 2048-bit or stronger is required");
   }
@@ -71,12 +79,12 @@ export function verifyWebhook(raw: Buffer, timestamp: string, signature: string,
   } catch { return false; }
 }
 
-export async function providerRequest(path: "/openapi/v2/order/create" | "/openapi/v2/order/detail" | "/openapi/v2/order/close", payload: unknown, fetcher: typeof fetch = fetch, settings: { origin: string; key: ReturnType<typeof createPrivateKey>; appKey: string; version: string; apiOrigin?: string } = config()) {
+export async function providerRequest(path: "/openapi/v2/order/create" | "/openapi/v2/order/detail" | "/openapi/v2/order/close", payload: unknown, fetcher: typeof fetch = fetch, settings = config()) {
   const body = JSON.stringify(payload);
   const timestamp = String(Date.now());
   const signature = sign("RSA-SHA256", Buffer.from(`POST ${path}\n${settings.appKey}.${timestamp}.${body}`), settings.key).toString("base64");
   const apiOrigin = settings.apiOrigin || "https://acquirer.redotpay.com";
-  if (!["https://acquirer.redotpay.com", "https://acquirersandbox.rp-2023app.com"].includes(apiOrigin)) throw new Error("Invalid RedotPay API origin");
+  if (!["https://acquirer.redotpay.com", SANDBOX_API_ORIGIN].includes(apiOrigin)) throw new Error("Invalid RedotPay API origin");
   const response = await fetcher(`${apiOrigin}${path}`, {
     // Recovery may perform detail → close → detail within a bounded invocation.
     method: "POST", redirect: "error", signal: AbortSignal.timeout(8000),
@@ -96,4 +104,17 @@ export function matchesPayment(detail: any, expected: { id: string; usd_cents: n
     Math.abs(Number(detail.orderAmount) * 100 - expected.usd_cents) < 0.000001 &&
     typeof detail.orderSn === "string" && detail.orderSn.length > 0 &&
     (!expected.provider_id || detail.orderSn === expected.provider_id);
+}
+
+export function acceptanceWebhookConfig(env: NodeJS.ProcessEnv = process.env) {
+  if (env.VERCEL_ENV !== "preview" || env.REDOTPAY_ENABLED === "true" ||
+      env.REDOTPAY_ACCEPTANCE_ENABLED !== "I_ACCEPT_NON_PRODUCTION_WEBHOOK_TESTS") return null;
+  const appKey = env.REDOTPAY_ACCEPTANCE_APP_KEY;
+  const webhookKey = env.REDOTPAY_ACCEPTANCE_WEBHOOK_PUBLIC_KEY?.replace(/\\n/g, "\n");
+  if (!appKey || !webhookKey) throw new Error("RedotPay acceptance fixture key is not configured");
+  const key = createPublicKey(webhookKey);
+  if (key.asymmetricKeyType !== "rsa" || (key.asymmetricKeyDetails?.modulusLength || 0) < 2048) {
+    throw new Error("RedotPay acceptance fixture key must be RSA 2048-bit or stronger");
+  }
+  return { appKey, webhookKey };
 }

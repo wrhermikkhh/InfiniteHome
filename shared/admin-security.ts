@@ -1,17 +1,17 @@
-import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomInt, scryptSync } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { Express, Request, Response } from "express";
 import type { Admin } from "./schema";
 import { transportPeerBucket } from "./request-identity";
+import { hasAdminPermission as sessionPermission, isAdminSameOrigin } from "./admin-auth";
 
 type Database = { execute: (query: any) => Promise<any> };
 type Permission = "canManageProducts" | "canManageStock" | "canManageOrders" | "canManageCoupons" | "canAccessPOS";
 export const securityRows = (result: any): any[] => Array.isArray(result) ? result : result?.rows || [];
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
-const cookieName = "veltrix_admin_session";
 const customerCookie = "veltrix_customer_session";
 const lifetime = 8 * 60 * 60;
-function token(req: Request, name = cookieName) {
+function token(req: Request, name = customerCookie) {
   return (req.headers.cookie || "").split(";").map(v => v.trim()).find(v => v.startsWith(`${name}=`))?.slice(name.length + 1) || "";
 }
 function secureCookie(req: Request) {
@@ -21,36 +21,18 @@ function setSessionCookie(req: Request, res: Response, name: string, value: stri
   res.append("Set-Cookie", `${name}=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${secureCookie(req) ? "; Secure" : ""}`);
 }
 export function hasAdminPermission(admin: Pick<Admin, "isSuperAdmin" | "permissions"> | null, permission: Permission): boolean {
-  // NULL is the pre-permission legacy default: those accounts historically had all tabs.
-  return !!admin && (admin.isSuperAdmin === true || admin.permissions == null || admin.permissions[permission] === true);
+  return sessionPermission(admin, permission);
 }
 /** Validates opaque cookie against an unexpired database session and current password.
  * Supports node-postgres {rows} and postgres-js array execute results. No client role trust.
  */
 export async function getAuthenticatedAdmin(req: Request, db: Database): Promise<Admin | null> {
-  const value = token(req);
-  if (!/^[a-f0-9]{64}$/.test(value)) return null;
-  const rows = securityRows(await db.execute(sql`
-    SELECT a.id, a.name, a.email, a.password, a.is_super_admin AS "isSuperAdmin",
-      a.permissions, a.reset_token AS "resetToken", a.reset_token_expiry AS "resetTokenExpiry",
-      a.created_at AS "createdAt"
-    FROM admin_sessions s JOIN admins a ON a.id = s.admin_id
-    WHERE s.token_hash = ${digest(value)} AND s.expires_at > now()
-      AND s.password_fingerprint = md5(a.password) LIMIT 1`));
-  return rows[0] || null;
-}
-function publicAdmin(admin: Admin) {
-  return { id: admin.id, name: admin.name, email: admin.email, isSuperAdmin: admin.isSuperAdmin, permissions: admin.permissions };
+  // registerAdminAuth must precede this policy adapter. Never parse a second cookie.
+  return req.res?.locals.admin || null;
 }
 /** Origin enforcement intentionally rejects missing Origin on browser/admin mutations. */
 export function isSameOrigin(req: Request): boolean {
-  const origin = req.get("origin");
-  if (!origin || req.get("sec-fetch-site") === "cross-site") return false;
-  try {
-    const parsed = new URL(origin);
-    const scheme = secureCookie(req) ? "https:" : "http:";
-    return parsed.origin === `${scheme}//${req.get("host")}`;
-  } catch { return false; }
+  return isAdminSameOrigin(req);
 }
 async function rateLimit(db: Database, key: string, limit: number): Promise<boolean> {
   const rows = securityRows(await db.execute(sql`
@@ -61,28 +43,15 @@ async function rateLimit(db: Database, key: string, limit: number): Promise<bool
     RETURNING attempts`));
   return rows[0]?.attempts <= limit;
 }
-function verifyPassword(password: unknown, stored: string) {
-  if (typeof password !== "string" || password.length > 1024) return false;
-  const [hash, salt] = stored.split(".");
-  if (!hash || !salt) return false;
-  const expected = Buffer.from(hash, "hex");
-  const actual = scryptSync(password, salt, 64);
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
-}
 function passwordHash(password: string) {
   const salt = randomBytes(16).toString("hex");
   return `${scryptSync(password, salt, 64).toString("hex")}.${salt}`;
 }
-async function issueSession(db: Database, req: Request, res: Response, id: string, customer = false) {
+async function issueSession(db: Database, req: Request, res: Response, id: string, customer = true) {
   const value = randomBytes(32).toString("hex");
-  if (customer) {
-    await db.execute(sql`INSERT INTO customer_sessions (token_hash, customer_id, password_fingerprint, expires_at)
+  await db.execute(sql`INSERT INTO customer_sessions (token_hash, customer_id, password_fingerprint, expires_at)
       SELECT ${digest(value)}, id, md5(password), now() + interval '8 hours' FROM customers WHERE id = ${id}`);
-  } else {
-    await db.execute(sql`INSERT INTO admin_sessions (token_hash, admin_id, password_fingerprint, expires_at)
-      SELECT ${digest(value)}, id, md5(password), now() + interval '8 hours' FROM admins WHERE id = ${id}`);
-  }
-  setSessionCookie(req, res, customer ? customerCookie : cookieName, value);
+  setSessionCookie(req, res, customerCookie, value);
 }
 async function authenticatedCustomer(req: Request, db: Database) {
   const value = token(req, customerCookie);
@@ -126,7 +95,7 @@ export function registerAdminSecurity(app: Express, getDb: () => Database, sendR
       const db = getDb();
       const path = req.path.replace(/\/+$/, "");
       const write = !["GET", "HEAD", "OPTIONS"].includes(req.method);
-      const authAction = /^\/api\/admin\/(login|forgot-password|reset-password)$/.test(path);
+      const authAction = /^\/api\/admin\/(forgot-password|reset-password)$/.test(path);
       if (authAction) {
         if (req.method !== "POST") return res.status(405).json({ message: "POST required" });
         if (!isSameOrigin(req)) return res.status(403).json({ message: "Same-origin request required" });
@@ -139,16 +108,6 @@ export function registerAdminSecurity(app: Express, getDb: () => Database, sendR
         if (!ipOk || !accountOk) return res.status(429).json({ message: "Too many attempts. Try again in 15 minutes." });
         const admin = securityRows(await db.execute(sql`SELECT id, name, email, password,
           is_super_admin AS "isSuperAdmin", permissions FROM admins WHERE lower(email) = ${email} LIMIT 1`))[0] as Admin | undefined;
-        if (path.endsWith("/login")) {
-          // Perform the expensive derivation even for unknown accounts.
-          const valid = verifyPassword(req.body.password, admin?.password || `${"00".repeat(64)}.unknown-account-salt`);
-          if (!admin || !valid) return res.status(401).json({ success: false, message: "Invalid email or password" });
-          const oldToken = token(req);
-          if (oldToken) await db.execute(sql`DELETE FROM admin_sessions WHERE token_hash = ${digest(oldToken)}`);
-          await issueSession(db, req, res, admin.id);
-          res.setHeader("Cache-Control", "no-store");
-          return res.json({ success: true, admin: publicAdmin(admin) });
-        }
         if (path.endsWith("/forgot-password")) {
           if (admin) {
             const otp = randomInt(100000, 1000000).toString();
@@ -165,20 +124,6 @@ export function registerAdminSecurity(app: Express, getDb: () => Database, sendR
           reset_token = NULL, reset_token_expiry = NULL WHERE lower(email) = ${email}
           AND reset_token = ${digest(otp)} AND reset_token_expiry > now() RETURNING id`));
         return updated.length ? res.json({ success: true }) : res.status(400).json({ message: "Invalid or expired OTP" });
-      }
-      if (path === "/api/admin/session" || path === "/api/admin/logout") {
-        res.setHeader("Cache-Control", "no-store");
-        if (path.endsWith("/logout") && req.method === "POST") {
-          if (!isSameOrigin(req)) return res.status(403).json({ message: "Same-origin request required" });
-          await db.execute(sql`DELETE FROM admin_sessions WHERE token_hash = ${digest(token(req))}`);
-          setSessionCookie(req, res, cookieName, "", 0);
-          return res.json({ success: true });
-        }
-        if (path.endsWith("/session") && req.method === "GET") {
-          const admin = await getAuthenticatedAdmin(req, db);
-          return admin ? res.json({ success: true, admin: publicAdmin(admin) }) : res.status(401).json({ success: false });
-        }
-        return res.status(405).json({ message: "Method not allowed" });
       }
       // Customer sessions maintain existing customer flows without trusting localStorage IDs.
       if (["/api/customers/login", "/api/customers/signup"].includes(path) && req.method === "POST") {

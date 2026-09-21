@@ -1,155 +1,164 @@
-# RedotPay hosted checkout — safe rollout
+# RedotPay hosted checkout: operator and release guide
 
-**Live activation remains gated on external setup and provider acceptance.**
-The safety implementation includes server-validated sessions, permission checks,
-atomic inventory reservations, guarded stock edits, payment throttling, and
-authenticated recovery/fulfillment tools. No production migration, payment,
-email, or Vercel environment change has been performed by this work.
-Replit configuration records production mode, key version 1, and the
-user-approved rate of MVR 15.42 per USD; that does not enable checkout.
+## Current release status
 
-## Required deployment sequence
+**Keep `REDOTPAY_ENABLED` and `REDOTPAY_LIVE_APPROVED` absent/false. Do not
+deploy or enable live payments from this work alone.**
 
-1. Review the additive migrations below and take the normal Supabase backup.
-   Apply all required migrations **before** deploying the new auth/inventory
-   code. Existing customer/product/order data and stock quantities are not
-   automatically changed or backfilled.
-2. Confirm an approved existing super-admin account is available. Existing
-   admins and customers must sign in again to obtain secure server sessions.
-   Review `ADMIN_SECURITY_SETUP.md` for permission and account-history changes.
-3. Configure Vercel server-side secrets/settings and the actual canonical HTTPS
-   origin. Workspace secrets do not automatically configure Vercel.
-4. Complete controlled sandbox acceptance of redirects, signed notifications,
-   retries, interrupted payments, and cancellation races on Vercel. Offline
-   tests do not prove the provider account or deployed raw-body handling works.
-5. Configure RedotPay merchant notifications and any provider egress allowlist.
-   Configure authenticated scheduled recovery, or assign an operator to run
-   recovery regularly. Uncertain payments must not silently release stock.
-6. After acceptance, set production credentials/mode and `REDOTPAY_ENABLED=true`
-   for the release the user publishes. Verify live readiness and sign-in. A real
-   test charge requires separate approval of its exact amount.
+The safety implementation is prepared, but no production migration, Vercel
+deployment or acceptance, provider sandbox/production transaction, or
+production data mutation was performed. The merged local suite passes all 107
+tests; TypeScript and both deployment-entry builds pass. Earlier isolated
+PostgreSQL inventory/concurrency and migration checks passed; the newly combined
+migration sequence still requires isolated acceptance before rollout.
 
-Until these steps are complete, leave `REDOTPAY_ENABLED` unset/false. Readiness
-checks the origin, credentials, rate and payment migration; it is not a
-substitute for deployment acceptance. Disabling new checkout still permits
-properly configured signed callbacks and recovery of existing attempts.
+That evidence covers local logic and isolated SQL behavior only. It does not
+prove Vercel raw-body transport, a deployed database, merchant configuration,
+provider callbacks, or a live payment.
 
-## Vercel configuration after release blockers are resolved
+The user-confirmed values are:
 
-Configure on Vercel independently of Replit:
+- exchange rate: MVR 15.42 per USD;
+- canonical production origin: `https://infinite-home.vercel.app`.
 
-| Name | Value |
-| --- | --- |
-| `REDOTPAY_PRIVATE_KEY` | Existing PKCS8 RSA private key, server secret; PEM newlines or escaped `\n` supported |
-| `REDOTPAY_APP_KEY` | Existing merchant app key, server secret |
-| `REDOTPAY_ENVIRONMENT` | `sandbox` for acceptance with sandbox credentials; `production` for live credentials |
-| `REDOTPAY_KEY_VERSION` | `1`, matching merchant public key upload version |
-| `REDOTPAY_MVR_PER_USD` | `15.42` |
-| `REDOTPAY_PUBLIC_ORIGIN` | Actual canonical HTTPS production origin only, with no path/query/credentials |
-| `REDOTPAY_ENABLED` | `true` only for the approved, configured environment after acceptance |
-| `CRON_SECRET` | Optional server secret for scheduled recovery; never expose it to the browser |
+An isolated Vercel Preview origin is still unconfirmed. Never infer either
+origin from `Host` or forwarded headers.
 
-The production origin is not known and is deliberately not inferred from Host or
-forwarded headers. Never put keys in `VITE_*` variables. Upload the merchant
-public key matching the private key to RedotPay, confirm the production merchant
-app is approved, and configure any provider IP allowlist with the deployment's
-actual egress design.
+## Provider environments and variables
 
-Apply these idempotent scripts in Supabase SQL Editor after review and backup:
+Never put secrets in `VITE_*` variables.
 
-1. `script/admin-security-migration.sql`
-2. `script/inventory-safety-migration.sql`
-3. `script/redotpay-migration.sql`
+| Name | Sandbox acceptance | Production |
+| --- | --- | --- |
+| `REDOTPAY_ENABLED` | `true` only for approved isolated acceptance | `true` only after every gate |
+| `REDOTPAY_ENVIRONMENT` | `sandbox` | `production` |
+| `REDOTPAY_LIVE_APPROVED` | not a sandbox substitute | exact `true`, final independent live gate |
+| `REDOTPAY_PRIVATE_KEY` | provider-issued sandbox merchant key | approved production merchant key |
+| `REDOTPAY_APP_KEY` | provider-issued sandbox app key | approved production app key |
+| `REDOTPAY_KEY_VERSION` | matching merchant key upload | matching merchant key upload |
+| `REDOTPAY_MVR_PER_USD` | `15.42` | `15.42` |
+| `REDOTPAY_PUBLIC_ORIGIN` | confirmed isolated HTTPS origin | `https://infinite-home.vercel.app` |
 
-The auth and inventory tables are prerequisites for all updated login and sale
-paths, even while RedotPay is disabled. RLS and revoked browser-role access must
-protect sessions, ledgers and payment state. The server DB role must retain
-access. Do not publish new code first and apply these prerequisites afterward.
+Production authentication also requires
+`ADMIN_PUBLIC_ORIGIN=https://infinite-home.vercel.app`, exactly, without a
+trailing slash. Preview acceptance must use its own confirmed origin and must
+not share production credentials or production data.
 
-Historical orders/POS do not have trustworthy allocation ledgers. Before
-cancelling or converting one, an authorized operator must record actual
-outstanding stock deductions through **Admin → Inventory → Historical inventory
-reconciliation**. This records reviewed evidence, not guessed stock changes.
+The documented provider API origins and pinned platform keys are selected by
+the adapter. Pins do not provide merchant credentials and do not prove provider
+acceptance. Review official provider key-rotation notices before rollout.
 
-Set the merchant notification URL in RedotPay to:
+Configure the production merchant notification URL only after approval:
 
-`https://<actual-production-host>/api/payments/redotpay/webhook`
+`https://infinite-home.vercel.app/api/payments/redotpay/webhook`
 
-The create request sets return URL:
+Create requests use:
 
-`https://<actual-production-host>/payment/redotpay`
+`https://infinite-home.vercel.app/payment/redotpay`
 
-Notification URL is merchant-platform configuration, **not an invented create
-request property**. Incoming webhook key version is RedotPay's platform key
-version, independent of the merchant signing key version. The published production
-platform public key v1 is pinned server-side; review provider key rotations.
+## Implemented safety properties
 
-## Payment and stock policy
+- Quotes, coupon eligibility, shipping, and MVR-to-USD conversion are
+  server-authoritative; USD cents are rounded once from MVR cents at 15.42.
+- Stock reservation and order/payment state changes use transactional,
+  idempotent paths.
+- Webhooks verify exact raw bytes, then reconcile authoritative provider detail.
+  Browser return alone never confirms payment.
+- Payment and admin throttles are shared in PostgreSQL and fail closed when the
+  database or trustworthy client identity is unavailable.
+- Admin mutation and recovery routes require server-validated sessions and
+  current database permissions.
+- Recovery actions require a reason and durable audit evidence; they do not
+  locally mark a payment paid/closed or release stock.
+- Disabling checkout does not prevent valid signed callbacks or recovery of
+  existing attempts.
 
-- Server quotes prices, variants, preorder deposits, coupon eligibility and per-item
-  express delivery from DB values. Standard/boat shipping remains zero as in the
-  existing checkout. Charged USD cents = round(MVR total cents / 15.42).
-- The shopper sees and accepts the authoritative MVR total and USD amount before
-  checkout creation. Changed totals reject creation.
-- Each browser attempt uses a random bearer capability, stored locally, with only
-  its hash stored in the private table. The capability is not a query parameter,
-  not in order responses and not in the provider return URL.
-- A transaction reserves inventory and creates the unpaid order and immutable
-  payment expectations. The provider create request is claimed once. Retries
-  never silently create a new charge after a timeout.
-- Only an authenticated provider detail response matching merchant ID, provider
-  ID, USD currency and exact cents can confirm payment. Signed raw webhooks
-  trigger the same authoritative query. Browser returns cannot confirm payment.
-- Payment confirmation is idempotent and never deducts inventory again.
-- Checkout expiry is 30 minutes, but local expiry does **not** release stock.
-  Failed child payments, network errors and an abandoned browser retain the
-  reservation. Cancel requests first query, close with the provider, then query
-  again. Inventory is restored once, only when the provider reports closed.
-- Paid and closed outcomes are terminal. No automatic refunds or remaining
-  preorder-balance charges are implemented. Payment does not auto-send email.
-- Customers can resume the same payment, refresh verified status, or close it.
-  A new payment is allowed in the UI only after the previous payment is confirmed
-  closed/paid. If local storage is lost, contact the operator; public tracking
-  intentionally does not expose the payment capability.
-- **Admin → Orders → RedotPay** provides restricted reconciliation, verified
-  closure, recovery and forward fulfillment of paid orders with an audit trail.
-  Generic order-status endpoints cannot forge RedotPay payment or refunds.
-- Authenticated recovery processes bounded work with database leases. If a
-  scheduled caller is configured, use `GET /api/payments/redotpay/recover` with
-  `Authorization: Bearer <CRON_SECRET>`. Never put that secret in a URL. An
-  authorized admin can also run recovery from the operator interface.
+Do not release stock because a browser was abandoned, a local timer expired, or
+a child payment failed. Only authoritative closed state restores exactly once;
+paid state never restores.
 
-## Verification performed / commands
+## Mandatory migration order
 
-- `npx tsx --test script/admin-security.test.ts script/inventory-safety.test.ts script/redotpay.test.ts`: isolated auth, inventory, RSA fixtures, mocked provider
-  transport, quote tamper rejection, public-origin validation, raw signature
-  verification, legacy route guards for both result shapes, idempotent
-  reconciliation and missing-migration readiness. No DB/network payment calls.
-- `npm run check`: full TypeScript check.
-- `npm run build`: local build only.
-- `npx esbuild api/index.ts --bundle --platform=node --format=esm --packages=external --outfile=/tmp/redotpay-vercel-check.mjs`
-  checks Vercel's actual entrypoint separately from the development build.
+After review and backup, apply these additive scripts with the intended server
+role, in this order, **before deploying the new application even with RedotPay
+disabled**:
 
-The combined 72-test offline suite, TypeScript check, application build and
-Vercel entrypoint bundle passed. The three migrations were applied successfully
-to the Replit development database only. Supabase-specific role revocations are
-conditional so the same SQL also works in PostgreSQL development environments
-without `anon` or `authenticated` roles.
+1. `script/admin-security-migration.sql` creates the customer sessions,
+   customer email proofs, and shared security-limit table. It also creates the
+   compatible `admin_sessions` shape if it is not already present.
+2. `script/redotpay-migration.sql` installs schema version 2, the canonical
+   admin throttle and `admin_sessions` prerequisites used by
+   `shared/admin-auth.ts`, the canonical `legacy_inventory_reservations` ledger,
+   and RedotPay state, limits, audit, constraints, RLS, and revocations.
+3. `script/inventory-safety-migration.sql` idempotently adds the reviewed
+   reconciliation audit fields to `legacy_inventory_reservations` and reapplies
+   its browser-role protections.
 
-The proxied-browser admin journey verified real secure cookies, session
-persistence, anonymous/forged-storage rejection, restricted server permissions,
-operator panels, and logout revocation using disposable development fixtures.
-It found a restricted-admin default-tab display bug; that was fixed with
-synchronous permission-based rendering, covered by three additional passing
-navigation tests and a fresh TypeScript check. The operator panel now also
-explains unavailable checkout setup and empty payment lists. Test fixtures were
-removed. These checks do not replace external RedotPay acceptance.
+The application has one admin-session implementation in `shared/admin-auth.ts`.
+`shared/admin-security.ts` reuses that authenticated admin and retains customer
+sessions, email verification, atomic hashed one-time codes/limits, and policy
+read guards; it must not create a second admin authority. Existing MD5-era admin
+session records/cookies are not compatible with the SHA-256 token hashes and
+must not be translated or trusted. Require administrators to sign in again.
 
-The development workflow was restarted for preview verification. Browser checks
-use intercepted payment responses only, not real provider transactions.
-No deployments, live payments or production data mutations are part of these checks.
+Verify all three scripts' tables, columns, indexes, constraints, triggers,
+schema versions, grants, RLS/revocations, and server-role access. Do not use
+`drizzle-kit push` as a substitute; protected raw-SQL objects are not all
+represented by Drizzle. This repository prepared and tested the scripts only.
+It did not apply them to production.
 
-## Official protocol sources consulted
+If an earlier incoming inventory implementation created `inventory_sales`,
+stop and review its rows against source evidence. Import only independently
+verified outstanding allocations into `legacy_inventory_reservations` through
+the reviewed reconciliation process, preserving release/restoration meaning
+and audit evidence. There is deliberately no silent schema rename, copy, or
+automatic backfill.
+
+Historical orders and POS transactions do not automatically have trustworthy
+allocations. Follow `script/LEGACY_INVENTORY_OPERATIONS.md` and use
+`script/legacy-inventory-reconcile.ts` only with independent evidence and
+approval. Never infer old deductions from order lines or current stock.
+
+## Required acceptance
+
+Follow `script/REDOTPAY_ACCEPTANCE.md` and retain redacted evidence for:
+
+1. isolated Vercel Preview exact-byte webhook delivery, retries, whitespace and
+   semantic tampering, proxy handling, and cross-instance throttling;
+2. provider-issued sandbox create/detail/close, delayed/retried callback,
+   interruption, mismatch, duplicate, and close-versus-pay scenarios;
+3. isolated deployed-database COD, bank, POS, RedotPay, variant, preorder,
+   cancellation, restoration, and contention scenarios; and
+4. admin login/logout/expiry/password invalidation, live permission removal,
+   recovery authorization, and audit behavior.
+
+The preview-only raw-body fixture described by the acceptance guide requires an
+explicit Preview opt-in and disabled checkout. Remove fixture settings after the
+probe and never deploy a fixture private key.
+
+## Rollout and rollback
+
+1. Keep the old deployment serving and both RedotPay gates disabled.
+2. Back up and apply/verify the three migrations in the documented order.
+3. Review historical allocations without guessing.
+4. Deploy the compatible application with RedotPay disabled; require admins,
+   including holders of old MD5-era sessions, to sign in again and smoke-test
+   auth, inventory, COD/bank/POS, uploads, email, health, and recovery visibility.
+5. Complete isolated Vercel, deployed-database, and provider sandbox acceptance.
+6. Configure production origins, credentials, webhook, monitoring, and recovery
+   ownership while leaving both gates disabled.
+7. In a separately approved change window, enable both gates, perform only the
+   explicitly approved capped transaction, reconcile it, and monitor.
+
+Do not combine migration, first deployment, historical reconciliation, provider
+acceptance, and live enablement into one irreversible change.
+
+After new session or allocation-ledger writes begin, old application code is not
+a safe automatic rollback. First disable RedotPay, pause conflicting inventory
+writes if needed, preserve schema and audit evidence, reconcile in-flight
+payments and allocations, and roll forward to a reviewed compatible build.
+
+## Official protocol references
 
 - https://redotpay.readme.io/llms.txt
 - https://redotpay.readme.io/docs/getting-started.md
@@ -158,8 +167,3 @@ No deployments, live payments or production data mutations are part of these che
 - https://redotpay.readme.io/docs/webhook.md
 - https://redotpay.readme.io/reference/paymentorderdetail-1.md
 - https://redotpay.readme.io/reference/closeorder.md
-
-Uses documented v2 `/openapi/v2/order/create`, `/detail`, `/close`, production
-host `https://acquirer.redotpay.com`, `X-R-AK`, RSA-SHA256 request signatures,
-`orderCurrency: "USD"`, `outerOrderSn`, `orderSn`, `webUrl`, and webhook
-`appKey.timestamp.rawBody` verification.

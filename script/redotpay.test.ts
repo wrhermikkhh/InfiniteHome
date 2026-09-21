@@ -83,21 +83,17 @@ test("authoritative details must match immutable currency, amount and identities
 test("shared route integration blocks legacy payment creation and status bypass for both DB driver shapes", async () => {
   for (const nodePg of [true, false]) {
     const routes: Record<string, any> = {};
-    const app: any = {
-      get: (path: string, handler: any) => { routes[`GET ${path}`] = handler; },
-      post: (path: string, handler: any) => { routes[`POST ${path}`] = handler; },
-      use: (path: string, handler: any) => { routes[`USE ${path}`] = handler; },
-    };
+    const app: any = Object.fromEntries(["get", "post", "use"].map(method => [method, (path: string, handler: any) => { routes[`${method} ${path}`] = handler; }]));
     let method = "redotpay";
     registerRedotPay(app, () => ({ execute: async () => nodePg ? { rows: [{ payment_method: method }] } : [{ payment_method: method }] }), {});
     let status = 200, nextCalled = false;
     const res: any = { status: (s: number) => { status = s; return res; }, json: () => res };
-    await routes["POST /api/orders"]({ body: { paymentMethod: "redotpay", status: "confirmed" } }, res, () => { nextCalled = true; });
+    await routes["post /api/orders"]({ body: { paymentMethod: "redotpay", status: "confirmed" } }, res, () => { nextCalled = true; });
     assert.equal(status, 400); assert.equal(nextCalled, false);
-    await routes["USE /api/orders/:id"]({ method: "PATCH", params: { id: "order" } }, res, () => { nextCalled = true; });
+    await routes["use /api/orders/:id"]({ method: "PATCH", params: { id: "order" } }, res, () => { nextCalled = true; });
     assert.equal(status, 403); assert.equal(nextCalled, false);
     method = "cod";
-    await routes["USE /api/orders/:id"]({ method: "PATCH", params: { id: "order" } }, res, () => { nextCalled = true; });
+    await routes["use /api/orders/:id"]({ method: "PATCH", params: { id: "order" } }, res, () => { nextCalled = true; });
     assert.equal(nextCalled, true);
   }
 });
@@ -116,8 +112,10 @@ test("mocked reconciliation confirms once, never deducts stock twice; migration 
         if (command.includes("INSERT INTO redotpay_limits")) result = [{ hits: 1 }];
         else if (command.includes("FROM redotpay_schema")) {
           if (missingMigration) throw new Error("relation missing");
-          result = [{ version: 1 }];
-        } else if (command.startsWith("SELECT") && command.includes("FROM redotpay_payments") && !command.includes("LIMIT 0")) result = [{ ...payment }];
+          assert.match(command, /version = 2/);
+          result = [{ version: 2 }];
+        } else if (command.includes("INSERT INTO redotpay_limits")) result = [{ hits: 1 }];
+        else if (command.startsWith("SELECT") && command.includes("FROM redotpay_payments") && !command.includes("LIMIT 0")) result = [{ ...payment }];
         else if (command.startsWith("UPDATE orders")) confirmations++;
         else if (command.startsWith("UPDATE products")) stockWrites++;
         else if (command.includes("SET state = 'paid'")) payment.state = "paid";
@@ -149,7 +147,7 @@ test("sandbox uses documented host and a separate pinned key; signatures are nev
     REDOTPAY_ENVIRONMENT: "sandbox", REDOTPAY_MVR_PER_USD: "15.42", REDOTPAY_APP_KEY: "fake",
     REDOTPAY_KEY_VERSION: "1", REDOTPAY_PRIVATE_KEY: privateKey.export({ format: "pem", type: "pkcs8" }).toString() });
   assert.equal(settings.apiOrigin, "https://acquirersandbox.rp-2023app.com");
-  assert.equal(settings.publicKey, SANDBOX_PUBLIC_KEY);
+  assert.equal(settings.webhookKey, SANDBOX_PUBLIC_KEY);
   assert.notEqual(SANDBOX_PUBLIC_KEY, PRODUCTION_PUBLIC_KEY);
   await providerRequest("/openapi/v2/order/detail", { outerOrderSn: "fake" }, (async (url: any, options: any) => {
     assert.equal(url, "https://acquirersandbox.rp-2023app.com/openapi/v2/order/detail");
@@ -192,8 +190,7 @@ function recoveryFixture(nodePg: boolean, initialState = "pending", lockProduct?
     finally { while (unlocks.length) unlocks.pop()!(); }
   } };
   registerRedotPay(app, () => db, {}, {
-    configure: () => ({ origin: "https://shop.example.com", key: privateKey, appKey: "fake", version: "1", publicKey: publicPem }),
-    authenticate: async () => admin,
+    configure: () => ({ origin: "https://shop.example.com", key: privateKey, appKey: "fake", version: "1", webhookKey: publicPem }),
     request: async (path) => {
       calls.push(path);
       if (path.endsWith("/close")) return {};
@@ -204,7 +201,7 @@ function recoveryFixture(nodePg: boolean, initialState = "pending", lockProduct?
     let status = 200, output: any;
     const req: any = { method: route.startsWith("get") ? "GET" : "POST", body, params: { id: "RP1" }, ip: "127.0.0.1",
       get: (key: string) => ({ authorization: `Bearer ${"a".repeat(64)}`, origin: "https://shop.example.com", ...headers })[key.toLowerCase()], ...extra };
-    const res: any = { append: () => res, status: (s: number) => { status = s; return res; }, json: (data: any) => { output = data; return res; } };
+    const res: any = { locals: { admin }, append: () => res, status: (s: number) => { status = s; return res; }, json: (data: any) => { output = data; return res; } };
     await routes[route](req, res);
     return { status, output };
   }

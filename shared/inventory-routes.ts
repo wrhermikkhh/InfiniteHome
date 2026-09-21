@@ -35,8 +35,9 @@ export function registerInventoryAdmin(app: Express, getDb: () => any) {
       ? sql`SELECT id, order_number AS reference, items, status, payment_method FROM orders WHERE id = ${id} OR order_number = ${id} LIMIT 1`
       : sql`SELECT id, transaction_number AS reference, items, status, converted_to_order_id FROM pos_transactions WHERE id = ${id} OR transaction_number = ${id} LIMIT 1`))[0];
     if (!sale) throw new Error("Sale not found. Enter the full order/POS reference or internal ID.");
-    const ledger = inventoryRows(await db.execute(sql`SELECT allocations, released, reconciled_by, reconciliation_note, reconciled_at
-      FROM inventory_sales WHERE kind = ${kind} AND sale_id = ${sale.id}`))[0];
+    const ledger = inventoryRows(await db.execute(sql`SELECT allocations, (restored_at IS NOT NULL) AS released, reconciled_by, reconciliation_note, reconciled_at
+      FROM legacy_inventory_reservations WHERE owner_type = ${kind} AND owner_id = ${sale.id}`))[0];
+    if (ledger) ledger.allocations = ledger.allocations.map((a: any) => ({ productId: a.productId, qty: a.qty, preOrder: a.preorder, total: a.capped, ...(a.key ? { key: a.key } : {}) }));
     const products = [];
     for (const productId of Array.from(new Set((sale.items || []).map((i: any) => i.productId).filter(Boolean)))) {
       const p = inventoryRows(await db.execute(sql`SELECT id, name, stock, variant_stock, pre_order_stock, pre_order_variant_stock

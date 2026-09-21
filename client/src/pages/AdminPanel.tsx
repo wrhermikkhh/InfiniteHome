@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { RedotPayAdmin } from "@/components/RedotPayAdmin";
+import RedotPayRecovery from "@/components/RedotPayRecovery";
 import { InventoryReconciliation } from "@/components/InventoryReconciliation";
 import { useAdminAuth, AdminPermissions, DEFAULT_PERMISSIONS } from "@/lib/auth";
 import { allowedAdminTabs, resolveAdminTab, type AdminTab } from "@/lib/admin-navigation";
@@ -307,7 +307,15 @@ function ColorVariantRow({
 }
 
 export default function AdminPanel() {
-  const { admin: user, adminLogin: login, adminLogout: logout, isAdminAuthenticated } = useAdminAuth();
+  const { admin: user, adminLogin: login, adminLogout, isAdminAuthenticated } = useAdminAuth();
+  const logout = async () => {
+    try {
+      await adminLogout();
+      setLocation("/");
+    } catch (error) {
+      toast({ title: "Sign out failed", description: error instanceof Error ? error.message : "Please retry sign out.", variant: "destructive" });
+    }
+  };
   useEffect(() => {
     // Never hydrate admin privileges from localStorage.
     localStorage.removeItem("admin-auth-storage");
@@ -499,7 +507,7 @@ export default function AdminPanel() {
   const loadData = async () => {
     try {
       const allowed = (permission: keyof AdminPermissions) =>
-        !!user && (user.isSuperAdmin || !user.permissions || user.permissions[permission]);
+        !!user && (user.isSuperAdmin === true || user.permissions?.[permission] === true);
       const [productsData, ordersData, couponsData, adminsData, categoriesData, posDeliveriesData] = await Promise.all([
         api.getProducts(),
         allowed("canManageOrders") ? api.getOrders() : Promise.resolve([]),
@@ -1925,7 +1933,7 @@ export default function AdminPanel() {
             </button>
           ))}
           <div className="pt-8">
-            <Button variant="outline" className="w-full rounded-none" onClick={() => { logout(); setLocation("/"); }}>
+            <Button variant="outline" className="w-full rounded-none" onClick={() => void logout()}>
               Sign Out
             </Button>
           </div>
@@ -3594,7 +3602,7 @@ export default function AdminPanel() {
                 <h1 className="text-3xl font-serif">Orders</h1>
                 <p className="text-muted-foreground">Manage and track customer orders</p>
               </div>
-              <RedotPayAdmin />
+              {permittedTabs.includes("Orders") && <RedotPayRecovery />}
 
               {/* Order Filter */}
               <div className="flex gap-2 mb-6">

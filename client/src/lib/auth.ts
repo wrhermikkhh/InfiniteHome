@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { api, Customer } from "./api";
 import { useCart } from "./cart";
+import { toast } from "@/hooks/use-toast";
 
 interface User {
   id: string;
@@ -17,7 +18,7 @@ interface AuthStore {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (data: { name: string; email: string; password: string; phone?: string }) => Promise<{ success: boolean; message?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => void;
 }
 
@@ -64,8 +65,14 @@ export const useAuth = create<AuthStore>()(
         }
         return { success: false, message: result.message };
       },
-      logout: () => {
-        void fetch("/api/customers/logout", { method: "POST", credentials: "same-origin" });
+      logout: async () => {
+        try {
+          const response = await fetch("/api/customers/logout", { method: "POST", credentials: "same-origin" });
+          if (!response.ok) throw new Error("Please retry sign out to revoke your session.");
+        } catch (error) {
+          toast({ title: "Sign out failed", description: error instanceof Error ? error.message : "Please retry sign out.", variant: "destructive" });
+          return;
+        }
         const currentUser = get().user;
         if (currentUser) {
           useCart.getState().saveCartForUser(currentUser.id);
@@ -104,12 +111,13 @@ interface AdminAuthStore {
   admin: { id: string; name: string; email: string; isSuperAdmin?: boolean; permissions?: AdminPermissions } | null;
   isAdminAuthenticated: boolean;
   adminLogin: (email: string, password: string) => Promise<boolean>;
-  adminLogout: () => void;
+  adminLogout: () => Promise<void>;
   refreshAdmin: () => Promise<void>;
+  refreshSession: () => Promise<void>;
 }
 
 export const useAdminAuth = create<AdminAuthStore>()(
-    (set) => ({
+    (set, get) => ({
       admin: null,
       isAdminAuthenticated: false,
       adminLogin: async (email, password) => {
@@ -123,20 +131,20 @@ export const useAdminAuth = create<AdminAuthStore>()(
         }
         return false;
       },
-      adminLogout: () => {
-        void fetch("/api/admin/logout", { method: "POST", credentials: "same-origin" });
-        set({ admin: null, isAdminAuthenticated: false });
-      },
-      refreshAdmin: async () => {
+      refreshSession: async () => {
         try {
           const response = await fetch("/api/admin/session", { credentials: "same-origin", cache: "no-store" });
           const result = await response.json();
           set(response.ok && result.admin
             ? { admin: result.admin, isAdminAuthenticated: true }
             : { admin: null, isAdminAuthenticated: false });
-        } catch {
-          set({ admin: null, isAdminAuthenticated: false });
-        }
+        } catch { set({ admin: null, isAdminAuthenticated: false }); }
       },
-    }),
+      refreshAdmin: async () => get().refreshSession(),
+      adminLogout: async () => {
+        const response = await fetch("/api/admin/logout", { method: "POST", credentials: "same-origin" });
+        if (!response.ok) throw new Error("Logout failed. Please retry to revoke your session.");
+        set({ admin: null, isAdminAuthenticated: false });
+      },
+    })
 );

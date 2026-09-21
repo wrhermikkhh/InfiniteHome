@@ -1,165 +1,155 @@
-# Deploying INFINITE HOME to Vercel
+# INFINITE HOME Vercel deployment and rollout
 
-This guide explains how to deploy this e-commerce application to Vercel.
+This operator guide does not authorize a deployment. No Vercel deployment,
+production migration, provider transaction, or live activation was performed by
+the RedotPay work. The confirmed canonical production origin is
+`https://infinite-home.vercel.app`; an isolated Preview origin remains
+unconfirmed.
 
-## Prerequisites
+## Prerequisites and ownership
 
-1. A Vercel account (https://vercel.com)
-2. A GitHub repository with this code
-3. A PostgreSQL database (recommended: Neon, Supabase, or Railway)
+- Vercel project connected to the reviewed repository and commit.
+- External serverless-compatible PostgreSQL connection, with backup/restore
+  tested. For Supabase, use the transaction pooler.
+- Supabase Storage and server-side service credentials when uploads are needed.
+- Named deployment, database, inventory, admin-security, and rollback owners.
+- All gates in `REDOTPAY_SETUP.md` reviewed, with RedotPay still disabled.
 
-## Step 1: Push to GitHub
+Use the checked-in `vercel.json`, Framework Preset **Other**, and `npm install`.
+The Vercel Express function in `api/index.ts` delegates to the same
+`server/routes.ts` and `server/storage.ts` implementation used elsewhere; do not
+reintroduce a mirrored backend or add a Next.js `api.bodyParser` setting. The
+shared server implementation must preserve the exact raw request bytes used for
+webhook verification. Prove that behavior with the isolated Preview harness
+rather than assuming local middleware behavior is identical on Vercel.
 
-1. Create a new GitHub repository
-2. Push this codebase to the repository:
-   ```bash
-   git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
-   git push -u origin main
-   ```
+## Required environment
 
-## Step 2: Set Up External PostgreSQL Database
+Set secrets in Vercel environment settings, never in source, evidence, client
+bundles, or `VITE_*` variables.
 
-Since Vercel is serverless, you need an external PostgreSQL database. Recommended options:
+| Variable | Requirement |
+| --- | --- |
+| `DATABASE_URL` | Intended serverless PostgreSQL database |
+| `ADMIN_PUBLIC_ORIGIN` | `https://infinite-home.vercel.app` exactly |
+| `RESEND_API_KEY` | Required when production email is enabled |
+| `SUPABASE_URL` | Required for configured uploads |
+| `SUPABASE_SERVICE_KEY` | Server-only service-role credential |
 
-### Option A: Neon (Recommended - Free tier available)
-1. Go to https://neon.tech
-2. Create a new project
-3. Copy the connection string (DATABASE_URL)
+Preview and production must not silently share origins, data, or credentials.
+Do not use wildcard admin CORS or derive the trusted origin from forwarding
+headers.
 
-### Option B: Supabase
-1. Go to https://supabase.com
-2. Create a new project
-3. Go to Settings > Database > Connection string
-4. Copy the connection string
+### RedotPay variables: keep disabled
 
-### Option C: Railway
-1. Go to https://railway.app
-2. Create a new PostgreSQL database
-3. Copy the connection string
+| Variable | Eventual production value |
+| --- | --- |
+| `REDOTPAY_ENABLED` | exact `true` only at final enablement |
+| `REDOTPAY_LIVE_APPROVED` | exact `true`, independent final gate |
+| `REDOTPAY_ENVIRONMENT` | `production` |
+| `REDOTPAY_PRIVATE_KEY` | approved merchant RSA private key, server-only |
+| `REDOTPAY_APP_KEY` | approved merchant app key, server-only |
+| `REDOTPAY_KEY_VERSION` | matching merchant public-key upload |
+| `REDOTPAY_MVR_PER_USD` | `15.42` |
+| `REDOTPAY_PUBLIC_ORIGIN` | `https://infinite-home.vercel.app` exactly |
 
-## Step 3: Deploy to Vercel
+Until final approval, leave both live gates absent/false. Credentials alone must
+not expose checkout. Sandbox acceptance requires provider-issued sandbox
+merchant credentials; do not use production credentials or invent a sandbox.
 
-1. Go to https://vercel.com/new
-2. Import your GitHub repository
-3. Configure the project:
-   - **Framework Preset**: Other
-   - **Build Command**: `npx vite build` (already configured in vercel.json)
-   - **Output Directory**: `dist/public`
-   - **Install Command**: `npm install`
+Preview-only raw-body acceptance variables and their public-key override are
+documented in `script/REDOTPAY_ACCEPTANCE.md`. They require
+`VERCEL_ENV=preview`, an exact opt-in, and disabled checkout. Remove them after
+the probe. Never deploy the fixture private key.
 
-4. Add Environment Variables:
-   - `DATABASE_URL`: Your PostgreSQL connection string from Step 2
-   - `RESEND_API_KEY`: Your Resend API key for order confirmation emails
+## Database migration order
 
-5. Click "Deploy"
+Do not deploy the current application until all three prerequisites are present.
 
-## Step 4: Run Database Migrations
+1. Keep the old application serving and RedotPay disabled.
+2. Confirm the exact database and create a reviewed backup.
+3. Review and manually apply, with the approved server role:
+   `script/admin-security-migration.sql`, then
+   `script/redotpay-migration.sql`, then
+   `script/inventory-safety-migration.sql`.
+4. Verify customer/admin sessions, both throttle mechanisms, customer email
+   proofs, the canonical `legacy_inventory_reservations` ledger and its
+   reconciliation audit fields, RedotPay objects and audit objects;
+   schema versions; indexes; constraints; triggers; RLS/revocations; and
+   server-role access.
+5. If `inventory_sales` exists from an earlier incoming deployment, review it
+   as historical evidence. Do not silently rename/copy it or infer allocations.
+   Import only independently verified outstanding allocations through
+   `script/LEGACY_INVENTORY_OPERATIONS.md`.
+6. Require every administrator with an old MD5-era session to sign in again;
+   do not migrate or trust old session tokens.
+7. Record the reviewed evidence.
 
-For the RedotPay/auth/inventory safety release, follow `REDOTPAY_SETUP.md` and
-apply its reviewed additive SQL migrations in Supabase **before deploying the
-new code**. The session and inventory tables are required even with RedotPay
-disabled. Take the normal database backup first.
+Do not blindly run `drizzle-kit push` against production. Protected raw-SQL
+objects are not all represented in the Drizzle schema. The migration was tested
+on disposable PostgreSQL but was not applied to production.
 
-Do not blindly run `drizzle-kit push` against production: this project also
-maintains protected raw-SQL tables that are not all represented in the Drizzle
-schema. Review any proposed schema diff rather than accepting table deletions.
+## Preview acceptance before production
 
-## Environment Variables Required
+Use an isolated Vercel Preview, isolated acceptance database, and non-production
+credentials. Keep production data and both production live gates out of it.
 
-| Variable | Description |
-|----------|-------------|
-| DATABASE_URL | PostgreSQL connection string |
-| RESEND_API_KEY | Resend API key for emails (optional) |
-| SUPABASE_URL | Your Supabase project URL (for file uploads) |
-| SUPABASE_SERVICE_KEY | Supabase service role key (for file uploads) |
+Run the acceptance harness from `script/REDOTPAY_ACCEPTANCE.md`, including
+exact-byte callback verification, retries/tampering, trusted-proxy behavior,
+admin session and permission changes, shared throttles, and deployed inventory
+contention. Then run provider-issued sandbox create/detail/close and race cases.
+Capture only redacted evidence and remove fixture settings afterward.
 
-## Step 5: Set Up Supabase Storage for File Uploads
+The merged local suite passes all 107 tests, TypeScript and both builds. Earlier
+isolated PostgreSQL checks passed; the combined migration sequence requires
+isolated acceptance before rollout. None of these checks are Vercel, provider,
+deployed-database, or production acceptance.
 
-Since Replit's Object Storage is NOT available on Vercel, the app uses Supabase Storage for product images and payment slips.
+## Production deployment sequence
 
-### Create a Storage Bucket in Supabase:
+1. Verify all three migrations in order and reviewed historical allocation work.
+2. Deploy the compatible application with RedotPay disabled.
+3. Require administrators to sign in again, including holders of old MD5-era
+   sessions; persisted browser profiles and old session rows are not authority.
+4. Smoke-test logout, permission removal, password invalidation, COD/bank/POS,
+   inventory restore, uploads, email, health, and recovery visibility.
+5. Complete and independently review all external acceptance.
+6. Configure the provider webhook:
+   `https://infinite-home.vercel.app/api/payments/redotpay/webhook`.
+7. Configure production RedotPay credentials and origin, still leaving both
+   gates disabled. Return URL:
+   `https://infinite-home.vercel.app/payment/redotpay`.
+8. In a separately approved window, enable both gates, perform only the approved
+   capped transaction, reconcile it, and monitor.
 
-1. Go to your Supabase project dashboard
-2. Navigate to **Storage** in the left sidebar
-3. Click **New bucket**
-4. Create a bucket named exactly: `infinite-home`
-5. **IMPORTANT**: Enable **Public bucket** so images can be displayed on the website
-6. Click **Create bucket**
+Do not combine migration, initial deployment, historical reconciliation,
+provider acceptance, and live enablement.
 
-### Get Your Supabase Credentials:
+## Operations, storage, and rollback
 
-1. Go to **Settings** → **API** in your Supabase dashboard
-2. Copy the **Project URL** → Set as `SUPABASE_URL` in Vercel
-3. Copy the **service_role** key (under "Project API keys") → Set as `SUPABASE_SERVICE_KEY` in Vercel
+- Monitor database/API health, 401/403/429 rates, auth throttling, nonterminal
+  reservations, recovery audits, provider errors, signature failures, and
+  legacy restoration errors.
+- Never delete payment attempts, operator audit, or allocation ledgers as
+  cleanup, and never release stock based on age.
+- Treat `started` or `uncertain` recovery audits as incidents requiring
+  authoritative provider detail.
+- Keep shared limits fail-closed; do not trust caller-supplied network identity.
+- Use the `infinite-home` Supabase Storage bucket with minimum required policy.
+  Never expose the service-role key or make sensitive payment slips public.
 
-### Add Environment Variables to Vercel:
+After new session or allocation-ledger writes begin, an old application is not a
+safe automatic rollback. Disable RedotPay first, pause conflicting writes when
+needed, preserve schema/audit evidence, reconcile in-flight state, and roll
+forward to a reviewed compatible build.
 
-Go to your Vercel project → Settings → Environment Variables and add:
-- `SUPABASE_URL`: `https://iyudonvratogbluudxly.supabase.co` (your project URL)
-- `SUPABASE_SERVICE_KEY`: Your service role key (starts with `eyJ...`)
+## Troubleshooting without weakening controls
 
-### Storage Policies (Optional but Recommended):
-
-For public read access to uploaded images, add this RLS policy in Supabase SQL Editor:
-
-```sql
--- Allow public read access to all objects
-CREATE POLICY "Public read access" ON storage.objects
-  FOR SELECT USING (bucket_id = 'infinite-home');
-
--- Allow authenticated uploads (service key handles this)
-CREATE POLICY "Allow uploads" ON storage.objects
-  FOR INSERT WITH CHECK (bucket_id = 'infinite-home');
-```
-
-## Important Notes
-
-### Limitations
-- Vercel serverless functions have a 10-second timeout on free tier (30 seconds on Pro)
-- Cold starts may cause slight delays on first request
-- No persistent file storage (use external services)
-
-## Custom Domain
-
-1. Go to your Vercel project settings
-2. Click "Domains"
-3. Add your custom domain (e.g., infinitehome.mv)
-4. Update your DNS records as instructed
-
-## Troubleshooting
-
-### Cannot Sign In / API Not Working
-1. **Check DATABASE_URL is set in Vercel**:
-   - Go to your Vercel project → Settings → Environment Variables
-   - Ensure `DATABASE_URL` is set and contains your Supabase connection string
-   - For Supabase, use the **Transaction Pooler** connection string (port 6543) for serverless compatibility
-   
-2. **Test the API health endpoint**:
-   - Visit `https://your-app.vercel.app/api/health`
-   - If it returns `{"status":"ok","database":true}`, the API is working
-   - If `database` is `false`, the DATABASE_URL is not set correctly
-
-3. **Check Vercel Function Logs**:
-   - Go to your Vercel project → Deployments → Latest deployment → Functions tab
-   - Look for any error messages in the `api/index` function logs
-
-### Database Connection Issues
-- For Supabase: Use Transaction Pooler (port 6543), NOT Session Pooler (port 5432)
-- Ensure your DATABASE_URL includes SSL (the API adds `ssl: { rejectUnauthorized: false }` automatically)
-- Example Supabase connection string:
-  ```
-  postgresql://postgres.[project-ref]:[password]@aws-1-ap-south-1.pooler.supabase.com:6543/postgres
-  ```
-
-### API Routes Not Working
-- Check the Vercel function logs in the dashboard
-- Ensure the `vercel.json` rewrites are correct
-- Test individual endpoints like `/api/products` to verify database connectivity
-
-### Build Failures
-- Check that all dependencies are listed in package.json
-- Ensure TypeScript types are correct
-
-### CORS Issues
-- The API includes CORS headers for cross-origin requests
-- If you're using a custom domain, ensure it's properly configured
+- Database unavailable: verify the connection, pooler, SSL, migration, and role
+  grants; do not bypass readiness.
+- Admin sign-in failure: verify migration v2, exact `ADMIN_PUBLIC_ORIGIN`,
+  cookies, throttling, and current account state.
+- Signature failure: compare exact raw bytes, environment, platform-key pin, and
+  key version; never re-stringify JSON or skip verification.
+- Inventory ambiguity: stop mutation and use reviewed reconciliation evidence;
+  never repair it with direct payment-state or stock edits.

@@ -39,9 +39,9 @@ export function prepareInventoryEdit(current: any, input: any) {
 }
 
 export async function outstandingAllocations(tx: any, id: string) {
-  const regular = inventoryRows(await tx.execute(sql`SELECT a.value AS allocation FROM inventory_sales s,
-    jsonb_array_elements(s.allocations) a WHERE s.released = false AND a.value->>'productId' = ${id}`))
-    .map(r => r.allocation);
+  const regular = inventoryRows(await tx.execute(sql`SELECT a.value AS allocation FROM legacy_inventory_reservations s,
+    jsonb_array_elements(s.allocations) a WHERE s.restored_at IS NULL AND a.value->>'productId' = ${id}`))
+    .map(r => ({ ...r.allocation, preOrder: r.allocation.preorder, total: r.allocation.capped }));
   // Inventory remains usable before RedotPay's separate migration is deployed.
   const installed = inventoryRows(await tx.execute(sql`SELECT to_regclass('redotpay_payments') AS relation`))[0]?.relation;
   if (installed) {
@@ -86,10 +86,10 @@ export async function inventoryProductEdit(db: any, id: string, input: any, upda
       // structure until the operator explicitly records what remains reserved.
       const legacy = inventoryRows(await tx.execute(sql`SELECT id FROM orders o WHERE status <> 'cancelled'
         AND payment_method <> 'redotpay' AND EXISTS (SELECT 1 FROM jsonb_array_elements(o.items) i WHERE i->>'productId' = ${id})
-        AND NOT EXISTS (SELECT 1 FROM inventory_sales s WHERE s.kind = 'order' AND s.sale_id = o.id)
+        AND NOT EXISTS (SELECT 1 FROM legacy_inventory_reservations s WHERE s.owner_type = 'order' AND s.owner_id = o.id)
         UNION ALL SELECT id FROM pos_transactions p WHERE status <> 'cancelled' AND converted_to_order_id IS NULL
         AND EXISTS (SELECT 1 FROM jsonb_array_elements(p.items) i WHERE i->>'productId' = ${id})
-        AND NOT EXISTS (SELECT 1 FROM inventory_sales s WHERE s.kind = 'pos' AND s.sale_id = p.id) LIMIT 1`));
+        AND NOT EXISTS (SELECT 1 FROM legacy_inventory_reservations s WHERE s.owner_type = 'pos' AND s.owner_id = p.id) LIMIT 1`));
       if (legacy.length) {
         // Allow numeric edits and additions; only forbid actual removal.
         const oldMaps = [["variantStock", "variant_stock"], ["preOrderVariantStock", "pre_order_variant_stock"]];
@@ -142,7 +142,7 @@ export async function reconcileHistoricalInventory(db: any, kind: string, id: st
     if (!sale || sale.status === "cancelled" || (kind === "order" && sale.payment_method === "redotpay") || sale.converted_to_order_id) {
       throw new InventoryConflict("Sale cannot be reconciled here: missing, cancelled, converted, or managed by RedotPay.");
     }
-    const existing = inventoryRows(await tx.execute(sql`SELECT * FROM inventory_sales WHERE kind = ${kind} AND sale_id = ${id} FOR UPDATE`))[0];
+    const existing = inventoryRows(await tx.execute(sql`SELECT * FROM legacy_inventory_reservations WHERE owner_type = ${kind} AND owner_id = ${id} FOR UPDATE`))[0];
     if (existing) throw new InventoryConflict("This sale already has an inventory ledger. Reconciliation cannot overwrite it.");
     const allocations = validateHistoricalAllocations(sale.items, body.allocations);
     for (const productId of Array.from(new Set(allocations.map(a => a.productId))).sort()) {
@@ -154,8 +154,9 @@ export async function reconcileHistoricalInventory(db: any, kind: string, id: st
         if (a.total && product[a.preOrder ? "pre_order_stock" : "stock"] == null) throw new Error("Allocated total stock cap no longer exists");
       }
     }
-    await tx.execute(sql`INSERT INTO inventory_sales (kind, sale_id, allocations, reconciled_by, reconciliation_note, reconciled_at)
-      VALUES (${kind}, ${id}, ${JSON.stringify(allocations)}::jsonb, ${actorId}, ${body.note.trim()}, now())`);
+    const recorded = allocations.map(a => ({ productId: a.productId, qty: a.qty, key: a.key ?? null, preorder: a.preOrder, capped: a.total }));
+    await tx.execute(sql`INSERT INTO legacy_inventory_reservations (owner_type, owner_id, allocations, reconciled_by, reconciliation_note, reconciled_at)
+      VALUES (${kind}, ${id}, ${JSON.stringify(recorded)}::jsonb, ${actorId}, ${body.note.trim()}, now())`);
     return { success: true, message: "Verified outstanding allocations recorded. No stock was changed. You may now retry cancellation or POS conversion." };
   });
 }

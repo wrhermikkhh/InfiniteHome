@@ -17,9 +17,8 @@ export async function sendOrderConfirmationEmail(order: any) {
     console.log('Using Resend fromEmail:', fromEmail);
     console.log('Sending to customer email:', order.customerEmail);
     const resend = new Resend(apiKey);
-    console.log('Sending email with Resend API Key:', apiKey.substring(0, 10) + '...');
 
-    const baseUrl = 'https://infinitehome.mv';
+    const baseUrl = 'https://infinite-home.vercel.app';
     const trackingRef = order.trackingNumber || order.orderNumber;
     const trackingUrl = `${baseUrl}/track?order=${trackingRef}`;
 
@@ -210,7 +209,7 @@ export async function sendOrderLabelEmail(order: any) {
 
     const { apiKey, fromEmail } = await getCredentials();
     const resend = new Resend(apiKey);
-    const baseUrl = 'https://infinitehome.mv';
+    const baseUrl = 'https://infinite-home.vercel.app';
 
     const trackingNumber = order.trackingNumber || order.orderNumber;
     const trackingUrl = `${baseUrl}/track?order=${trackingNumber}`;
@@ -314,7 +313,7 @@ export async function sendPosLabelEmail(transaction: any) {
 
     const { apiKey, fromEmail } = await getCredentials();
     const resend = new Resend(apiKey);
-    const baseUrl = 'https://infinitehome.mv';
+    const baseUrl = 'https://infinite-home.vercel.app';
 
     // Tracking number: numeric-only digits derived from transaction number
     const trackingNumber = transaction.trackingNumber ||
@@ -474,7 +473,7 @@ export async function sendOrderStatusEmail(order: any, newStatus: string) {
   try {
     const { apiKey, fromEmail } = await getCredentials();
     const resend = new Resend(apiKey);
-    const baseUrl = 'https://infinitehome.mv';
+    const baseUrl = 'https://infinite-home.vercel.app';
     const trackingNumber = order.trackingNumber || order.orderNumber;
     const trackingUrl = `${baseUrl}/track?order=${trackingNumber}`;
     const statusContent: { [key: string]: { subject: string; title: string; message: string; icon: string } } = {

@@ -22,6 +22,27 @@ const upload = multer({
  * Register Supabase storage routes for file uploads.
  */
 export function registerObjectStorageRoutes(app: Express): void {
+  app.get("/api/storage/health", async (_req, res) => {
+    try {
+      const { error } = await supabaseAdmin.storage.listBuckets();
+      if (error) throw error;
+      res.json({ status: "ok", storage: true });
+    } catch {
+      res.status(503).json({ status: "error", storage: false, message: "Storage unavailable" });
+    }
+  });
+  app.post("/api/uploads/request-url", async (_req, res) => {
+    try {
+      const path = `uploads/${randomUUID()}`;
+      const bucket = supabaseAdmin.storage.from("infinite-home");
+      const { data, error } = await bucket.createSignedUploadUrl(path);
+      if (error || !data) throw error || new Error("Upload URL unavailable");
+      const { data: publicData } = bucket.getPublicUrl(path);
+      res.json({ uploadURL: data.signedUrl, token: data.token, path: data.path, objectPath: publicData.publicUrl });
+    } catch {
+      res.status(503).json({ error: "Failed to generate upload URL. Verify storage configuration and retry." });
+    }
+  });
   
   // Debug endpoint to test Supabase connection
   app.get("/api/uploads/debug", async (req, res) => {

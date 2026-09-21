@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
-import { changeInventory, inventoryRows } from "./inventory";
+import { inventoryRows } from "./inventory";
+import { mutateInventory, recordInventory } from "./legacy-inventory";
 
 function cents(value: unknown) {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 10000000) throw new Error("Invalid catalog price");
@@ -124,9 +125,9 @@ export async function createCatalogOrder(db: any, input: any, insert: (tx: any, 
       coupon = inventoryRows(await tx.execute(sql`SELECT * FROM coupons WHERE code = ${code} FOR SHARE`))[0] || null;
     }
     const payload = catalogOrderPayload(input, calculateCatalogQuote(input, products, coupon));
-    const allocations = await changeInventory(tx, payload.items);
+    const allocations = await mutateInventory(tx, payload.items);
     const order = await insert(tx, payload);
-    await tx.execute(sql`INSERT INTO inventory_sales (kind, sale_id, allocations) VALUES (${"order"}, ${order.id}, ${JSON.stringify(allocations)}::jsonb)`);
+    await recordInventory(tx, "order", order.id, allocations);
     return order;
   });
 }

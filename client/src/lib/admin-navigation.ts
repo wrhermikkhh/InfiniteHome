@@ -7,7 +7,7 @@ type NavigationAdmin = { isSuperAdmin?: boolean; permissions?: AdminPermissions 
 export function allowedAdminTabs(admin: NavigationAdmin | null): AdminTab[] {
   if (!admin) return [];
   const allowed = (permission: keyof AdminPermissions) =>
-    admin.isSuperAdmin === true || admin.permissions == null || admin.permissions[permission] === true;
+    admin.isSuperAdmin === true || admin.permissions?.[permission] === true;
   return [
     "Overview",
     ...(allowed("canManageProducts") ? ["Products" as const] : []),
