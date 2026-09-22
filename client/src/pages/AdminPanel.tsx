@@ -62,7 +62,8 @@ import {
   Receipt,
   Minus,
   Calculator,
-  FileText
+  FileText,
+  SlidersHorizontal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -412,6 +413,70 @@ export default function AdminPanel() {
   const [inventorySearch, setInventorySearch] = useState("");
   const [orderFilter, setOrderFilter] = useState<"all" | "active" | "completed">("all");
   const [orderSearch, setOrderSearch] = useState("");
+  const [orderAdvancedOpen, setOrderAdvancedOpen] = useState(false);
+  const [orderStatusFilter, setOrderStatusFilter] = useState("all");
+  const [orderPaymentFilter, setOrderPaymentFilter] = useState("all");
+  const [orderDeliveryFilter, setOrderDeliveryFilter] = useState("all");
+  const [orderDateFrom, setOrderDateFrom] = useState("");
+  const [orderDateTo, setOrderDateTo] = useState("");
+
+  const orderFilterOptions = useMemo(() => ({
+    statuses: Array.from(new Set(orders.map(order => order.status))).sort(),
+    payments: Array.from(new Set(orders.map(order => order.paymentMethod))).sort(),
+    deliveries: Array.from(new Set(orders.map(order => order.deliveryType).filter((value): value is string => typeof value === "string" && value.length > 0))).sort(),
+  }), [orders]);
+
+  const activeAdvancedOrderFilters = [
+    orderStatusFilter !== "all",
+    orderPaymentFilter !== "all",
+    orderDeliveryFilter !== "all",
+    Boolean(orderDateFrom),
+    Boolean(orderDateTo),
+  ].filter(Boolean).length;
+
+  const filteredOrders = useMemo(() => orders.filter(order => {
+    const terminal = order.status === "delivered" || order.status === "cancelled" || order.status === "refunded";
+    if (orderFilter === "completed" && !terminal) return false;
+    if (orderFilter === "active" && terminal) return false;
+    if (orderStatusFilter !== "all" && order.status !== orderStatusFilter) return false;
+    if (orderPaymentFilter !== "all" && order.paymentMethod !== orderPaymentFilter) return false;
+    if (orderDeliveryFilter !== "all" && order.deliveryType !== orderDeliveryFilter) return false;
+    if (orderDateFrom || orderDateTo) {
+      if (!order.createdAt) return false;
+      const created = new Date(order.createdAt);
+      if (Number.isNaN(created.getTime())) return false;
+      if (orderDateFrom && created < new Date(`${orderDateFrom}T00:00:00`)) return false;
+      if (orderDateTo && created > new Date(`${orderDateTo}T23:59:59.999`)) return false;
+    }
+    if (orderSearch.trim()) {
+      const q = orderSearch.toLowerCase();
+      return Boolean(
+        order.orderNumber?.toLowerCase().includes(q) ||
+        order.customerName?.toLowerCase().includes(q) ||
+        order.customerPhone?.toLowerCase().includes(q) ||
+        order.trackingNumber?.toLowerCase().includes(q) ||
+        order.customerEmail?.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  }), [
+    orders,
+    orderFilter,
+    orderStatusFilter,
+    orderPaymentFilter,
+    orderDeliveryFilter,
+    orderDateFrom,
+    orderDateTo,
+    orderSearch,
+  ]);
+
+  const resetAdvancedOrderFilters = () => {
+    setOrderStatusFilter("all");
+    setOrderPaymentFilter("all");
+    setOrderDeliveryFilter("all");
+    setOrderDateFrom("");
+    setOrderDateTo("");
+  };
 
   // POS State
   const [posCart, setPosCart] = useState<{ productId: string; name: string; qty: number; price: number; color?: string; size?: string; image?: string }[]>([]);
@@ -3690,36 +3755,102 @@ export default function AdminPanel() {
               </div>
               {permittedTabs.includes("Orders") && <RedotPayRecovery />}
 
-              {/* Order Filter */}
-              <div className="flex gap-2 mb-6">
+              {/* Order filters */}
+              <div className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,14rem)_auto] sm:items-center">
+                <Select value={orderFilter} onValueChange={(value: "all" | "active" | "completed") => setOrderFilter(value)}>
+                  <SelectTrigger className="h-11 w-full rounded-lg bg-card" data-testid="select-order-group">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All orders</SelectItem>
+                    <SelectItem value="active">Active orders</SelectItem>
+                    <SelectItem value="completed">Completed / delivered</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button
-                  variant={orderFilter === "all" ? "default" : "outline"}
-                  size="sm"
-                  className="rounded-none uppercase tracking-widest text-xs font-bold"
-                  onClick={() => setOrderFilter("all")}
-                  data-testid="button-filter-all-orders"
+                  type="button"
+                  variant={orderAdvancedOpen || activeAdvancedOrderFilters > 0 ? "default" : "outline"}
+                  className="h-11 justify-between gap-3 rounded-lg sm:w-fit"
+                  onClick={() => setOrderAdvancedOpen(open => !open)}
+                  aria-expanded={orderAdvancedOpen}
+                  data-testid="button-advanced-order-filters"
                 >
-                  All Orders
-                </Button>
-                <Button
-                  variant={orderFilter === "active" ? "default" : "outline"}
-                  size="sm"
-                  className="rounded-none uppercase tracking-widest text-xs font-bold"
-                  onClick={() => setOrderFilter("active")}
-                  data-testid="button-filter-active-orders"
-                >
-                  Active
-                </Button>
-                <Button
-                  variant={orderFilter === "completed" ? "default" : "outline"}
-                  size="sm"
-                  className="rounded-none uppercase tracking-widest text-xs font-bold"
-                  onClick={() => setOrderFilter("completed")}
-                  data-testid="button-filter-completed-orders"
-                >
-                  Completed/Delivered
+                  <span className="flex items-center gap-2">
+                    <SlidersHorizontal size={16} />
+                    Advanced filters
+                    {activeAdvancedOrderFilters > 0 && (
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white/20 px-1 text-[10px] font-bold">
+                        {activeAdvancedOrderFilters}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronDown size={15} className={cn("transition-transform", orderAdvancedOpen && "rotate-180")} />
                 </Button>
               </div>
+
+              {orderAdvancedOpen && (
+                <Card className="admin-card mb-4 rounded-xl border-border">
+                  <CardContent className="p-4 md:p-5">
+                    <div className="mb-4 flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-bold">Advanced filters</p>
+                        <p className="text-xs text-muted-foreground">Narrow orders by status, payment, delivery, or date.</p>
+                      </div>
+                      {activeAdvancedOrderFilters > 0 && (
+                        <Button type="button" variant="ghost" size="sm" onClick={resetAdvancedOrderFilters}>
+                          Reset
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold">Exact status</Label>
+                        <Select value={orderStatusFilter} onValueChange={setOrderStatusFilter}>
+                          <SelectTrigger className="w-full rounded-lg"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Any status</SelectItem>
+                            {orderFilterOptions.statuses.map(status => (
+                              <SelectItem key={status} value={status}>{status.replace(/_/g, " ")}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold">Payment method</Label>
+                        <Select value={orderPaymentFilter} onValueChange={setOrderPaymentFilter}>
+                          <SelectTrigger className="w-full rounded-lg"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Any payment</SelectItem>
+                            {orderFilterOptions.payments.map(method => (
+                              <SelectItem key={method} value={method}>{method.replace(/_/g, " ")}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold">Delivery type</Label>
+                        <Select value={orderDeliveryFilter} onValueChange={setOrderDeliveryFilter}>
+                          <SelectTrigger className="w-full rounded-lg"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Any delivery</SelectItem>
+                            {orderFilterOptions.deliveries.map(delivery => (
+                              <SelectItem key={delivery} value={delivery}>{delivery.replace(/_/g, " ")}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="order-date-from" className="text-xs font-bold">From date</Label>
+                        <Input id="order-date-from" type="date" value={orderDateFrom} onChange={event => setOrderDateFrom(event.target.value)} className="rounded-lg" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="order-date-to" className="text-xs font-bold">To date</Label>
+                        <Input id="order-date-to" type="date" value={orderDateTo} onChange={event => setOrderDateTo(event.target.value)} className="rounded-lg" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               <div className="relative mb-6">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -3743,24 +3874,7 @@ export default function AdminPanel() {
               <Card className="rounded-none border-border shadow-none">
                 <CardContent className="p-0">
                   <div className="divide-y divide-border">
-                    {orders.filter(order => {
-                      if (orderFilter === "completed") {
-                        if (!(order.status === "delivered" || order.status === "cancelled" || order.status === "refunded")) return false;
-                      } else if (orderFilter === "active") {
-                        if (order.status === "delivered" || order.status === "cancelled" || order.status === "refunded") return false;
-                      }
-                      if (orderSearch.trim()) {
-                        const q = orderSearch.toLowerCase();
-                        return (
-                          order.orderNumber?.toLowerCase().includes(q) ||
-                          order.customerName?.toLowerCase().includes(q) ||
-                          order.customerPhone?.toLowerCase().includes(q) ||
-                          order.trackingNumber?.toLowerCase().includes(q) ||
-                          order.customerEmail?.toLowerCase().includes(q)
-                        );
-                      }
-                      return true;
-                    }).map((order) => (
+                    {filteredOrders.map((order) => (
                       <div key={order.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
@@ -3813,26 +3927,17 @@ export default function AdminPanel() {
                         </div>
                       </div>
                     ))}
-                    {orders.filter(order => {
-                      if (orderFilter === "completed") {
-                        if (!(order.status === "delivered" || order.status === "cancelled" || order.status === "refunded")) return false;
-                      } else if (orderFilter === "active") {
-                        if (order.status === "delivered" || order.status === "cancelled" || order.status === "refunded") return false;
-                      }
-                      if (orderSearch.trim()) {
-                        const q = orderSearch.toLowerCase();
-                        return (
-                          order.orderNumber?.toLowerCase().includes(q) ||
-                          order.customerName?.toLowerCase().includes(q) ||
-                          order.customerPhone?.toLowerCase().includes(q) ||
-                          order.trackingNumber?.toLowerCase().includes(q) ||
-                          order.customerEmail?.toLowerCase().includes(q)
-                        );
-                      }
-                      return true;
-                    }).length === 0 && (
+                    {filteredOrders.length === 0 && (
                       <div className="p-8 text-center text-muted-foreground">
-                        {orderSearch.trim() ? `No orders matching "${orderSearch}".` : orderFilter === "completed" ? "No completed orders." : orderFilter === "active" ? "No active orders." : "No orders yet."}
+                        {orderSearch.trim()
+                          ? `No orders matching "${orderSearch}".`
+                          : activeAdvancedOrderFilters > 0
+                            ? "No orders match the selected filters."
+                            : orderFilter === "completed"
+                              ? "No completed orders."
+                              : orderFilter === "active"
+                                ? "No active orders."
+                                : "No orders yet."}
                       </div>
                     )}
                   </div>
