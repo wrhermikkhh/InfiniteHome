@@ -496,7 +496,7 @@ export default function AdminPanel() {
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPosLabelModal, setShowPosLabelModal] = useState(false);
-  const [posLabelForm, setPosLabelForm] = useState({ recipientName: "", recipientEmail: "", streetAddress: "", atollIsland: "", phone: "", deliveryType: "standard", boxCount: 1 });
+  const [posLabelForm, setPosLabelForm] = useState({ recipientName: "", recipientEmail: "", streetAddress: "", atollIsland: "", phone: "", deliveryType: "standard", boxCount: 1, labelSize: "4x6" });
   const [posDeliveries, setPosDeliveries] = useState<any[]>([]);
   const [showPosVariantModal, setShowPosVariantModal] = useState(false);
   const [selectedPosProduct, setSelectedPosProduct] = useState<any>(null);
@@ -1221,6 +1221,9 @@ export default function AdminPanel() {
   const handlePrintPosLabel = async () => {
     if (!selectedTransaction) return;
     const boxCount = Math.max(1, Math.min(99, Math.floor(Number(posLabelForm.boxCount) || 1)));
+    const isA4Label = posLabelForm.labelSize === "a4";
+    const printPageSize = isA4Label ? "A4 portrait" : "4in 6in";
+    const documentFormatClass = isA4Label ? "format-a4" : "format-4x6";
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -1259,6 +1262,7 @@ export default function AdminPanel() {
     } catch {}
 
     const labelsHtml = Array.from({ length: boxCount }, (_, index) => `
+      <section class="print-page">
       <div class="label">
         <div class="top-header">
           <div class="top-header-row">
@@ -1305,6 +1309,7 @@ export default function AdminPanel() {
           <div class="tracking-number">${escHtml(cleanTrackingNumber)}</div>
         </div>
       </div>
+      </section>
     `).join('');
 
     printWindow.document.write(`
@@ -1314,10 +1319,14 @@ export default function AdminPanel() {
         <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          html, body { width: 4in; margin: 0; padding: 0; }
+          html, body { margin: 0; padding: 0; }
           body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000; }
-          .label { width: 4in; height: 6in; border: 2px solid #000; background: white; overflow: hidden; break-after: page; page-break-after: always; }
-          .label:last-of-type { break-after: auto; page-break-after: auto; }
+          .print-page { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; background: white; break-after: page; page-break-after: always; }
+          .print-page:last-of-type { break-after: auto; page-break-after: auto; }
+          .label { flex: 0 0 auto; width: 4in; height: 6in; display: flex; flex-direction: column; border: 2px solid #000; background: white; overflow: hidden; transform-origin: center center; }
+          .format-4x6 .print-page { width: 4in; height: 6in; }
+          .format-a4 .print-page { width: 210mm; height: 297mm; }
+          .format-a4 .label { transform: scale(1.948); }
           .top-header { display: flex; flex-direction: column; border-bottom: 3px solid #000; }
           .top-header-row { display: flex; align-items: stretch; min-height: 1.0in; }
           .top-left { flex: 1; padding: 0.1in 0.12in; display: flex; flex-direction: column; justify-content: center; border-right: 2px solid #000; }
@@ -1348,14 +1357,18 @@ export default function AdminPanel() {
           .items-label { font-size: 6.5pt; font-weight: bold; text-transform: uppercase; color: #666; margin-bottom: 3px; }
           .items-text { font-size: 8pt; line-height: 1.4; }
           .payment-info { font-size: 7pt; color: #444; margin-top: 3px; font-weight: bold; }
-          .tracking-section { padding: 0.08in 0.12in 0.1in; text-align: center; }
+          .tracking-section { flex: 1; min-height: 0; padding: 0.08in 0.12in 0.1in; display: flex; flex-direction: column; justify-content: center; text-align: center; }
           .tracking-label { font-size: 10pt; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.06in; }
           .barcode-container { width: 100%; overflow: hidden; }
           .barcode { width: 100%; height: 70px; }
           .tracking-number { font-size: 11pt; font-weight: bold; font-family: 'Courier New', monospace; letter-spacing: 2px; margin-top: 0.05in; }
-          @media print { @page { margin: 0; size: 4in 6in; } html, body { margin: 0; width: 4in; } .label { border: none; } }
+          @media print {
+            @page { margin: 0; size: ${printPageSize}; }
+            html, body { margin: 0; }
+            .label { border: none; }
+          }
         </style>
-      </head><body>
+      </head><body class="${documentFormatClass}">
         ${labelsHtml}
         <script>
           var printed = false;
@@ -4908,7 +4921,27 @@ export default function AdminPanel() {
                 value={posLabelForm.boxCount}
                 onChange={(e) => setPosLabelForm(f => ({ ...f, boxCount: Math.max(1, Math.min(99, Number(e.target.value) || 1)) }))}
               />
-              <p className="mt-1 text-xs text-muted-foreground">One 4 × 6 inch label will be generated for each package.</p>
+              <p className="mt-1 text-xs text-muted-foreground">One full-page label will be generated for each package.</p>
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground block mb-2">Label Page Size *</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPosLabelForm(f => ({ ...f, labelSize: "4x6" }))}
+                  className={`min-h-12 border px-3 text-sm font-semibold transition-colors ${posLabelForm.labelSize === "4x6" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-white hover:bg-secondary/20"}`}
+                >
+                  4 × 6 inch
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPosLabelForm(f => ({ ...f, labelSize: "a4" }))}
+                  className={`min-h-12 border px-3 text-sm font-semibold transition-colors ${posLabelForm.labelSize === "a4" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-white hover:bg-secondary/20"}`}
+                >
+                  A4
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">A4 is recommended when printing from a phone or a standard office printer.</p>
             </div>
             <div>
               <label className="text-xs uppercase tracking-widest text-muted-foreground block mb-2">Delivery Type *</label>
@@ -5134,7 +5167,7 @@ export default function AdminPanel() {
               variant="outline"
               className="rounded-none"
               onClick={() => {
-                setPosLabelForm({ recipientName: selectedTransaction?.customerName || "", recipientEmail: "", streetAddress: "", atollIsland: "", phone: selectedTransaction?.customerPhone || "", deliveryType: "standard", boxCount: 1 });
+                setPosLabelForm({ recipientName: selectedTransaction?.customerName || "", recipientEmail: "", streetAddress: "", atollIsland: "", phone: selectedTransaction?.customerPhone || "", deliveryType: "standard", boxCount: 1, labelSize: "4x6" });
                 setShowPosLabelModal(true);
               }}
             >
