@@ -1,7 +1,7 @@
 // Shared by Express development and Vercel. No dependency on either DB driver.
 import type { Express, Request, Response } from "express";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getReservationOwner, transportPeerBucket } from "./request-identity.js";
 import { isIP } from "node:net";
 import { acceptanceWebhookConfig, checkoutBrowserFields, config, matchesPayment, providerRequest, usdCents, verifyWebhook, REDOTPAY_RATE } from "./redotpay.js";
@@ -179,6 +179,9 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
     if (!/^[a-f0-9]{64}$/.test(token)) throw new Error("Payment authorization required");
     const payment = rows(await getDb().execute(sql`SELECT * FROM redotpay_payments WHERE token_hash = ${hash(token)}`))[0];
     if (!payment) throw new Error("No payment found");
+    if (req.body?.paymentId !== undefined && req.body.paymentId !== payment.id) {
+      throw new Error("Payment reference does not match authorization");
+    }
     return payment;
   }
   function view(p: any) {
@@ -357,7 +360,7 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
     if (claimed.length) {
       try {
         const settings = configure();
-        const checkout = checkoutBrowserFields(settings.origin, req.get("user-agent") || "");
+        const checkout = checkoutBrowserFields(settings.origin, req.get("user-agent") || "", payment.id);
         const result = await request("/openapi/v2/order/create", {
           outerOrderSn: payment.id, outerUid: payment.id, orderAmount: payment.usd_cents / 100,
           orderCurrency: "USD", ...checkout,
@@ -532,6 +535,36 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
         const delivery = req.path === "/delivery-status" && keys.every(k => ["deliveryStatus", "location"].includes(k)) &&
           ["label_created", "processing", "out_for_delivery", "delivered", "failed"].includes(req.body.deliveryStatus) &&
           (req.body.location == null || (typeof req.body.location === "string" && req.body.location.length <= 500));
+        const fulfillment = req.path === "/status" && keys.every(k => ["status", "location"].includes(k)) &&
+          ["label_generated", "processing", "shipped", "in_transit", "out_for_delivery", "delivered", "delivery_exception"].includes(req.body.status) &&
+          (req.body.location == null || (typeof req.body.location === "string" && req.body.location.length <= 500));
+        if (req.method === "PATCH" && isPaymentOperator(res.locals?.admin) && fulfillment) {
+          // The normal admin dropdown updates order status, not deliveryStatus.
+          // Handle it here under payment/order locks rather than bypassing protection.
+          const payment = await getDb().transaction(async (tx: any) => {
+            const paid = rows(await tx.execute(sql`SELECT * FROM redotpay_payments WHERE order_id = ${req.params.id} FOR UPDATE`))[0];
+            if (paid?.state !== "paid") throw Object.assign(new Error("Payment must be provider-confirmed before fulfillment"), { status: 409 });
+            const current = rows(await tx.execute(sql`SELECT status FROM orders WHERE id = ${req.params.id} FOR UPDATE`))[0];
+            const flow = ["confirmed", "label_generated", "processing", "shipped", "in_transit", "out_for_delivery", "delivered"];
+            const target = req.body.status;
+            if (!current || (!flow.includes(current.status) && current.status !== "delivery_exception") ||
+                (current.status === "delivered" && target !== "delivered") ||
+                (target !== "delivery_exception" && current.status !== "delivery_exception" && flow.indexOf(target) < flow.indexOf(current.status))) {
+              throw Object.assign(new Error("Invalid fulfillment transition"), { status: 409 });
+            }
+            if (current.status !== target) {
+              const event = { status: target, timestamp: new Date().toISOString(), ...(req.body.location ? { location: req.body.location } : {}) };
+              await tx.execute(sql`UPDATE orders SET status = ${target},
+                status_history = COALESCE(status_history, '[]'::jsonb) || ${JSON.stringify([event])}::jsonb
+                WHERE id = ${req.params.id}`);
+              await audit(paid.id, res.locals.admin.id, "fulfill", target, tx);
+            }
+            return paid;
+          });
+          await notifyPaymentEmail(payment, "status", req.body.status);
+          const [updated] = await getDb().select().from(ordersTable).where(eq(ordersTable.id, req.params.id));
+          return res.json(updated);
+        }
         if (req.method === "PATCH" && isPaymentOperator(res.locals?.admin) && (note || delivery)) {
           const payment = rows(await getDb().execute(sql`SELECT state FROM redotpay_payments WHERE order_id = ${req.params.id}`))[0];
           if (payment?.state === "paid") return next();
@@ -539,7 +572,11 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
         return res.status(403).json({ message: "RedotPay payment status is provider-verified. Only authorized fulfillment of paid orders is allowed." });
       }
       next();
-    } catch { res.status(503).json({ message: "Order protection is temporarily unavailable" }); }
+    } catch (error: any) {
+      res.status(error.status === 409 ? 409 : 503).json({
+        message: error.status === 409 ? error.message : "Order protection is temporarily unavailable",
+      });
+    }
   });
   app.get("/api/admin/redotpay/attempts", handle(async (req, res) => {
     const actor = await operator(req, res);

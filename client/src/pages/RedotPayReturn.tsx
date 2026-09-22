@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
-import { paymentRequest, PAYMENT_TOKEN_KEY } from "@/lib/redotpay";
+import { paymentRequest, paymentReturnId, paymentReturnPath, paymentTokenFor, retireActivePayment } from "@/lib/redotpay";
 import { useCart } from "@/lib/cart";
 
 export default function RedotPayReturn() {
@@ -11,13 +11,16 @@ export default function RedotPayReturn() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const { clearCart } = useCart();
+  const paymentId = paymentReturnId();
   async function check(action = "status") {
-    const token = localStorage.getItem(PAYMENT_TOKEN_KEY);
+    if (!paymentId) { setError("This return cannot be safely matched to a payment. Contact the store with your order reference; do not pay again."); return null; }
+    const token = paymentTokenFor(paymentId);
     if (!token) { setError("Payment session not found on this browser. Contact the store with your order reference; do not pay again."); return null; }
     setBusy(true);
     setError("");
     try {
-      const result = await paymentRequest(action, {}, token);
+      const result = await paymentRequest(action, { paymentId }, token);
+      if (result.id !== paymentId) throw new Error("Payment reference does not match this browser session");
       setPayment(result);
       if (result.state === "paid") clearCart();
       return result;
@@ -26,18 +29,18 @@ export default function RedotPayReturn() {
   }
   useEffect(() => { void check(); }, []);
   useEffect(() => {
-    const token = localStorage.getItem(PAYMENT_TOKEN_KEY);
+    const token = paymentId && paymentTokenFor(paymentId);
     if (!token || ["paid", "closed"].includes(payment?.state)) return;
     const timer = window.setInterval(() => void check(), 5000);
     return () => window.clearInterval(timer);
-  }, [payment?.state]);
+  }, [payment?.state, paymentId]);
   useEffect(() => {
     if (payment?.state !== "paid") return;
     const timer = window.setTimeout(() => {
-      window.location.assign("/order-summary/redotpay");
+      window.location.assign(paymentReturnPath(paymentId!, true));
     }, 1400);
     return () => window.clearTimeout(timer);
-  }, [payment?.state]);
+  }, [payment?.state, paymentId]);
   return <><Navbar /><main className="max-w-2xl mx-auto px-6 py-20 space-y-6">
     <h1 className="text-3xl font-serif">RedotPay payment</h1>
     <p>We are automatically verifying your payment with RedotPay. Once confirmed, you will be taken to your order summary.</p>
@@ -51,9 +54,9 @@ export default function RedotPayReturn() {
         <Button onClick={() => window.location.assign(payment.checkoutUrl)}>Continue existing payment</Button>}
       {payment.state !== "paid" && payment.state !== "closed" &&
         <Button variant="outline" disabled={busy} onClick={() => void check("cancel")}>Request verified cancellation</Button>}
-      <p><Link href={payment.state === "paid" ? "/order-summary/redotpay" : `/track?id=${payment.trackingNumber || payment.id}`}>{payment.state === "paid" ? "Open order summary now" : "View order tracking"}</Link></p>
+      <p><Link href={payment.state === "paid" ? paymentReturnPath(paymentId!, true) : `/track?id=${payment.trackingNumber || payment.id}`}>{payment.state === "paid" ? "Open order summary now" : "View order tracking"}</Link></p>
       {payment.state === "closed" && <Button variant="outline" onClick={() => {
-        localStorage.removeItem(PAYMENT_TOKEN_KEY); window.location.assign("/checkout");
+        retireActivePayment(paymentId!); window.location.assign("/checkout");
       }}>Retry with a new checkout</Button>}
     </section>}
     {error && <p role="alert" className="text-red-700">{error} If the result is uncertain, stock remains reserved. Contact the store; do not start another payment.</p>}

@@ -3,3 +3,6 @@
 - [RedotPay activation safety](redotpay-release-gate.md) — merchant credentials alone do not clear live use; review the documented authentication, inventory, and provider-test blockers.
 - [Dependency runtime compatibility](dependency-runtime-compatibility.md) — firewall fixes must preserve the externally hosted runtime, not silently require a newer Node major.
 - [Vercel branch environment precedence](vercel-branch-env-precedence.md) — branch-scoped Preview variables can silently shadow Preview-wide settings; inspect both scopes before acceptance.
+- [Vercel Hobby cron limit](vercel-hobby-cron-limit.md) — this project’s Vercel plan accepts only daily cron schedules; keep real-time payment reconciliation event-driven.
+- [Order email durability](order-email-durability.md) — customer, sales, and status emails need separate durable events plus stable provider idempotency keys.
+- [Payment return identity](payment-return-identity.md) — returning from payment must identify the exact attempt; a successful charge can otherwise display an older cancellation.

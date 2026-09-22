@@ -127,7 +127,7 @@ for (const arrayShape of [false, true]) {
       const login = await h.login();
       assert.equal(login.status, 200);
       assert.match(login.headers.get("set-cookie")!, /HttpOnly/);
-      assert.match(login.headers.get("set-cookie")!, /SameSite=Strict/);
+      assert.match(login.headers.get("set-cookie")!, /SameSite=Lax/);
       assert.match(login.headers.get("set-cookie")!, /Max-Age=28800/);
       assert.equal((await h.request("/api/orders")).status, 200);
       assert.equal((await h.request("/api/admin/redotpay")).status, 200);

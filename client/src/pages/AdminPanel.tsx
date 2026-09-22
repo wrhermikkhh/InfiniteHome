@@ -1717,65 +1717,85 @@ export default function AdminPanel() {
 
   if (isAdminLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <p className="text-sm text-muted-foreground">Checking admin session…</p>
+      <div className="admin-login min-h-[100dvh] flex items-center justify-center p-4">
+        <div className="w-full max-w-sm bg-card/95 backdrop-blur-sm border border-white/20 p-8 text-center admin-login-card">
+          <div className="h-10 w-10 mx-auto mb-5 border-2 border-primary/20 border-t-accent rounded-full animate-spin" />
+          <p className="admin-kicker">Infinite Home / Secure console</p>
+          <p className="text-sm text-muted-foreground mt-3">Checking your admin session</p>
+        </div>
       </div>
     );
   }
 
   if (!isAdminAuthenticated) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md rounded-none shadow-none border-border">
-          <div className="p-6 text-center">
-            <h1 className="text-2xl font-serif mb-2">INFINITE HOME</h1>
+      <div className="admin-login min-h-[100dvh] flex items-center justify-center p-4 sm:p-8">
+        <Card className="admin-login-card w-full max-w-md rounded-sm border-white/20 bg-card/95 backdrop-blur-sm">
+          <div className="p-7 sm:p-9 text-left">
+            <div className="flex items-center justify-between mb-10">
+              <div>
+                <p className="text-xl font-serif tracking-[.16em]">INFINITE HOME</p>
+                <p className="admin-kicker mt-2">Operations console</p>
+              </div>
+              <div className="h-10 w-10 bg-accent text-accent-foreground flex items-center justify-center font-serif text-lg">I</div>
+            </div>
+            <h1 className="text-2xl font-serif mb-2">{forgotStep === "login" ? "Welcome back" : forgotStep === "forgot" ? "Reset access" : "Set a new password"}</h1>
             <p className="text-sm text-muted-foreground mb-6">
               {forgotStep === "login" ? "Admin login — secure access required" : forgotStep === "forgot" ? "Enter your email to receive a reset code" : "Enter the code from your email"}
             </p>
           </div>
-          <CardContent className="space-y-4">
+          <CardContent className="px-7 pb-8 sm:px-9 space-y-4">
             {forgotStep === "login" && (
-              <>
+              <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleLogin();
+                }}
+              >
                 <div className="space-y-3">
                   <Input
                     type="email"
+                    name="email"
+                    autoComplete="username"
                     placeholder="Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                     className="rounded-none h-12"
                     data-testid="input-admin-email"
                   />
                   <Input
                     type="password"
+                    name="password"
+                    autoComplete="current-password"
                     placeholder="Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                     className="rounded-none h-12"
                     data-testid="input-admin-password"
                   />
                   {error && <p className="text-xs text-destructive" data-testid="text-login-error">{error}</p>}
                 </div>
                 <Button
+                  type="submit"
                   className="w-full h-12 rounded-none uppercase tracking-widest font-bold"
-                  onClick={handleLogin}
                   disabled={isLoading}
                   data-testid="button-admin-login"
                 >
                   {isLoading ? "Signing In..." : "Sign In"}
                 </Button>
                 <button
+                  type="button"
                   className="w-full text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors py-1"
                   onClick={() => { setForgotStep("forgot"); setForgotEmail(email); setForgotError(""); setForgotSuccess(""); }}
                   data-testid="button-forgot-password"
                 >
                   Forgot your password?
                 </button>
-                <Button variant="link" className="w-full text-xs text-muted-foreground" onClick={() => setLocation("/")}>
+                <Button type="button" variant="link" className="w-full text-xs text-muted-foreground" onClick={() => setLocation("/")}>
                   Back to Home
                 </Button>
-              </>
+              </form>
             )}
 
             {forgotStep === "forgot" && (
@@ -1880,7 +1900,7 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="admin-shell min-h-[100dvh]">
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-background border-b border-border px-4 py-3 flex items-center justify-between">
         <h1 className="font-serif text-lg">INFINITE HOME</h1>
@@ -1891,25 +1911,25 @@ export default function AdminPanel() {
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-40 bg-background pt-16">
+        <div className="md:hidden fixed inset-0 z-40 admin-sidebar pt-16">
           <div className="p-4 space-y-2">
             {menuItems.map((item) => (
               <button
                 key={item.label}
                 onClick={() => { switchTab(item.label); setMobileMenuOpen(false); }}
                 className={cn(
-                  "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors",
-                  activeTab === item.label ? "bg-primary text-primary-foreground" : "hover:bg-secondary/20"
+                  "nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors",
                 )}
+                data-active={activeTab === item.label}
               >
                 <item.icon size={18} />
                 {item.label}
               </button>
             ))}
             <div className="pt-4 border-t border-border mt-4">
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-destructive hover:text-destructive gap-3"
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-white/60 hover:text-white hover:bg-white/10 gap-3"
                 onClick={logout}
               >
                 Sign Out
@@ -1919,36 +1939,36 @@ export default function AdminPanel() {
         </div>
       )}
 
-      <div className="flex h-screen md:pt-0 pt-14">
+      <div className="flex min-h-[100dvh] md:pt-0 pt-14">
         {/* Sidebar - Desktop only */}
-        <aside className="w-64 border-r border-border bg-secondary/10 p-4 space-y-2 hidden md:block">
-          <div className="px-4 py-6 mb-4">
-            <h1 className="font-serif text-xl">INFINITE HOME</h1>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground mt-2">Control Panel</p>
+        <aside className="admin-sidebar w-64 p-4 space-y-1 hidden md:block md:sticky md:top-0 md:h-[100dvh]">
+          <div className="px-4 py-6 mb-5">
+            <h1 className="font-serif text-xl tracking-[.12em]">INFINITE HOME</h1>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50 mt-2">Operations console</p>
           </div>
           {menuItems.map((item) => (
             <button
               key={item.label}
               onClick={() => switchTab(item.label)}
               className={cn(
-                "w-full flex items-center gap-3 px-4 py-2 text-sm font-medium transition-colors",
-                activeTab === item.label ? "bg-primary text-primary-foreground" : "hover:bg-secondary/20"
+                "nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all duration-200",
               )}
+              data-active={activeTab === item.label}
               data-testid={`tab-${item.label.toLowerCase().replace(' ', '-')}`}
             >
               <item.icon size={18} />
               {item.label}
             </button>
           ))}
-          <div className="pt-8">
-            <Button variant="outline" className="w-full rounded-none" onClick={() => void logout()}>
+          <div className="pt-8 mt-5 border-t border-white/10">
+            <Button variant="ghost" className="w-full justify-start text-white/60 hover:text-white hover:bg-white/10 rounded-sm" onClick={() => void logout()}>
               Sign Out
             </Button>
           </div>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8">
+        <main className="admin-content flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4 md:p-8 lg:p-10">
           {activeTab === "Overview" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
               <div>
@@ -3825,7 +3845,8 @@ export default function AdminPanel() {
                             <option value="" disabled>
                               {selectedOrder.status ? `Current: ${selectedOrder.status.replace(/_/g, " ")}` : "— Select status —"}
                             </option>
-                            {orderStatuses.map(s => (
+                            {orderStatuses.filter(s => selectedOrder.paymentMethod !== "redotpay" ||
+                              ["label_generated", "processing", "shipped", "in_transit", "out_for_delivery", "delivered", "delivery_exception"].includes(s)).map(s => (
                               <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
                             ))}
                           </select>

@@ -6,11 +6,65 @@ import { checkoutBrowserFields, config, matchesPayment, providerRequest, publicO
 import { PgDialect } from "drizzle-orm/pg-core";
 import { BROWSER_ID_COOKIE, getBrowserIdentity, getReservationOwner, transportPeerBucket } from "../shared/request-identity";
 import { changeInventory } from "../shared/inventory";
+import { bindPaymentToken, paymentReturnId, paymentToken, paymentTokenFor, recoverUnboundPaymentToken, retireActivePayment, PAYMENT_ID_KEY, PAYMENT_TOKEN_KEY } from "../client/src/lib/redotpay";
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const publicPem = publicKey.export({ type: "spki", format: "pem" }).toString();
 const product = { id: "p1", name: "Pillow", price: 210, stock: 10, express_charge: 21, variants: [], colors: [], category: "Bedding" };
 const input = { items: [{ productId: "p1", qty: 2 }], deliveryType: "male", shippingSpeed: "standard" };
+
+test("browser capabilities remain bound to their explicit payment attempts", () => {
+  const values = new Map<string, string>();
+  (globalThis as any).localStorage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+    removeItem: (key: string) => values.delete(key),
+  };
+  const firstId = "RP1111111111111111111111111111";
+  const secondId = "RP2222222222222222222222222222";
+  const firstToken = "a".repeat(64);
+  const secondToken = "b".repeat(64);
+  bindPaymentToken(firstId, firstToken);
+  bindPaymentToken(secondId, secondToken);
+  assert.equal(paymentTokenFor(firstId), firstToken);
+  assert.equal(paymentTokenFor(secondId), secondToken);
+  retireActivePayment(firstId);
+  assert.equal(localStorage.getItem(PAYMENT_ID_KEY), secondId);
+  assert.equal(localStorage.getItem(PAYMENT_TOKEN_KEY), secondToken);
+  retireActivePayment(secondId);
+  assert.equal(paymentTokenFor(firstId), firstToken);
+  assert.equal(paymentTokenFor(secondId), secondToken);
+  const pendingToken = paymentToken();
+  assert.equal(localStorage.getItem(PAYMENT_TOKEN_KEY), pendingToken);
+  assert.equal(paymentToken(), pendingToken);
+  bindPaymentToken(firstId, pendingToken);
+  assert.throws(() => paymentToken(), /existing payment/i);
+  assert.equal(paymentReturnId("?id=RP1111111111111111111111111111"), firstId);
+  assert.equal(paymentReturnId(""), null);
+  assert.equal(paymentReturnId("?id=unknown"), null);
+  delete (globalThis as any).localStorage;
+});
+
+test("legacy unbound capability migrates, and only explicit not-found permits create retry", async () => {
+  const values = new Map<string, string>();
+  (globalThis as any).localStorage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+    removeItem: (key: string) => values.delete(key),
+  };
+  const originalFetch = globalThis.fetch;
+  const token = "c".repeat(64);
+  const id = "RP3333333333333333333333333333";
+  globalThis.fetch = async () => new Response(JSON.stringify({ id, state: "closed" }), { status: 200 });
+  assert.equal((await recoverUnboundPaymentToken(token))?.id, id);
+  assert.equal(paymentTokenFor(id), token);
+  globalThis.fetch = async () => new Response(JSON.stringify({ message: "No payment found" }), { status: 400 });
+  assert.equal(await recoverUnboundPaymentToken("d".repeat(64)), null);
+  globalThis.fetch = async () => new Response(JSON.stringify({ message: "Payment request could not be completed. Check status before retrying." }), { status: 503 });
+  await assert.rejects(recoverUnboundPaymentToken("e".repeat(64)), /could not be completed/);
+  globalThis.fetch = originalFetch;
+  delete (globalThis as any).localStorage;
+});
 
 test("checkout accepts provider URLs only for the selected environment", () => {
   assert.equal(providerCheckoutUrl({ appUrl: "redotpay://checkout/order-1" }, "APP"), "redotpay://checkout/order-1");
@@ -70,6 +124,17 @@ test("mobile checkout uses RedotPay H5 deeplink while desktop uses web redirect"
     env: "H5",
     redirectUrl: "https://shop.example.com/payment/redotpay",
     deeplink: "https://shop.example.com/payment/redotpay",
+  });
+  const boundDesktop = checkoutBrowserFields("https://shop.example.com", "Mozilla/5.0", "RPabcdef0123456789abcdef012345");
+  assert.deepEqual(boundDesktop, {
+    env: "WEB",
+    redirectUrl: "https://shop.example.com/payment/redotpay?id=RPabcdef0123456789abcdef012345",
+  });
+  const boundMobile = checkoutBrowserFields("https://shop.example.com", "Mozilla/5.0 (Android; Mobile)", "RPabcdef0123456789abcdef012345");
+  assert.deepEqual(boundMobile, {
+    env: "H5",
+    redirectUrl: "https://shop.example.com/payment/redotpay?id=RPabcdef0123456789abcdef012345",
+    deeplink: "https://shop.example.com/payment/redotpay?id=RPabcdef0123456789abcdef012345",
   });
 });
 test("request adapter signs exact body and documented URI; mocked transport only", async () => {
@@ -254,6 +319,14 @@ test("authoritative closure releases once; paid/unknown/mismatched results never
     assert.equal((await mismatch.invoke("post /api/payments/redotpay/cancel")).status, 400);
     assert.equal(mismatch.stockWrites(), 0);
   }
+});
+
+test("capability-authorized requests reject a different explicit payment reference", async () => {
+  const f = recoveryFixture(true);
+  const result = await f.invoke("post /api/payments/redotpay/status", { paymentId: "RP2" });
+  assert.equal(result.status, 400);
+  assert.match(result.output.message, /reference does not match/i);
+  assert.equal(f.calls.length, 0);
 });
 
 test("paid order summary requires authoritative payment and exposes no conversion inputs", async () => {

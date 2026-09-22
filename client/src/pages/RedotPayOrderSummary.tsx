@@ -4,7 +4,7 @@ import { Link } from "wouter";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
-import { PAYMENT_TOKEN_KEY, paymentRequest } from "@/lib/redotpay";
+import { paymentRequest, paymentReturnId, paymentReturnPath, paymentTokenFor, retireActivePayment } from "@/lib/redotpay";
 
 type SummaryItem = {
   productId: string;
@@ -45,17 +45,25 @@ const label = (value?: string) => value
 export default function RedotPayOrderSummary() {
   const [summary, setSummary] = useState<OrderSummary | null>(null);
   const [error, setError] = useState("");
+  const paymentId = paymentReturnId();
 
   useEffect(() => {
-    const token = localStorage.getItem(PAYMENT_TOKEN_KEY);
-    if (!token) {
-      setError("This order summary is available only on the browser used to complete payment.");
+    if (!paymentId) {
+      setError("This order cannot be safely identified. Contact the store with your order reference; do not pay again.");
       return;
     }
-    paymentRequest("summary", {}, token)
-      .then(setSummary)
+    const token = paymentTokenFor(paymentId);
+    if (!token) {
+      setError("This order summary is available only on the browser used to complete this payment. Contact the store; do not pay again.");
+      return;
+    }
+    paymentRequest("summary", { paymentId }, token)
+      .then(result => {
+        if (result.paymentId !== paymentId) throw new Error("Payment reference does not match this browser session");
+        setSummary(result);
+      })
       .catch(error => setError(error instanceof Error ? error.message : "Unable to load the order summary"));
-  }, []);
+  }, [paymentId]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
@@ -66,6 +74,7 @@ export default function RedotPayOrderSummary() {
           <div role="alert" className="mx-auto max-w-2xl border border-red-200 bg-red-50 p-6 text-red-800">
             <h1 className="mb-2 font-serif text-2xl">Order summary unavailable</h1>
             <p>{error}</p>
+            {paymentId && <p className="mt-4"><Link href={paymentReturnPath(paymentId)}>Return to payment details</Link></p>}
           </div>
         )}
         {summary && (
@@ -144,7 +153,7 @@ export default function RedotPayOrderSummary() {
             <div className="flex flex-wrap gap-3">
               <Button asChild className="rounded-none"><Link href={`/track?id=${encodeURIComponent(summary.trackingNumber)}`}>Track this order</Link></Button>
               <Button variant="outline" className="rounded-none" onClick={() => {
-                localStorage.removeItem(PAYMENT_TOKEN_KEY);
+                retireActivePayment(paymentId!);
                 window.location.assign("/shop");
               }}>Continue shopping</Button>
             </div>

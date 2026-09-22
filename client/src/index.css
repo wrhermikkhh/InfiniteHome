@@ -42,7 +42,7 @@
 :root {
   /* Soft, Clean Palette */
   /* Background: Warm Cream / Cozy vibe */
-  --background: 36 33% 94%; 
+  --background: 36 33% 94%;
   /* Foreground: Soft Charcoal */
   --foreground: 220 10% 15%;
 
@@ -70,7 +70,7 @@
   /* Card and Popover: Cream/Cozy */
   --card: 36 33% 96%;
   --card-foreground: 220 10% 15%;
-  
+
   --popover: 36 33% 96%;
   --popover-foreground: 220 10% 15%;
 
@@ -112,4 +112,81 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-serif tracking-tight;
   }
+}
+
+/* Operations console: a quiet, tactile system for long work sessions. */
+.admin-shell {
+  --background: 42 28% 96%;
+  --foreground: 213 28% 18%;
+  --primary: 213 32% 22%;
+  --primary-foreground: 42 28% 97%;
+  --secondary: 39 24% 91%;
+  --secondary-foreground: 213 28% 18%;
+  --muted: 40 20% 92%;
+  --muted-foreground: 213 12% 46%;
+  --accent: 17 52% 54%;
+  --accent-foreground: 42 28% 97%;
+  --border: 38 18% 84%;
+  --input: 38 18% 80%;
+  --ring: 17 52% 54%;
+  --card: 42 30% 98%;
+  --card-foreground: 213 28% 18%;
+  --popover: 42 30% 98%;
+  --popover-foreground: 213 28% 18%;
+  --radius: .35rem;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: -0.01em;
+  background:
+    radial-gradient(circle at 88% -10%, hsl(17 52% 54% / .09), transparent 30rem),
+    hsl(var(--background));
+}
+.admin-shell .admin-sidebar {
+  background: hsl(213 32% 22%);
+  color: hsl(42 28% 94%);
+  box-shadow: 12px 0 30px hsl(213 32% 12% / .08);
+}
+.admin-shell .admin-sidebar .nav-item { color: hsl(42 20% 75%); border-left: 2px solid transparent; }
+.admin-shell .admin-sidebar .nav-item:hover { color: hsl(42 28% 98%); background: hsl(42 28% 96% / .08); }
+.admin-shell .admin-sidebar .nav-item[data-active="true"] { color: hsl(42 28% 98%); background: hsl(17 52% 54% / .92); border-left-color: hsl(42 28% 98%); }
+.admin-shell .admin-content { background: transparent; }
+.admin-login {
+  --background: 42 28% 96%;
+  --foreground: 213 28% 18%;
+  --primary: 213 32% 22%;
+  --primary-foreground: 42 28% 97%;
+  --secondary: 39 24% 91%;
+  --secondary-foreground: 213 28% 18%;
+  --muted: 40 20% 92%;
+  --muted-foreground: 213 12% 46%;
+  --accent: 17 52% 54%;
+  --accent-foreground: 42 28% 97%;
+  --border: 38 18% 84%;
+  --input: 38 18% 80%;
+  --ring: 17 52% 54%;
+  --card: 42 30% 98%;
+  --card-foreground: 213 28% 18%;
+  --popover: 42 30% 98%;
+  --popover-foreground: 213 28% 18%;
+  --radius: .35rem;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: -0.01em;
+}
+.admin-shell .admin-kicker, .admin-login .admin-kicker { color: hsl(17 52% 46%); font: 600 10px/1 var(--font-mono); letter-spacing: .16em; text-transform: uppercase; }
+.admin-shell .admin-card { border-color: hsl(var(--border)); box-shadow: 0 8px 24px hsl(213 24% 20% / .045); transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.admin-shell .admin-card:hover { border-color: hsl(17 52% 54% / .4); box-shadow: 0 12px 28px hsl(213 24% 20% / .08); }
+.admin-login { background: linear-gradient(135deg, hsl(213 32% 22%) 0 52%, hsl(17 52% 54%) 52% 100%); }
+.admin-login .admin-login-card { box-shadow: 0 24px 70px hsl(213 32% 12% / .2); }
+.admin-shell .admin-content [class*="border-border"] { border-color: hsl(var(--border)); }
+.admin-shell .admin-content .shadow-sm { box-shadow: 0 8px 24px hsl(213 24% 20% / .045); }
+.admin-shell button, .admin-shell [role="button"] { min-height: 2.25rem; }
+.admin-shell input, .admin-shell select, .admin-shell textarea { font-size: 0.875rem; }
+.admin-shell th { font: 600 10px/1.2 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+.admin-shell td { vertical-align: middle; }
+.admin-shell .animate-in { animation-duration: .35s; }
+@media (max-width: 767px) {
+  .admin-shell .admin-content { padding: 1.25rem; }
+  .admin-shell .admin-content table { min-width: 680px; }
+  .admin-shell .admin-sidebar { box-shadow: none; }
+  .admin-shell .admin-content h1 { line-height: 1.08; }
+  .admin-shell .admin-content .grid { gap: .9rem; }
 }

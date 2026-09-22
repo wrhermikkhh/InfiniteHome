@@ -13,7 +13,7 @@ import { CreditCard, Truck, Zap, Wallet, Upload, CheckCircle, MapPin, Plus } fro
 import { useUpload } from "@/hooks/use-upload";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
-import { paymentRequest, paymentToken, PAYMENT_TOKEN_KEY } from "@/lib/redotpay";
+import { bindPaymentToken, paymentRequest, paymentReturnPath, paymentToken, recoverUnboundPaymentToken, retireActivePayment, PAYMENT_ID_KEY, PAYMENT_TOKEN_KEY } from "@/lib/redotpay";
 import usdtLogo from "@/assets/usdt.svg";
 import usdcLogo from "@/assets/usdc.svg";
 
@@ -293,13 +293,33 @@ export default function Checkout() {
         // An unfinished attempt must be reconciled, never silently replaced.
         // A terminal attempt may be retired so this browser can start a new order.
         const existingToken = localStorage.getItem(PAYMENT_TOKEN_KEY);
-        if (existingToken) {
-          const existing = await paymentRequest("status", {}, existingToken);
+        const existingPaymentId = localStorage.getItem(PAYMENT_ID_KEY);
+        if (existingPaymentId) {
+          if (!existingToken) {
+            throw new Error("An earlier payment cannot be identified safely. Contact the store with your order reference; do not pay again.");
+          }
+          const existing = await paymentRequest("status", { paymentId: existingPaymentId }, existingToken);
+          if (existing.id !== existingPaymentId) throw new Error("Payment reference does not match this browser session");
           if (!["paid", "closed"].includes(existing.state)) {
-            setLocation("/payment/redotpay");
+            setLocation(paymentReturnPath(existingPaymentId));
             return;
           }
-          localStorage.removeItem(PAYMENT_TOKEN_KEY);
+          retireActivePayment(existingPaymentId);
+        } else if (existingToken) {
+          if (!/^[a-f0-9]{64}$/.test(existingToken)) {
+            throw new Error("An earlier payment session is invalid. Contact the store with your order reference; do not pay again.");
+          }
+          // Migrate capabilities created before payment IDs were stored locally.
+          // Only a definitive "not found" means this is an uncommitted create
+          // token that may safely be retried with the same capability.
+          const existing = await recoverUnboundPaymentToken(existingToken);
+          if (existing) {
+            if (!["paid", "closed"].includes(existing.state)) {
+              setLocation(paymentReturnPath(existing.id));
+              return;
+            }
+            retireActivePayment(existing.id);
+          }
         }
         orderData.shippingSpeed = deliveryType;
         const quote = await paymentRequest("quote", orderData);
@@ -312,8 +332,9 @@ export default function Checkout() {
           expectedUsdCents: quote.usdCents,
           paymentEnvironment: mobile ? "APP" : "WEB",
         }, token);
+        bindPaymentToken(payment.id, token);
         if (payment.checkoutUrl) window.location.assign(payment.checkoutUrl);
-        else setLocation("/payment/redotpay");
+        else setLocation(paymentReturnPath(payment.id));
         return;
       }
       const order = await api.createOrder(orderData);
