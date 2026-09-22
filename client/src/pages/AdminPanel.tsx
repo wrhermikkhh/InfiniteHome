@@ -1323,12 +1323,13 @@ export default function AdminPanel() {
           * { margin: 0; padding: 0; box-sizing: border-box; }
           html, body { margin: 0; padding: 0; }
           body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000; }
-          .print-page { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; background: white; break-after: page; page-break-after: always; }
+          .print-page { position: relative; display: block; overflow: hidden; contain: layout paint; background: white; break-inside: avoid; page-break-inside: avoid; break-after: page; page-break-after: always; }
           .print-page:last-of-type { break-after: auto; page-break-after: auto; }
-          .label { flex: 0 0 auto; width: 4in; height: 6in; display: flex; flex-direction: column; border: 2px solid #000; background: white; overflow: hidden; transform-origin: center center; }
+          .label { position: absolute; left: 50%; top: 50%; width: 4in; height: 6in; display: flex; flex-direction: column; border: 2px solid #000; background: white; overflow: hidden; transform-origin: center center; }
           .format-4x6 .print-page { width: 4in; height: 6in; }
           .format-a4 .print-page { width: 210mm; height: 297mm; }
-          .format-a4 .label { transform: scale(1.948); }
+          .format-4x6 .label { transform: translate(-50%, -50%); }
+          .format-a4 .label { transform: translate(-50%, -50%) scale(1.68); }
           .top-header { display: flex; flex-direction: column; border-bottom: 3px solid #000; }
           .top-header-row { display: flex; align-items: stretch; min-height: 1.0in; }
           .top-left { flex: 1; padding: 0.1in 0.12in; display: flex; flex-direction: column; justify-content: center; border-right: 2px solid #000; }
@@ -1367,7 +1368,8 @@ export default function AdminPanel() {
           .tracking-number { width: 100%; max-width: 100%; font-size: 9pt; font-weight: bold; font-family: 'Courier New', monospace; line-height: 1.15; letter-spacing: 0.6px; overflow-wrap: anywhere; word-break: break-all; margin-top: 0.05in; }
           @media print {
             @page { margin: 0; size: ${printPageSize}; }
-            html, body { margin: 0; }
+            html, body { margin: 0; padding: 0; }
+            .print-page { break-inside: avoid !important; page-break-inside: avoid !important; }
             .label { border: none; }
           }
         </style>
