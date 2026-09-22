@@ -9,7 +9,6 @@ import {
   CheckCircle2, 
   Search, 
   Clock, 
-  MapPin, 
   AlertCircle, 
   Loader2,
   PackageCheck,
@@ -18,11 +17,10 @@ import {
   AlertTriangle,
   CreditCard,
   Tag,
-  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearch } from "wouter";
-import { Order } from "@/lib/api";
+import type { PublicOrderTracking, PublicPosTracking } from "@shared/public-tracking";
 
 export type OrderStatus = 
   | "pending"
@@ -381,8 +379,8 @@ function Timeline({ steps }: { steps: TrackingStep[] }) {
 
 export default function OrderTracking() {
   const [orderNumber, setOrderNumber] = useState("");
-  const [order, setOrder] = useState<Order | null>(null);
-  const [posTransaction, setPosTransaction] = useState<any | null>(null);
+  const [order, setOrder] = useState<PublicOrderTracking | null>(null);
+  const [posTransaction, setPosTransaction] = useState<PublicPosTracking | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const search = useSearch();
@@ -471,8 +469,7 @@ export default function OrderTracking() {
 
         {/* ── Storefront order ── */}
         {order && (() => {
-          const steps = buildOrderTimeline(order.status, (order as any).statusHistory, (order as any).createdAt, (order as any).deliveryStatus, (order as any).deliveryStatusHistory);
-          const adminNote = (order as any).adminNote;
+          const steps = buildOrderTimeline(order.status, order.statusHistory, order.createdAt?.toString(), order.deliveryStatus, order.deliveryStatusHistory);
           return (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
               {/* Header */}
@@ -482,8 +479,8 @@ export default function OrderTracking() {
                     <div>
                       <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Order Number</p>
                       <p className="text-2xl font-serif font-semibold" data-testid="text-order-number">{order.orderNumber}</p>
-                      {(order as any).trackingNumber && (
-                        <p className="text-sm text-muted-foreground mt-1 font-mono">Tracking: {(order as any).trackingNumber}</p>
+                      {order.trackingNumber && (
+                        <p className="text-sm text-muted-foreground mt-1 font-mono">Tracking: {order.trackingNumber}</p>
                       )}
                     </div>
                     <div className={cn(
@@ -496,26 +493,19 @@ export default function OrderTracking() {
                   </div>
                 </div>
 
-                <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="flex items-start gap-4">
                     <div className="bg-primary/10 p-3 rounded-full shrink-0"><Package className="text-primary" size={22} /></div>
                     <div>
                       <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Items</p>
-                      <p className="font-medium">{order.items?.length || 0} item{(order.items?.length || 0) !== 1 ? "s" : ""}</p>
+                      <p className="font-medium">{order.itemCount} item{order.itemCount !== 1 ? "s" : ""}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
                     <div className="bg-primary/10 p-3 rounded-full shrink-0"><Clock className="text-primary" size={22} /></div>
                     <div>
                       <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Order Date</p>
-                      <p className="font-medium">{(order as any).createdAt ? formatGMT5((order as any).createdAt).date : ""}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="bg-primary/10 p-3 rounded-full shrink-0"><MapPin className="text-primary" size={22} /></div>
-                    <div>
-                      <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Delivery Address</p>
-                      <p className="font-medium">{order.shippingAddress}</p>
+                      <p className="font-medium">{order.createdAt ? formatGMT5(order.createdAt.toString()).date : ""}</p>
                     </div>
                   </div>
                 </div>
@@ -528,7 +518,7 @@ export default function OrderTracking() {
                   Tracking Timeline
                 </h2>
                 <Timeline steps={steps} />
-                {(order as any).deliveryStatus === "delivery_exception" && (
+                {order.deliveryStatus === "delivery_exception" && (
                   <div className="mt-6 bg-red-50 border border-red-200 rounded-sm p-4 flex items-start gap-3">
                     <AlertTriangle className="text-red-600 mt-0.5 shrink-0" size={20} />
                     <div>
@@ -537,7 +527,7 @@ export default function OrderTracking() {
                     </div>
                   </div>
                 )}
-                {(order as any).deliveryStatus === "failed" && (
+                {order.deliveryStatus === "failed" && (
                   <div className="mt-6 bg-red-50 border border-red-200 rounded-sm p-4 flex items-start gap-3">
                     <AlertTriangle className="text-red-600 mt-0.5 shrink-0" size={20} />
                     <div>
@@ -548,18 +538,6 @@ export default function OrderTracking() {
                 )}
               </div>
 
-              {/* Admin Note */}
-              {adminNote && (
-                <div className="bg-white border border-border shadow-lg rounded-sm p-6 md:p-8 flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-full shrink-0">
-                    <MessageSquare className="text-primary" size={20} />
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-2">Note from INFINITE HOME</p>
-                    <p className="text-foreground leading-relaxed whitespace-pre-wrap">{adminNote}</p>
-                  </div>
-                </div>
-              )}
             </div>
           );
         })()}
@@ -569,7 +547,6 @@ export default function OrderTracking() {
           const deliveryStatus = posTransaction.deliveryStatus || null;
           const steps = buildPosTimeline(deliveryStatus, posTransaction.deliveryStatusHistory);
           const trackingNum = posTransaction.trackingNumber || posTransaction.transactionNumber.replace(/^POS-/, "").replace(/-/g, "");
-          const adminNote = posTransaction.adminNote;
           const deliveryStatusLabel: Record<string, string> = {
             label_created: "Label Created", processing: "Processing",
             out_for_delivery: "Out for Delivery", delivered: "Delivered", failed: "Delivery Failed",
@@ -602,24 +579,14 @@ export default function OrderTracking() {
                     <div className="bg-primary/10 p-3 rounded-full shrink-0"><Package className="text-primary" size={22} /></div>
                     <div>
                       <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Items</p>
-                      <p className="font-medium">{posTransaction.items?.length || 0} item{(posTransaction.items?.length || 0) !== 1 ? "s" : ""}</p>
+                      <p className="font-medium">{posTransaction.itemCount} item{posTransaction.itemCount !== 1 ? "s" : ""}</p>
                     </div>
                   </div>
-                  {posTransaction.labelRecipientName && (
-                    <div className="flex items-start gap-4">
-                      <div className="bg-primary/10 p-3 rounded-full shrink-0"><MapPin className="text-primary" size={22} /></div>
-                      <div>
-                        <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Recipient</p>
-                        <p className="font-medium">{posTransaction.labelRecipientName}</p>
-                        {posTransaction.labelAddress && <p className="text-sm text-muted-foreground">{posTransaction.labelAddress}</p>}
-                      </div>
-                    </div>
-                  )}
                   <div className="flex items-start gap-4">
                     <div className="bg-primary/10 p-3 rounded-full shrink-0"><Clock className="text-primary" size={22} /></div>
                     <div>
                       <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-1">Date</p>
-                      <p className="font-medium">{posTransaction.createdAt ? formatGMT5(posTransaction.createdAt).date : ""}</p>
+                      <p className="font-medium">{posTransaction.createdAt ? formatGMT5(posTransaction.createdAt.toString()).date : ""}</p>
                     </div>
                   </div>
                 </div>
@@ -645,32 +612,6 @@ export default function OrderTracking() {
               </div>
               )}
 
-              {/* Items */}
-              <div className="bg-white border border-border shadow-lg rounded-sm overflow-hidden">
-                <div className="p-6 border-b border-border">
-                  <h2 className="text-lg font-serif font-semibold">Items</h2>
-                </div>
-                <div className="px-6 pb-6 pt-4 space-y-2">
-                  {posTransaction.items?.map((item: any, i: number) => (
-                    <div key={i} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
-                      <span>{item.qty}x {item.name}{item.size && item.size !== "Standard" ? ` (${item.size})` : ""}{item.color && item.color !== "Default" ? ` — ${item.color}` : ""}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Admin Note */}
-              {adminNote && (
-                <div className="bg-white border border-border shadow-lg rounded-sm p-6 md:p-8 flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-full shrink-0">
-                    <MessageSquare className="text-primary" size={20} />
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-2">Note from INFINITE HOME</p>
-                    <p className="text-foreground leading-relaxed whitespace-pre-wrap">{adminNote}</p>
-                  </div>
-                </div>
-              )}
             </div>
           );
         })()}

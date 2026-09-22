@@ -1,4 +1,5 @@
 import { Product } from "./products";
+import type { PublicOrderTracking } from "@shared/public-tracking";
 
 const API_BASE = "/api";
 
@@ -234,7 +235,7 @@ export const api = {
     return res.json();
   },
 
-  async trackOrder(orderNumber: string): Promise<Order> {
+  async trackOrder(orderNumber: string): Promise<PublicOrderTracking> {
     const res = await fetch(`${API_BASE}/orders/track/${orderNumber}`);
     return res.json();
   },
