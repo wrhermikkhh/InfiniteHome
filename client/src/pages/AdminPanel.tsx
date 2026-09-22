@@ -492,6 +492,7 @@ export default function AdminPanel() {
   const [showPosReceipt, setShowPosReceipt] = useState(false);
   const [lastTransaction, setLastTransaction] = useState<any>(null);
   const [posViewMode, setPosViewMode] = useState<"checkout" | "history">("checkout");
+  const [posMobilePanel, setPosMobilePanel] = useState<"catalogue" | "cart">("catalogue");
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPosLabelModal, setShowPosLabelModal] = useState(false);
@@ -3311,23 +3312,24 @@ export default function AdminPanel() {
           )}
 
           {activeTab === "POS" && (
-            <div className="animate-in fade-in duration-500">
-              <div className="mb-6 flex items-center justify-between">
+            <div className="pos-register animate-in fade-in duration-500">
+              <div className="pos-register-header mb-5 flex items-center justify-between gap-3">
                 <div>
+                  <div className="admin-kicker mb-2">Infinite Home / Register</div>
                   <h1 className="text-3xl font-serif">Point of Sale</h1>
-                  <p className="text-muted-foreground">Process in-store sales quickly</p>
+                  <p className="text-muted-foreground">Fast checkout for the floor team.</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="pos-mode-switch flex gap-2">
                   <Button
                     variant={posViewMode === "checkout" ? "default" : "outline"}
-                    className="rounded-none"
+                    className="rounded-lg"
                     onClick={() => setPosViewMode("checkout")}
                   >
-                    <ShoppingCart size={16} className="mr-2" /> Checkout
+                    <ShoppingCart size={16} /> <span className="hidden sm:inline">Checkout</span>
                   </Button>
                   <Button
                     variant={posViewMode === "history" ? "default" : "outline"}
-                    className="rounded-none"
+                    className="rounded-lg"
                     onClick={() => {
                       setPosViewMode("history");
                       api.getAllPosTransactions()
@@ -3338,27 +3340,36 @@ export default function AdminPanel() {
                         .catch(() => setPosTransactions([]));
                     }}
                   >
-                    <FileText size={16} className="mr-2" /> Transaction History
+                    <FileText size={16} /> <span className="hidden sm:inline">History</span>
                   </Button>
                 </div>
               </div>
 
               {posViewMode === "checkout" && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <>
+              <div className="pos-mobile-tabs" role="tablist" aria-label="Register panels">
+                <button type="button" role="tab" aria-selected={posMobilePanel === "catalogue"} onClick={() => setPosMobilePanel("catalogue")}>
+                  <Package size={15} /> Catalogue
+                </button>
+                <button type="button" role="tab" aria-selected={posMobilePanel === "cart"} onClick={() => setPosMobilePanel("cart")}>
+                  <ShoppingCart size={15} /> Cart <span>{posCart.reduce((sum, item) => sum + item.qty, 0)}</span>
+                </button>
+              </div>
+              <div className="pos-checkout-grid grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Product Search & Selection */}
-                <div className="lg:col-span-2 space-y-4">
-                  <Card className="rounded-none border-border shadow-none">
+                <div className={cn("pos-catalogue lg:col-span-2 space-y-4", posMobilePanel !== "catalogue" && "pos-mobile-hidden")}>
+                  <Card className="pos-panel rounded-2xl border-border shadow-none">
                     <CardContent className="p-4">
-                      <div className="flex items-center gap-2 mb-4">
+                      <div className="pos-search-row flex items-center gap-2 mb-4">
                         <Search size={18} className="text-muted-foreground" />
                         <Input
                           placeholder="Search products by name, SKU, or barcode..."
-                          className="rounded-none flex-1"
+                           className="pos-search flex-1 rounded-xl"
                           value={posSearch}
                           onChange={(e) => setPosSearch(e.target.value)}
                         />
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[400px] overflow-y-auto">
+                       <div className="pos-product-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[calc(100dvh-18rem)] overflow-y-auto">
                         {products
                           .filter(p => {
                             const query = posSearch.toLowerCase();
@@ -3379,7 +3390,7 @@ export default function AdminPanel() {
                                 setSelectedPosColor(product.colors?.[0] || "Default");
                                 setShowPosVariantModal(true);
                               }}
-                              className="flex flex-col items-center p-3 border border-border hover:bg-secondary/20 transition-colors text-center"
+                               className="pos-product-tile flex flex-col items-center p-3 border border-border hover:bg-secondary/20 transition-colors text-center"
                             >
                               <img 
                                 src={product.image} 
@@ -3398,11 +3409,11 @@ export default function AdminPanel() {
                 </div>
 
                 {/* Cart & Checkout */}
-                <div className="space-y-4">
-                  <Card className="rounded-none border-border shadow-none">
+                <div className={cn("pos-cart-column space-y-4", posMobilePanel !== "cart" && "pos-mobile-hidden")}>
+                   <Card className="pos-panel pos-cart-panel rounded-2xl border-border shadow-none">
                     <CardContent className="p-4">
-                      <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                        <ShoppingCart size={18} /> Cart ({posCart.reduce((sum, item) => sum + item.qty, 0)})
+                      <h3 className="pos-cart-title font-bold text-lg mb-4 flex items-center gap-2">
+                         <span className="pos-cart-icon"><ShoppingCart size={18} /></span> Cart <span className="text-muted-foreground font-mono text-sm">{posCart.reduce((sum, item) => sum + item.qty, 0)} items</span>
                       </h3>
                       
                       <div className="space-y-3 max-h-[250px] overflow-y-auto mb-4">
@@ -3410,7 +3421,7 @@ export default function AdminPanel() {
                           <p className="text-muted-foreground text-sm text-center py-8">Cart is empty</p>
                         ) : (
                           posCart.map((item, index) => (
-                            <div key={index} className="flex items-center justify-between gap-2 p-2 bg-secondary/10">
+                           <div key={index} className="pos-cart-item flex items-center justify-between gap-2 p-2 bg-secondary/10">
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium truncate">{item.name}</p>
                                 {((item.size && item.size !== 'Standard') || (item.color && item.color !== 'Default')) && (
@@ -3468,7 +3479,7 @@ export default function AdminPanel() {
                         )}
                       </div>
 
-                      <div className="border-t border-border pt-4 space-y-3">
+                       <div className="pos-totals border-t border-border pt-4 space-y-3">
                         <div className="flex justify-between text-sm">
                           <span>Subtotal</span>
                           <span>{formatCurrency(posCart.reduce((sum, item) => sum + item.price * item.qty, 0))}</span>
@@ -3508,11 +3519,11 @@ export default function AdminPanel() {
                       </div>
 
                       <div className="mt-4 space-y-3">
-                        <div className="flex gap-2">
+                        <div className="pos-payment-grid flex gap-2">
                           <Button
                             variant={posPaymentMethod === "cash" ? "default" : "outline"}
                             size="sm"
-                            className="flex-1 rounded-none"
+                           className="flex-1 rounded-lg"
                             onClick={() => setPosPaymentMethod("cash")}
                           >
                             Cash
@@ -3520,7 +3531,7 @@ export default function AdminPanel() {
                           <Button
                             variant={posPaymentMethod === "card" ? "default" : "outline"}
                             size="sm"
-                            className="flex-1 rounded-none"
+                           className="flex-1 rounded-lg"
                             onClick={() => setPosPaymentMethod("card")}
                           >
                             Card
@@ -3528,7 +3539,7 @@ export default function AdminPanel() {
                           <Button
                             variant={posPaymentMethod === "transfer" ? "default" : "outline"}
                             size="sm"
-                            className="flex-1 rounded-none"
+                           className="flex-1 rounded-lg"
                             onClick={() => setPosPaymentMethod("transfer")}
                           >
                             Transfer
@@ -3541,7 +3552,7 @@ export default function AdminPanel() {
                             <Input
                               type="number"
                               placeholder="Enter amount"
-                              className="rounded-none"
+                              className="rounded-xl"
                               value={posAmountReceived}
                               onChange={(e) => setPosAmountReceived(e.target.value)}
                             />
@@ -3563,14 +3574,14 @@ export default function AdminPanel() {
                           <Label className="text-xs">Customer Name (optional)</Label>
                           <Input
                             placeholder="Customer name"
-                            className="rounded-none"
+                             className="rounded-xl"
                             value={posCustomerName}
                             onChange={(e) => setPosCustomerName(e.target.value)}
                           />
                         </div>
 
                         <Button
-                          className="w-full rounded-none h-12 text-lg"
+                          className="pos-complete-sale w-full rounded-xl h-12 text-lg"
                           disabled={posCart.length === 0}
                           onClick={async () => {
                             try {
@@ -3655,14 +3666,15 @@ export default function AdminPanel() {
                     </CardContent>
                   </Card>
                 </div>
-              </div>
+               </div>
+              </>
               )}
 
               {posViewMode === "history" && (
-                <Card className="rounded-none border-border shadow-none">
+                <Card className="pos-history-panel rounded-2xl border-border shadow-none">
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
-                      <table className="w-full">
+                      <table className="pos-history-table w-full">
                         <thead className="bg-secondary/30">
                           <tr>
                             <th className="text-left p-4 text-xs uppercase tracking-wider font-semibold">Transaction #</th>
@@ -4662,7 +4674,7 @@ export default function AdminPanel() {
 
       {/* POS Variant Selection Modal */}
       <Dialog open={permittedTabs.includes("POS") && showPosVariantModal} onOpenChange={setShowPosVariantModal}>
-        <DialogContent className="max-w-md rounded-none">
+        <DialogContent className="pos-dialog max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="font-serif text-xl">Select Variant</DialogTitle>
           </DialogHeader>
@@ -4816,7 +4828,7 @@ export default function AdminPanel() {
 
       {/* POS Shipping Label Modal */}
       <Dialog open={permittedTabs.includes("POS") && showPosLabelModal} onOpenChange={setShowPosLabelModal}>
-        <DialogContent className="max-w-md rounded-none">
+        <DialogContent className="pos-dialog max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="font-serif text-xl">Shipping Label Details</DialogTitle>
             <DialogDescription>Enter the customer delivery details for this POS transaction.</DialogDescription>
@@ -4903,7 +4915,7 @@ export default function AdminPanel() {
 
       {/* Invoice Modal */}
       <Dialog open={permittedTabs.includes("POS") && showInvoiceModal} onOpenChange={setShowInvoiceModal}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-none p-0">
+        <DialogContent className="pos-dialog max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl p-0">
           <DialogHeader className="sr-only">
             <DialogTitle>Invoice</DialogTitle>
           </DialogHeader>
