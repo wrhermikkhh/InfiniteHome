@@ -4674,7 +4674,7 @@ export default function AdminPanel() {
 
       {/* POS Variant Selection Modal */}
       <Dialog open={permittedTabs.includes("POS") && showPosVariantModal} onOpenChange={setShowPosVariantModal}>
-        <DialogContent className="pos-dialog max-w-md rounded-2xl">
+        <DialogContent className="pos-dialog pos-variant-dialog max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="font-serif text-xl">Select Variant</DialogTitle>
           </DialogHeader>
@@ -4768,7 +4768,7 @@ export default function AdminPanel() {
 
               {/* Add to Cart Button */}
               <Button
-                className="w-full rounded-none"
+                className="pos-variant-add w-full rounded-xl min-h-12"
                 onClick={() => {
                   const variantStock = selectedPosProduct.variantStock as { [key: string]: number } | null;
                   const stock = resolveVariantStock(variantStock, selectedPosSize, selectedPosColor);
