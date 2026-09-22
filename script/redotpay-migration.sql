@@ -79,10 +79,17 @@ CREATE TABLE IF NOT EXISTS public.redotpay_audit (
   actor text NOT NULL, action text NOT NULL, outcome text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS public.order_email_notifications (
+  order_id varchar NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  event_key text NOT NULL,
+  sent_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY(order_id, event_key)
+);
 CREATE SEQUENCE IF NOT EXISTS public.invoice_seq START 1000 INCREMENT 1;
 ALTER TABLE public.redotpay_limits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.redotpay_audit ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.redotpay_limits, public.redotpay_audit FROM PUBLIC;
+ALTER TABLE public.order_email_notifications ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.redotpay_limits, public.redotpay_audit, public.order_email_notifications FROM PUBLIC;
 ALTER TABLE public.redotpay_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.redotpay_schema ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.redotpay_payments, public.redotpay_schema FROM PUBLIC;
@@ -91,7 +98,7 @@ DECLARE browser_role text;
 BEGIN
   FOREACH browser_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = browser_role) THEN
-      EXECUTE format('REVOKE ALL ON public.request_browser_identities, public.redotpay_limits, public.redotpay_audit, public.redotpay_payments, public.redotpay_schema, public.admin_sessions, public.admin_auth_throttle, public.legacy_inventory_reservations, public.redotpay_rate_limits, public.redotpay_operator_audit FROM %I', browser_role);
+      EXECUTE format('REVOKE ALL ON public.request_browser_identities, public.redotpay_limits, public.redotpay_audit, public.order_email_notifications, public.redotpay_payments, public.redotpay_schema, public.admin_sessions, public.admin_auth_throttle, public.legacy_inventory_reservations, public.redotpay_rate_limits, public.redotpay_operator_audit FROM %I', browser_role);
     END IF;
   END LOOP;
 END

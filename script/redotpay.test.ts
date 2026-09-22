@@ -179,7 +179,8 @@ test("sandbox uses documented host and a separate pinned key; signatures are nev
 });
 
 // In-memory SQL harness: both deployment drivers, no network, DB, credentials or mail.
-function recoveryFixture(nodePg: boolean, initialState = "pending", lockProduct?: (id: string) => Promise<() => void>) {
+function recoveryFixture(nodePg: boolean, initialState = "pending", lockProduct?: (id: string) => Promise<() => void>,
+  email?: { confirmation?: (order: any) => Promise<unknown>; status?: (order: any, status: string) => Promise<unknown> }) {
   const routes: Record<string, any> = {};
   const app: any = Object.fromEntries(["get", "post", "use"].map(method => [method, (path: string, handler: any) => { routes[`${method} ${path}`] = handler; }]));
   const p: any = { id: "RP1", usd_cents: 1000, rate: "15.4200", state: initialState, provider_id: "provider1", order_id: "o1",
@@ -195,6 +196,9 @@ function recoveryFixture(nodePg: boolean, initialState = "pending", lockProduct?
     let result: any[] = [];
     if (s.includes("INSERT INTO redotpay_limits")) result = [{ hits }];
     else if (s.startsWith("INSERT INTO redotpay_audit")) events.push(params);
+    else if (s.startsWith("SELECT 1 FROM redotpay_audit")) {
+      result = events.some(event => event.includes(params[0]) && event.includes(params[1]) && event.includes("sent")) ? [{ "?column?": 1 }] : [];
+    }
     else if (s.startsWith("SELECT") && s.includes("FROM redotpay_payments")) result = [{ ...p }];
     else if (s.startsWith("SELECT") && s.includes("FROM products")) {
       if (lockProduct) unlocks.push(await lockProduct(params[0] as string));
@@ -217,6 +221,8 @@ function recoveryFixture(nodePg: boolean, initialState = "pending", lockProduct?
       if (path.endsWith("/close")) return {};
       return { outerOrderSn: "RP1", orderSn: "provider1", orderAmount: detailMismatch ? 11 : 10, orderCurrency: "USD", orderStatus: providerStatus };
     },
+    sendOrderConfirmationEmail: email?.confirmation,
+    sendOrderStatusEmail: email?.status,
   });
   async function invoke(route: string, body: any = {}, headers: any = {}, extra: any = {}) {
     let status = 200, output: any;
@@ -335,6 +341,40 @@ test("operator requires DB permission and origin; cannot forge payment or refund
   assert.equal((await f.invoke(route, { action: "reconcile" })).status, 403);
   f.admin({ id: "a2", isSuperAdmin: false, permissions: { canManageOrders: false } });
   assert.equal((await f.invoke(route, { action: "reconcile" })).status, 403);
+});
+
+test("paid confirmation and fulfillment emails are sent once and audited across retries", async () => {
+  for (const nodePg of [true, false]) {
+    let confirmations = 0;
+    const statuses: string[] = [];
+    const f = recoveryFixture(nodePg, "pending", undefined, {
+      confirmation: async () => { confirmations++; },
+      status: async (_order, status) => { statuses.push(status); },
+    });
+    f.provider(2);
+    assert.equal((await f.invoke("post /api/payments/redotpay/status")).status, 200);
+    assert.equal((await f.invoke("post /api/payments/redotpay/status")).status, 200);
+    assert.equal(confirmations, 1);
+    assert.equal((await f.invoke("post /api/admin/redotpay/:id/action", { action: "fulfill", status: "processing" })).status, 200);
+    assert.equal((await f.invoke("post /api/admin/redotpay/:id/action", { action: "fulfill", status: "processing" })).status, 200);
+    assert.deepEqual(statuses, ["processing"]);
+  }
+});
+
+test("an already-paid status request retries a rejected confirmation email", async () => {
+  for (const nodePg of [true, false]) {
+    let attempts = 0;
+    const f = recoveryFixture(nodePg, "paid", undefined, {
+      confirmation: async () => {
+        attempts++;
+        if (attempts === 1) throw new Error("temporary Resend failure");
+      },
+    });
+    assert.equal((await f.invoke("post /api/payments/redotpay/status")).status, 400);
+    assert.equal((await f.invoke("post /api/payments/redotpay/status")).status, 200);
+    assert.equal((await f.invoke("post /api/payments/redotpay/status")).status, 200);
+    assert.equal(attempts, 2);
+  }
 });
 
 test("operator actions accept only explicitly configured official alternate origins", async () => {

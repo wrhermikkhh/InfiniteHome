@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
 import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema, insertPosTransactionSchema } from "../shared/schema.js";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage/index.js";
-import { sendOrderConfirmationEmail, sendOrderStatusEmail, sendOrderLabelEmail, sendPosLabelEmail, sendAdminPasswordResetEmail } from "./lib/email.js";
+import { sendOrderConfirmationEmail, sendNewOrderAdminEmail, sendOrderStatusEmail, sendOrderLabelEmail, sendPosLabelEmail, sendAdminPasswordResetEmail } from "./lib/email.js";
+import { sendOrderEmailOnce } from "./lib/order-email-notifications.js";
 import { hashPassword, comparePasswords } from "./auth.js";
 import { db } from "./db.js";
 import { orders } from "../shared/schema.js";
@@ -12,14 +13,28 @@ import { registerInventoryAdmin } from "../shared/inventory-routes.js";
 import { registerAdminSecurity } from "../shared/admin-security.js";
 import { registerAdminAuth } from "../shared/admin-auth.js";
 import { sql } from "drizzle-orm";
+import { toPublicOrderTracking, toPublicPosTracking } from "../shared/public-tracking.js";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  const notifyCustomerConfirmation = (order: any) =>
+    sendOrderEmailOnce(db, order, "confirmation:customer", () => sendOrderConfirmationEmail(order));
+  const notifyAdminOrder = (order: any) =>
+    sendOrderEmailOnce(db, order, "confirmation:admin", () => sendNewOrderAdminEmail(order));
+  const notifyOrderConfirmation = async (order: any) => {
+    await notifyCustomerConfirmation(order);
+    await notifyAdminOrder(order);
+  };
+  const notifyOrderStatus = (order: any, status: string) =>
+    sendOrderEmailOnce(db, order, `status:${status}`, () => sendOrderStatusEmail(order, status));
   registerAdminAuth(app, () => db);
   registerAdminSecurity(app, () => db, sendAdminPasswordResetEmail);
-  registerRedotPay(app, () => db, orders);
+  registerRedotPay(app, () => db, orders, {
+    sendOrderConfirmationEmail: notifyOrderConfirmation,
+    sendOrderStatusEmail: notifyOrderStatus,
+  });
   registerInventoryAdmin(app, () => db);
   app.get("/api/ping", (_req, res) => res.json({ pong: true, timestamp: new Date().toISOString() }));
   app.get("/api/health", async (_req, res) => {
@@ -418,7 +433,7 @@ export async function registerRoutes(
     let order = await storage.getOrderByNumber(num);
     if (!order) order = await storage.getOrderByTrackingNumber(num);
     if (order) {
-      res.json(order);
+      res.json(toPublicOrderTracking(order));
     } else {
       res.status(404).json({ message: "Order not found" });
     }
@@ -432,7 +447,7 @@ export async function registerRoutes(
         transaction = await storage.getPosTransactionByTrackingNumber(num);
       }
       if (transaction) {
-        res.json(transaction);
+        res.json(toPublicPosTracking(transaction));
       } else {
         res.status(404).json({ message: "Transaction not found" });
       }
@@ -589,7 +604,7 @@ export async function registerRoutes(
       const order = await storage.createOrder(data);
       
       // Send confirmation email asynchronously
-      sendOrderConfirmationEmail(order).catch(err => {
+      notifyOrderConfirmation(order).catch(err => {
         console.error("Email delivery failed for order", order.orderNumber, ":", err);
       });
       
@@ -625,7 +640,7 @@ export async function registerRoutes(
         // Send email notification for status change
         if (status !== previousStatus) {
           console.log(`[Email] Triggering status email for order ${order.orderNumber}: ${previousStatus} → ${status}`);
-          sendOrderStatusEmail(order, status).catch(err => {
+          notifyOrderStatus(order, status).catch(err => {
             console.error(`[Email] Failed to send status email for order ${order.orderNumber}:`, err);
           });
         } else {
@@ -694,10 +709,10 @@ export async function registerRoutes(
         // Send email for every delivery status change (only once per status)
         if (prevOrder?.deliveryStatus !== deliveryStatus) {
           console.log(`[Email] Triggering delivery status email for order ${order.orderNumber}: ${prevOrder?.deliveryStatus} → ${deliveryStatus}`);
-          sendOrderStatusEmail(order, deliveryStatus).catch(err => console.error(`[Email] Delivery status email failed for order ${order.orderNumber}:`, err));
         } else {
-          console.log(`[Email] Skipping delivery status email for order ${order.orderNumber} — delivery status unchanged (${deliveryStatus})`);
+          console.log(`[Email] Retrying delivery status email for order ${order.orderNumber}: ${deliveryStatus}`);
         }
+        await notifyOrderStatus(order, deliveryStatus);
         res.json(order);
       } else {
         res.status(404).json({ message: "Order not found" });

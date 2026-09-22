@@ -1,5 +1,6 @@
 
 import { Resend } from 'resend';
+import { createHash } from 'node:crypto';
 import { assertPreviewIsolation } from '../../shared/preview-isolation.js';
 
 assertPreviewIsolation(process.env);
@@ -14,14 +15,30 @@ async function getCredentials() {
   return { apiKey, fromEmail: 'noreply@infinitehome.mv' };
 }
 
+async function sendCustomerEmail(apiKey: string, payload: Record<string, unknown>, idempotencySource: string) {
+  const idempotencyKey = createHash('sha256').update(idempotencySource).digest('hex');
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    redirect: 'error',
+    signal: AbortSignal.timeout(10000),
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey,
+    },
+    body: JSON.stringify(payload),
+  });
+  const result: any = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result?.message || `Resend rejected the email (HTTP ${response.status})`);
+  return result;
+}
+
 export async function sendOrderConfirmationEmail(order: any) {
   try {
     const { apiKey, fromEmail } = await getCredentials();
     console.log('Using Resend fromEmail:', fromEmail);
     console.log('Sending to customer email:', order.customerEmail);
-    const resend = new Resend(apiKey);
-
-    const baseUrl = 'https://infinite-home.vercel.app';
+    const baseUrl = 'https://www.infinitehome.mv';
     const trackingRef = order.trackingNumber || order.orderNumber;
     const trackingUrl = `${baseUrl}/track?order=${trackingRef}`;
 
@@ -152,58 +169,46 @@ export async function sendOrderConfirmationEmail(order: any) {
     console.log('Sending from:', fromEmailToUse);
     console.log('Sending to:', order.customerEmail);
     
-    const emailResult = await resend.emails.send({
+    const emailResult = await sendCustomerEmail(apiKey, {
       from: `INFINITE HOME <${fromEmailToUse}>`,
       to: order.customerEmail,
       subject: `Order Confirmation - ${order.orderNumber}`,
       html: html,
-    });
-    
+    }, `order-confirmation:${order.id || order.orderNumber}`);
     console.log('Resend send result:', JSON.stringify(emailResult, null, 2));
 
-    // Notify admin about the new order
-    await resend.emails.send({
-      from: `INFINITE HOME <${fromEmailToUse}>`,
-      to: 'sales@infinitehome.mv',
-      subject: `NEW ORDER - ${order.orderNumber}`,
-      html: `
-        <div style="font-family: sans-serif; padding: 20px;">
-          <h2 style="color: #1a1a1a;">New Order Received</h2>
-          <p><strong>Order Number:</strong> ${order.orderNumber}</p>
-          <p><strong>Customer:</strong> ${order.customerName} (${order.customerEmail})</p>
-          <p><strong>Total:</strong> MVR ${order.total.toLocaleString()}</p>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-          <h3 style="color: #1a1a1a;">Order Items</h3>
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-              <tr style="border-bottom: 2px solid #1a1a1a;">
-                <th style="padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase;">Item</th>
-                <th style="padding: 10px; text-align: center; font-size: 12px; text-transform: uppercase;">Qty</th>
-                <th style="padding: 10px; text-align: right; font-size: 12px; text-transform: uppercase;">Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
-          </table>
-          <div style="margin-top: 30px; text-align: center;">
-            <a href="${baseUrl}/admin" style="display: inline-block; padding: 12px 24px; background-color: #1a1a1a; color: #ffffff; text-decoration: none; font-weight: bold;">View in Admin Panel</a>
-          </div>
-        </div>
-      `,
-    }).then(res => console.log('Admin notification result:', JSON.stringify(res, null, 2)))
-      .catch(adminErr => {
-      console.error('Failed to send admin notification email:', adminErr);
-    });
-    
-    if (emailResult.error) {
-      console.error('Resend error:', emailResult.error);
-    } else {
-      console.log(`Order confirmation email sent to ${order.customerEmail} for order ${order.orderNumber}`);
-    }
+    console.log(`Order confirmation email sent to ${order.customerEmail} for order ${order.orderNumber}`);
   } catch (error) {
     console.error('Error sending order confirmation email:', error);
+    throw error;
   }
+}
+
+export async function sendNewOrderAdminEmail(order: any) {
+  const { apiKey, fromEmail } = await getCredentials();
+  const itemsHtml = (order.items || []).map((item: any) => `
+    <tr>
+      <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name}</td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.qty}</td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">MVR ${Number(item.price || 0).toLocaleString()}</td>
+    </tr>
+  `).join('');
+  await sendCustomerEmail(apiKey, {
+    from: `INFINITE HOME <${fromEmail}>`,
+    to: 'sales@infinitehome.mv',
+    subject: `NEW ORDER - ${order.orderNumber}`,
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2>New Order Received</h2>
+        <p><strong>Order Number:</strong> ${order.orderNumber}</p>
+        <p><strong>Customer:</strong> ${order.customerName} (${order.customerEmail})</p>
+        <p><strong>Total:</strong> MVR ${Number(order.total || 0).toLocaleString()}</p>
+        <table style="width: 100%; border-collapse: collapse;"><tbody>${itemsHtml}</tbody></table>
+        <p><a href="https://www.infinitehome.mv/admin">View in Admin Panel</a></p>
+      </div>
+    `,
+  }, `admin-order-notification:${order.id || order.orderNumber}`);
+  console.log(`New order notification sent to sales for ${order.orderNumber}`);
 }
 
 export async function sendOrderLabelEmail(order: any) {
@@ -212,7 +217,7 @@ export async function sendOrderLabelEmail(order: any) {
 
     const { apiKey, fromEmail } = await getCredentials();
     const resend = new Resend(apiKey);
-    const baseUrl = 'https://infinite-home.vercel.app';
+    const baseUrl = 'https://www.infinitehome.mv';
 
     const trackingNumber = order.trackingNumber || order.orderNumber;
     const trackingUrl = `${baseUrl}/track?order=${trackingNumber}`;
@@ -316,7 +321,7 @@ export async function sendPosLabelEmail(transaction: any) {
 
     const { apiKey, fromEmail } = await getCredentials();
     const resend = new Resend(apiKey);
-    const baseUrl = 'https://infinite-home.vercel.app';
+    const baseUrl = 'https://www.infinitehome.mv';
 
     // Tracking number: numeric-only digits derived from transaction number
     const trackingNumber = transaction.trackingNumber ||
@@ -476,7 +481,7 @@ export async function sendOrderStatusEmail(order: any, newStatus: string) {
   try {
     const { apiKey, fromEmail } = await getCredentials();
     const resend = new Resend(apiKey);
-    const baseUrl = 'https://infinite-home.vercel.app';
+    const baseUrl = 'https://www.infinitehome.mv';
     const trackingNumber = order.trackingNumber || order.orderNumber;
     const trackingUrl = `${baseUrl}/track?order=${trackingNumber}`;
     const statusContent: { [key: string]: { subject: string; title: string; message: string; icon: string } } = {
@@ -551,6 +556,12 @@ export async function sendOrderStatusEmail(order: any, newStatus: string) {
         title: 'Delivery Exception',
         message: 'There has been an issue with the delivery of your order. Our team is looking into it and will update you shortly. If you have any questions, please don\'t hesitate to contact us.',
         icon: '⚠️'
+      },
+      failed: {
+        subject: `Delivery Update Required - ${order.orderNumber}`,
+        title: 'Delivery Could Not Be Completed',
+        message: 'We could not complete the delivery of your order. Our team will contact you to arrange the next step. You can also contact us using the details below.',
+        icon: '⚠️'
       }
     };
 
@@ -597,15 +608,16 @@ export async function sendOrderStatusEmail(order: any, newStatus: string) {
       </html>
     `;
 
-    await resend.emails.send({
+    await sendCustomerEmail(apiKey, {
       from: `INFINITE HOME <${fromEmail}>`,
       to: order.customerEmail,
       subject: content.subject,
       html: html,
-    });
+    }, `order-status:${order.id || order.orderNumber}:${newStatus}`);
 
     console.log(`Status email (${newStatus}) sent to ${order.customerEmail}`);
   } catch (error) {
     console.error('Error sending status email:', error);
+    throw error;
   }
 }

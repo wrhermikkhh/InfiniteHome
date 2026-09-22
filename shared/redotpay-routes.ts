@@ -73,6 +73,32 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
   // Disabling new checkouts must not disable signed callbacks or recovery.
   const configure = dependencies.configure || (() => config({ ...process.env, REDOTPAY_ENABLED: "true" }));
   const request = dependencies.request || ((path, payload) => providerRequest(path, payload, fetch, configure()));
+  async function notifyPaymentEmail(payment: any, kind: "confirmation" | "status", status?: string) {
+    const sender = kind === "confirmation" ? dependencies.sendOrderConfirmationEmail : dependencies.sendOrderStatusEmail;
+    if (!sender) return;
+    const action = kind === "confirmation" ? "email:confirmation" : `email:status:${status}`;
+    const alreadySent = rows(await getDb().execute(sql`SELECT 1 FROM redotpay_audit
+      WHERE payment_id = ${payment.id} AND action = ${action} AND outcome = 'sent' LIMIT 1`));
+    if (alreadySent.length) return;
+    const order = rows(await getDb().execute(sql`SELECT id,
+      order_number AS "orderNumber", customer_name AS "customerName",
+      customer_email AS "customerEmail", shipping_address AS "shippingAddress",
+      items, subtotal, discount, shipping, total, status,
+      tracking_number AS "trackingNumber"
+      FROM orders WHERE id = ${payment.order_id}`))[0];
+    if (!order) throw new Error("Order email cannot be prepared");
+    // The sender uses a stable provider idempotency key, so concurrent calls or
+    // a lost DB acknowledgement cannot create duplicate customer messages.
+    if (kind === "confirmation") await dependencies.sendOrderConfirmationEmail!(order);
+    else await dependencies.sendOrderStatusEmail!(order, status!);
+    await getDb().transaction(async (tx: any) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`redotpay:${payment.id}:${action}`}, 0))`);
+      const sent = rows(await tx.execute(sql`SELECT 1 FROM redotpay_audit
+        WHERE payment_id = ${payment.id} AND action = ${action} AND outcome = 'sent' LIMIT 1`));
+      if (sent.length) return;
+      await audit(payment.id, "system:email", action, "sent", tx);
+    });
+  }
   async function readiness() {
     try {
       if (!dependencies.configure) config();
@@ -223,7 +249,7 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
   async function reconcile(p: any, actor = "system:reconcile") {
     const detail = await request("/openapi/v2/order/detail", { outerOrderSn: p.id });
     if (!matchesPayment(detail, p)) throw new Error("Payment details do not match; administrator review required");
-    return getDb().transaction(async (tx: any) => {
+    const result = await getDb().transaction(async (tx: any) => {
       const current = rows(await tx.execute(sql`SELECT * FROM redotpay_payments WHERE id = ${p.id} FOR UPDATE`))[0];
       if (!current || !matchesPayment(detail, current)) throw new Error("Payment details changed; administrator review required");
       if (current.state === "paid" || current.state === "closed") return current;
@@ -249,6 +275,8 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
       await audit(p.id, actor, "reconcile", current.state, tx);
       return current;
     });
+    if (result.state === "paid") await notifyPaymentEmail(result, "confirmation");
+    return result;
   }
 
   app.get("/api/payments/redotpay/readiness", handle(async (_req, res) => { res.json(await readiness()); }));
@@ -348,13 +376,18 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
   app.post("/api/payments/redotpay/status", handle(async (req, res) => {
     await throttle(req, res, "status", 30);
     const p = await authorized(req);
-    if (p.state === "paid" || p.state === "closed") return res.json(view(p));
+    if (p.state === "paid") {
+      await notifyPaymentEmail(p, "confirmation");
+      return res.json(view(p));
+    }
+    if (p.state === "closed") return res.json(view(p));
     res.json(view(await reconcile(p)));
   }));
   app.post("/api/payments/redotpay/summary", handle(async (req, res) => {
     await throttle(req, res, "summary", 30);
     let p = await authorized(req);
     if (p.state !== "paid" && p.state !== "closed") p = await reconcile(p);
+    if (p.state === "paid") await notifyPaymentEmail(p, "confirmation");
     res.json(summary(p));
   }));
   app.post("/api/payments/redotpay/cancel", handle(async (req, res) => {
@@ -429,6 +462,7 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
           await audit(p.id, actor, "fulfill", req.body.status, tx);
           return current;
         });
+        await notifyPaymentEmail(result, "status", req.body.status);
         return res.json(view(result));
       }
       res.json(view(action === "close" ? await closePayment(p, actor) : await reconcile(p, actor)));
@@ -590,6 +624,8 @@ export function reservationNetwork(ip: string) {
 export type RedotPayDependencies = {
   configure?: typeof config;
   request?: typeof providerRequest;
+  sendOrderConfirmationEmail?: (order: any) => Promise<unknown>;
+  sendOrderStatusEmail?: (order: any, status: string) => Promise<unknown>;
   // Must validate a server-side session and operator permission, not a supplied profile.
   // Missing callback denies all operator access. Called before any DB/provider operation.
   authenticateOperator?: (req: Request) => Promise<RedotPayOperator | null>;
