@@ -115,69 +115,71 @@
   }
 }
 
-/* Operations console: a quiet, tactile system for long work sessions. */
+/* Infinite Home admin: a mobile-first command centre inspired by premium analytics suites. */
 .admin-shell {
-  --background: 34 32% 96%;
-  --foreground: 224 27% 17%;
-  --primary: 224 27% 17%;
-  --primary-foreground: 34 32% 97%;
-  --secondary: 34 25% 91%;
-  --secondary-foreground: 224 27% 17%;
-  --muted: 34 23% 92%;
-  --muted-foreground: 224 11% 47%;
-  --accent: 11 63% 56%;
-  --accent-foreground: 34 32% 97%;
-  --border: 34 17% 84%;
-  --input: 34 17% 79%;
-  --ring: 11 63% 56%;
-  --card: 34 36% 98%;
-  --card-foreground: 224 27% 17%;
-  --popover: 34 36% 98%;
-  --popover-foreground: 224 27% 17%;
-  --radius: .55rem;
+  --background: 216 30% 96%;
+  --foreground: 222 31% 16%;
+  --primary: 222 31% 16%;
+  --primary-foreground: 216 30% 97%;
+  --secondary: 214 24% 91%;
+  --secondary-foreground: 222 31% 16%;
+  --muted: 214 22% 92%;
+  --muted-foreground: 219 13% 47%;
+  --accent: 172 48% 38%;
+  --accent-foreground: 210 30% 98%;
+  --border: 215 19% 84%;
+  --input: 215 19% 79%;
+  --ring: 172 48% 38%;
+  --card: 0 0% 99%;
+  --card-foreground: 222 31% 16%;
+  --popover: 0 0% 99%;
+  --popover-foreground: 222 31% 16%;
+  --radius: .7rem;
   font-family: 'Manrope', sans-serif;
   letter-spacing: -0.015em;
   background:
-    radial-gradient(circle at 88% -10%, hsl(11 63% 56% / .12), transparent 30rem),
-    radial-gradient(circle at 12% 40%, hsl(224 27% 17% / .025), transparent 32rem),
+    radial-gradient(circle at 93% -8%, hsl(172 48% 38% / .12), transparent 28rem),
+    radial-gradient(circle at 8% 35%, hsl(222 31% 16% / .04), transparent 34rem),
     hsl(var(--background));
 }
 .admin-shell .admin-sidebar {
-  background: hsl(224 27% 17%);
-  color: hsl(34 32% 94%);
-  box-shadow: 14px 0 36px hsl(224 27% 12% / .12);
+  background: linear-gradient(180deg, hsl(222 31% 16%), hsl(224 30% 20%));
+  color: hsl(216 30% 94%);
+  box-shadow: 14px 0 36px hsl(222 31% 12% / .14);
 }
-.admin-shell .admin-sidebar .nav-item { color: hsl(34 20% 74%); border-left: 2px solid transparent; border-radius: .45rem; }
-.admin-shell .admin-sidebar .nav-item:hover { color: hsl(34 36% 98%); background: hsl(34 32% 96% / .08); transform: translateX(2px); }
-.admin-shell .admin-sidebar .nav-item[data-active="true"] { color: hsl(34 36% 98%); background: hsl(11 63% 56% / .94); border-left-color: hsl(34 36% 98%); box-shadow: 0 8px 18px hsl(11 63% 30% / .18); }
+.admin-shell .admin-sidebar .nav-item { color: hsl(216 17% 73%); border-left: 2px solid transparent; border-radius: .55rem; }
+.admin-shell .admin-sidebar .nav-item:hover { color: hsl(216 30% 98%); background: hsl(216 30% 96% / .08); transform: translateX(2px); }
+.admin-shell .admin-sidebar .nav-item[data-active="true"] { color: hsl(216 30% 98%); background: hsl(172 48% 38%); border-left-color: hsl(172 70% 76%); box-shadow: 0 8px 18px hsl(172 48% 18% / .25); }
 .admin-shell .admin-content { background: transparent; }
 .admin-login {
-  --background: 34 32% 96%;
-  --foreground: 224 27% 17%;
-  --primary: 224 27% 17%;
-  --primary-foreground: 34 32% 97%;
-  --secondary: 34 25% 91%;
-  --secondary-foreground: 224 27% 17%;
-  --muted: 34 23% 92%;
-  --muted-foreground: 224 11% 47%;
-  --accent: 11 63% 56%;
-  --accent-foreground: 34 32% 97%;
-  --border: 34 17% 84%;
-  --input: 34 17% 79%;
-  --ring: 11 63% 56%;
-  --card: 34 36% 98%;
-  --card-foreground: 224 27% 17%;
-  --popover: 34 36% 98%;
-  --popover-foreground: 224 27% 17%;
-  --radius: .55rem;
+  --background: 216 30% 96%;
+  --foreground: 222 31% 16%;
+  --primary: 222 31% 16%;
+  --primary-foreground: 216 30% 97%;
+  --secondary: 214 24% 91%;
+  --secondary-foreground: 222 31% 16%;
+  --muted: 214 22% 92%;
+  --muted-foreground: 219 13% 47%;
+  --accent: 172 48% 38%;
+  --accent-foreground: 210 30% 98%;
+  --border: 215 19% 84%;
+  --input: 215 19% 79%;
+  --ring: 172 48% 38%;
+  --card: 0 0% 99%;
+  --card-foreground: 222 31% 16%;
+  --popover: 0 0% 99%;
+  --popover-foreground: 222 31% 16%;
+  --radius: .7rem;
   font-family: 'Manrope', sans-serif;
   letter-spacing: -0.01em;
+  background:
+    radial-gradient(circle at 10% 10%, hsl(172 48% 38% / .14), transparent 22rem),
+    linear-gradient(125deg, hsl(222 31% 16%) 0 42%, hsl(216 30% 96%) 42% 100%);
 }
-.admin-shell .admin-kicker, .admin-login .admin-kicker { color: hsl(11 63% 48%); font: 600 10px/1 'DM Mono', monospace; letter-spacing: .16em; text-transform: uppercase; }
-.admin-shell .admin-card { border-color: hsl(var(--border)); box-shadow: 0 8px 24px hsl(224 27% 20% / .045); transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
-.admin-shell .admin-card:hover { border-color: hsl(11 63% 56% / .4); box-shadow: 0 12px 28px hsl(224 27% 20% / .08); }
-.admin-login { background: linear-gradient(135deg, hsl(224 27% 17%) 0 52%, hsl(11 63% 56%) 52% 100%); }
-.admin-login .admin-login-card { box-shadow: 0 24px 70px hsl(224 27% 12% / .2); }
+.admin-shell .admin-kicker, .admin-login .admin-kicker { color: hsl(172 48% 32%); font: 600 10px/1 'DM Mono', monospace; letter-spacing: .16em; text-transform: uppercase; }
+.admin-shell .admin-card { border-color: hsl(var(--border)); box-shadow: 0 8px 24px hsl(222 31% 20% / .055); transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.admin-shell .admin-card:hover { border-color: hsl(172 48% 38% / .42); box-shadow: 0 12px 28px hsl(222 31% 20% / .1); }
+.admin-login .admin-login-card { box-shadow: 0 24px 70px hsl(222 31% 12% / .25); }
 .admin-shell .admin-content [class*="border-border"] { border-color: hsl(var(--border)); }
 .admin-shell .admin-content .shadow-sm { box-shadow: 0 8px 24px hsl(224 27% 20% / .045); }
 .admin-shell button, .admin-shell [role="button"] { min-height: 2.25rem; }
@@ -196,7 +198,7 @@
   .admin-shell *, .admin-login * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 @media (max-width: 767px) {
-  .admin-shell .admin-content { padding: 1.1rem; padding-top: 1.25rem; }
+  .admin-shell .admin-content { padding: 1rem; padding-top: 1.25rem; padding-bottom: 5.7rem; }
   .admin-shell .admin-content table { min-width: 680px; }
   .admin-shell .admin-sidebar { box-shadow: none; }
   .admin-shell .admin-content .overflow-x-auto { -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
@@ -205,5 +207,19 @@
   .admin-shell .admin-content button, .admin-shell .admin-content [role="button"] { min-height: 2.75rem; }
   .admin-shell .admin-content input, .admin-shell .admin-content select, .admin-shell .admin-content textarea { min-height: 2.75rem; }
   .admin-shell .admin-content h1 { line-height: 1.08; }
-  .admin-login { background: linear-gradient(145deg, hsl(224 27% 17%) 0 40%, hsl(11 63% 56%) 100%); }
+  .admin-login { background: linear-gradient(145deg, hsl(222 31% 16%) 0 40%, hsl(172 48% 38%) 100%); }
+  .admin-login .admin-login-card { border-radius: 1rem; }
+  .admin-shell h1 { font-size: clamp(1.7rem, 8vw, 2.3rem); }
+  .admin-shell .admin-content > * { animation-duration: .25s; }
 }
+
+.admin-mobile-bottom-nav {
+  background: hsl(0 0% 99% / .94);
+  border-top: 1px solid hsl(var(--border));
+  box-shadow: 0 -8px 24px hsl(222 31% 18% / .08);
+  backdrop-filter: blur(16px);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.admin-mobile-bottom-nav button { color: hsl(var(--muted-foreground)); min-height: 3.8rem; }
+.admin-mobile-bottom-nav button[data-active="true"] { color: hsl(var(--accent)); }
+.admin-mobile-bottom-nav button:active { transform: scale(.96); }

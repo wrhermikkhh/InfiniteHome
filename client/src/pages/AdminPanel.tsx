@@ -1733,9 +1733,10 @@ export default function AdminPanel() {
     return (
       <div className="admin-login min-h-[100dvh] flex items-center justify-center p-4">
         <div className="w-full max-w-sm bg-card/95 backdrop-blur-sm border border-white/20 p-8 text-center admin-login-card">
-          <div className="h-10 w-10 mx-auto mb-5 border-2 border-primary/20 border-t-accent rounded-full animate-spin" />
+          <div className="h-3 w-28 mx-auto mb-5 rounded-full bg-muted animate-pulse" />
           <p className="admin-kicker">Infinite Home / Secure console</p>
-          <p className="text-sm text-muted-foreground mt-3">Checking your admin session</p>
+          <div className="h-3 w-48 mx-auto mt-4 rounded-full bg-muted/70 animate-pulse" />
+          <p className="sr-only">Checking your admin session</p>
         </div>
       </div>
     );
@@ -1972,6 +1973,23 @@ export default function AdminPanel() {
           </nav>
         </div>
       )}
+
+      {/* Thumb-friendly primary navigation stays within reach on phones. Less-used areas remain in the menu above. */}
+      <nav className="admin-mobile-bottom-nav md:hidden fixed bottom-0 inset-x-0 z-30 grid grid-cols-5" aria-label="Quick admin navigation">
+        {menuItems.slice(0, 5).map((item) => (
+          <button
+            key={`quick-${item.label}`}
+            type="button"
+            onClick={() => switchTab(item.label)}
+            data-active={activeTab === item.label}
+            className="flex flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-transform"
+            aria-label={item.label}
+          >
+            <item.icon size={18} strokeWidth={activeTab === item.label ? 2.4 : 1.8} />
+            <span className="max-w-[4.5rem] truncate">{item.label}</span>
+          </button>
+        ))}
+      </nav>
 
       <div className="flex min-h-[100dvh] md:pt-0 pt-14">
         {/* Sidebar - Desktop only */}
