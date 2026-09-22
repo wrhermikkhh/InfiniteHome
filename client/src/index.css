@@ -279,22 +279,46 @@
   .pos-dialog {
     left: 0 !important;
     right: 0 !important;
-    top: auto !important;
+    top: 0 !important;
     bottom: 0 !important;
     width: 100% !important;
+    height: 100dvh !important;
     max-width: none !important;
-    max-height: calc(100dvh - env(safe-area-inset-top) - .5rem);
+    max-height: none !important;
     margin: 0;
     transform: none !important;
     animation: none !important;
-    border-radius: 1.25rem 1.25rem 0 0;
+    border: 0;
+    border-radius: 0 !important;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 1.25rem 1rem calc(1.25rem + env(safe-area-inset-bottom));
+    padding: calc(1rem + env(safe-area-inset-top)) 1rem calc(1rem + env(safe-area-inset-bottom));
   }
   .pos-variant-dialog { display: flex; flex-direction: column; }
   .pos-variant-dialog > div:nth-child(2) { min-height: 0; }
   .pos-variant-add { position: sticky; bottom: 0; z-index: 2; box-shadow: 0 -.75rem 1.5rem hsl(var(--background)); }
+  .pos-invoice-dialog { display: block; padding: 0 !important; background: white; }
+  .pos-invoice-dialog > button { position: fixed; top: calc(.85rem + env(safe-area-inset-top)); right: .85rem; z-index: 20; width: 2.25rem; height: 2.25rem; display: grid; place-items: center; background: hsl(0 0% 100% / .92); color: hsl(24 10% 10%); border-radius: 999px; opacity: 1; }
+  .pos-invoice-content { width: 100%; min-width: 0; overflow-x: hidden; }
+  .pos-invoice-content > div:first-child { padding: calc(3.5rem + env(safe-area-inset-top)) 1rem 1.25rem; }
+  .pos-invoice-content > div:first-child > div { align-items: flex-start; gap: .75rem; }
+  .pos-invoice-content > div:first-child h1 { font-size: 1.05rem; letter-spacing: .2em; }
+  .pos-invoice-content > div:first-child p.text-3xl { font-size: 1.15rem; }
+  .pos-invoice-content > div:nth-child(2) { padding: 1rem; align-items: flex-start; gap: .75rem; }
+  .pos-invoice-content > div:nth-child(2) > div:first-child { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem 1.25rem; min-width: 0; }
+  .pos-invoice-content > div:nth-child(2) > div:first-child > div:first-child { grid-column: 1 / -1; }
+  .pos-invoice-content > div:nth-child(2) .font-mono { overflow-wrap: anywhere; }
+  .pos-invoice-content > div:nth-child(3) { padding: 1rem; grid-template-columns: 1fr; gap: 1rem; }
+  .pos-invoice-content > div:nth-child(3) > div:last-child { text-align: left; }
+  .pos-invoice-content > div:nth-child(4) { padding: 0 1rem; overflow-x: auto; }
+  .pos-invoice-content > div:nth-child(4) table { min-width: 32rem; }
+  .pos-invoice-content > div:nth-child(5) { padding: 1.25rem 1rem; }
+  .pos-invoice-content > div:nth-child(5) > div > div { width: 100%; }
+  .pos-invoice-content > div:nth-child(6).mx-10 { margin: 0 1rem 1.25rem; }
+  .pos-invoice-content > div:last-child { padding: 1.25rem 1rem; }
+  .pos-invoice-actions { position: sticky; bottom: 0; z-index: 10; display: grid; grid-template-columns: 1fr 1fr; padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom)); box-shadow: 0 -.5rem 1.5rem hsl(24 10% 10% / .08); }
+  .pos-invoice-actions button { min-width: 0; min-height: 2.75rem; padding-inline: .65rem; }
+  .pos-invoice-actions button:last-child { grid-column: 1 / -1; }
   .pos-cart-panel .p-4 { padding: .9rem; }
   .pos-history-panel { border-radius: 1rem; }
   .pos-history-table, .pos-history-table tbody { display: block; width: 100%; }

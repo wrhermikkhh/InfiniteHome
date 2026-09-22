@@ -4915,12 +4915,12 @@ export default function AdminPanel() {
 
       {/* Invoice Modal */}
       <Dialog open={permittedTabs.includes("POS") && showInvoiceModal} onOpenChange={setShowInvoiceModal}>
-        <DialogContent className="pos-dialog max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl p-0">
+        <DialogContent className="pos-dialog pos-invoice-dialog max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl p-0">
           <DialogHeader className="sr-only">
             <DialogTitle>Invoice</DialogTitle>
           </DialogHeader>
           {selectedTransaction && (
-            <div id="invoice-content" className="bg-white">
+            <div id="invoice-content" className="pos-invoice-content bg-white">
               {/* Elegant Header with Brand */}
               <div className="bg-gradient-to-r from-stone-900 to-stone-800 text-white px-10 py-8">
                 <div className="flex justify-between items-center">
@@ -5096,7 +5096,7 @@ export default function AdminPanel() {
               </Button>
             </div>
           </div>
-          <div className="flex justify-end gap-3 p-4 bg-white border-t">
+          <div className="pos-invoice-actions flex justify-end gap-3 p-4 bg-white border-t">
             <Button variant="outline" className="rounded-none" onClick={() => setShowInvoiceModal(false)}>
               Close
             </Button>
