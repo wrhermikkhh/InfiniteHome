@@ -496,7 +496,7 @@ export default function AdminPanel() {
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showPosLabelModal, setShowPosLabelModal] = useState(false);
-  const [posLabelForm, setPosLabelForm] = useState({ recipientName: "", recipientEmail: "", streetAddress: "", atollIsland: "", phone: "", deliveryType: "standard" });
+  const [posLabelForm, setPosLabelForm] = useState({ recipientName: "", recipientEmail: "", streetAddress: "", atollIsland: "", phone: "", deliveryType: "standard", boxCount: 1 });
   const [posDeliveries, setPosDeliveries] = useState<any[]>([]);
   const [showPosVariantModal, setShowPosVariantModal] = useState(false);
   const [selectedPosProduct, setSelectedPosProduct] = useState<any>(null);
@@ -1220,6 +1220,7 @@ export default function AdminPanel() {
 
   const handlePrintPosLabel = async () => {
     if (!selectedTransaction) return;
+    const boxCount = Math.max(1, Math.min(99, Math.floor(Number(posLabelForm.boxCount) || 1)));
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -1257,6 +1258,55 @@ export default function AdminPanel() {
       });
     } catch {}
 
+    const labelsHtml = Array.from({ length: boxCount }, (_, index) => `
+      <div class="label">
+        <div class="top-header">
+          <div class="top-header-row">
+            <div class="top-left">
+              <div class="company-name">INFINITE<br>HOME</div>
+              <div class="company-sub">Malé, Maldives</div>
+            </div>
+            <div class="top-right">
+              ${qrCodeBase64 ? `<img src="${qrCodeBase64}" alt="QR" class="qr-img">` : ''}
+              <div class="package-count">${index + 1}/${boxCount}</div>
+              <div class="order-ref">${escHtml(cleanTrackingNumber)}</div>
+              <div class="order-date">${escHtml(txDate)}</div>
+            </div>
+          </div>
+          <div class="header-barcode-strip"><svg class="header-barcode"></svg></div>
+        </div>
+        <div class="delivery-banner">
+          <div class="delivery-banner-text">${posLabelForm.deliveryType === 'express' ? 'EXPRESS DELIVERY' : 'STANDARD DELIVERY'}</div>
+          <div class="delivery-package-count">PACKAGE ${index + 1} OF ${boxCount}</div>
+        </div>
+        <div class="addresses">
+          <div class="from-block">
+            <div class="from-label">From:</div>
+            <div class="from-name">INFINITE HOME</div>
+            <div class="from-addr">Malé, Maldives</div>
+          </div>
+          <div class="ship-to-block">
+            <div class="ship-to-label-col">SHIP<br>TO:</div>
+            <div class="ship-to-details">
+              <div class="ship-to-name">${escHtml(posLabelForm.recipientName)}</div>
+              <div class="ship-to-addr">${escHtml(fullAddress)}</div>
+              <div class="ship-to-phone">Tel: ${escHtml(posLabelForm.phone)}</div>
+            </div>
+          </div>
+        </div>
+        <div class="items-section">
+          <div class="items-label">Invoice Contents</div>
+          <div class="items-text">${itemsText}</div>
+          <div class="payment-info">Payment: ${escHtml(selectedTransaction.paymentMethod)}</div>
+        </div>
+        <div class="tracking-section">
+          <div class="tracking-label">Tracking #</div>
+          <div class="barcode-container"><svg class="barcode"></svg></div>
+          <div class="tracking-number">${escHtml(cleanTrackingNumber)}</div>
+        </div>
+      </div>
+    `).join('');
+
     printWindow.document.write(`
       <!DOCTYPE html><html><head>
         <meta charset="UTF-8">
@@ -1264,8 +1314,10 @@ export default function AdminPanel() {
         <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000; width: 4in; margin: 0 auto; }
-          .label { width: 4in; border: 2px solid #000; background: white; }
+          html, body { width: 4in; margin: 0; padding: 0; }
+          body { font-family: Arial, Helvetica, sans-serif; background: white; color: #000; }
+          .label { width: 4in; height: 6in; border: 2px solid #000; background: white; overflow: hidden; break-after: page; page-break-after: always; }
+          .label:last-of-type { break-after: auto; page-break-after: auto; }
           .top-header { display: flex; flex-direction: column; border-bottom: 3px solid #000; }
           .top-header-row { display: flex; align-items: stretch; min-height: 1.0in; }
           .top-left { flex: 1; padding: 0.1in 0.12in; display: flex; flex-direction: column; justify-content: center; border-right: 2px solid #000; }
@@ -1275,10 +1327,12 @@ export default function AdminPanel() {
           .qr-img { width: 80px; height: 80px; image-rendering: pixelated; }
           .order-ref { font-size: 7.5pt; font-weight: bold; font-family: 'Courier New', monospace; letter-spacing: 1px; text-align: center; }
           .order-date { font-size: 6.5pt; color: #444; text-align: center; }
+          .package-count { min-width: 0.72in; padding: 2px 7px; border: 2px solid #000; border-radius: 999px; font-size: 12pt; font-weight: 900; line-height: 1.1; text-align: center; }
           .header-barcode-strip { border-top: 2px solid #000; padding: 0.04in 0.12in; overflow: hidden; background: white; }
-          #header-barcode { width: 100%; height: 28px; }
+          .header-barcode { width: 100%; height: 28px; }
           .delivery-banner { border-bottom: 3px solid #000; padding: 0.09in 0.12in; text-align: center; }
           .delivery-banner-text { font-size: 17pt; font-weight: 900; letter-spacing: 0.5px; line-height: 1; }
+          .delivery-package-count { margin-top: 5px; font-size: 9pt; font-weight: 900; letter-spacing: 1.5px; }
           .addresses { border-bottom: 3px solid #000; padding: 0.1in 0.12in; }
           .from-block { margin-bottom: 0.1in; }
           .from-label { font-size: 7pt; font-weight: bold; text-transform: uppercase; color: #555; }
@@ -1297,60 +1351,23 @@ export default function AdminPanel() {
           .tracking-section { padding: 0.08in 0.12in 0.1in; text-align: center; }
           .tracking-label { font-size: 10pt; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.06in; }
           .barcode-container { width: 100%; overflow: hidden; }
-          #barcode { width: 100%; height: 70px; }
+          .barcode { width: 100%; height: 70px; }
           .tracking-number { font-size: 11pt; font-weight: bold; font-family: 'Courier New', monospace; letter-spacing: 2px; margin-top: 0.05in; }
-          @media print { @page { margin: 0; size: 4in 6in; } body { margin: 0; width: 4in; } .label { border: none; } }
+          @media print { @page { margin: 0; size: 4in 6in; } html, body { margin: 0; width: 4in; } .label { border: none; } }
         </style>
       </head><body>
-        <div class="label">
-          <div class="top-header">
-            <div class="top-header-row">
-              <div class="top-left">
-                <div class="company-name">INFINITE<br>HOME</div>
-                <div class="company-sub">Malé, Maldives</div>
-              </div>
-              <div class="top-right">
-                ${qrCodeBase64 ? `<img src="${qrCodeBase64}" alt="QR" class="qr-img">` : ''}
-                <div class="order-ref">${escHtml(cleanTrackingNumber)}</div>
-                <div class="order-date">${escHtml(txDate)}</div>
-              </div>
-            </div>
-            <div class="header-barcode-strip"><svg id="header-barcode"></svg></div>
-          </div>
-          <div class="delivery-banner"><div class="delivery-banner-text">${posLabelForm.deliveryType === 'express' ? 'EXPRESS DELIVERY' : 'STANDARD DELIVERY'}</div></div>
-          <div class="addresses">
-            <div class="from-block">
-              <div class="from-label">From:</div>
-              <div class="from-name">INFINITE HOME</div>
-              <div class="from-addr">Malé, Maldives</div>
-            </div>
-            <div class="ship-to-block">
-              <div class="ship-to-label-col">SHIP<br>TO:</div>
-              <div class="ship-to-details">
-                <div class="ship-to-name">${escHtml(posLabelForm.recipientName)}</div>
-                <div class="ship-to-addr">${escHtml(fullAddress)}</div>
-                <div class="ship-to-phone">Tel: ${escHtml(posLabelForm.phone)}</div>
-              </div>
-            </div>
-          </div>
-          <div class="items-section">
-            <div class="items-label">Package Contents</div>
-            <div class="items-text">${itemsText}</div>
-            <div class="payment-info">Payment: ${escHtml(selectedTransaction.paymentMethod)}</div>
-          </div>
-          <div class="tracking-section">
-            <div class="tracking-label">Tracking #</div>
-            <div class="barcode-container"><svg id="barcode"></svg></div>
-            <div class="tracking-number">${escHtml(cleanTrackingNumber)}</div>
-          </div>
-        </div>
+        ${labelsHtml}
         <script>
           var printed = false;
           function renderAndPrint() {
             if (printed) return; printed = true;
             try {
-              JsBarcode('#header-barcode', '${safeRef}', { format: 'CODE128', width: 1.5, height: 28, displayValue: false, margin: 0 });
-              JsBarcode('#barcode', '${safeRef}', { format: 'CODE128', width: 2.2, height: 70, displayValue: false, margin: 0 });
+              document.querySelectorAll('.header-barcode').forEach(function(el) {
+                JsBarcode(el, '${safeRef}', { format: 'CODE128', width: 1.5, height: 28, displayValue: false, margin: 0 });
+              });
+              document.querySelectorAll('.barcode').forEach(function(el) {
+                JsBarcode(el, '${safeRef}', { format: 'CODE128', width: 2.2, height: 70, displayValue: false, margin: 0 });
+              });
             } catch(e) { return; }
             var qrImg = document.querySelector('.qr-img');
             var qrReady = (qrImg && !qrImg.complete)
@@ -4881,6 +4898,19 @@ export default function AdminPanel() {
               />
             </div>
             <div>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground block mb-1">Box / Package Count *</label>
+              <Input
+                className="rounded-none"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={99}
+                value={posLabelForm.boxCount}
+                onChange={(e) => setPosLabelForm(f => ({ ...f, boxCount: Math.max(1, Math.min(99, Number(e.target.value) || 1)) }))}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">One 4 × 6 inch label will be generated for each package.</p>
+            </div>
+            <div>
               <label className="text-xs uppercase tracking-widest text-muted-foreground block mb-2">Delivery Type *</label>
               <div className="flex gap-2">
                 <button
@@ -4904,7 +4934,7 @@ export default function AdminPanel() {
             <Button variant="outline" className="rounded-none" onClick={() => setShowPosLabelModal(false)}>Cancel</Button>
             <Button
               className="rounded-none"
-              disabled={!posLabelForm.recipientName || !posLabelForm.streetAddress || !posLabelForm.phone}
+              disabled={!posLabelForm.recipientName || !posLabelForm.streetAddress || !posLabelForm.phone || posLabelForm.boxCount < 1}
               onClick={handlePrintPosLabel}
             >
               <Printer size={16} className="mr-2" /> Print Label
@@ -5104,7 +5134,7 @@ export default function AdminPanel() {
               variant="outline"
               className="rounded-none"
               onClick={() => {
-                setPosLabelForm({ recipientName: selectedTransaction?.customerName || "", recipientEmail: "", streetAddress: "", atollIsland: "", phone: selectedTransaction?.customerPhone || "", deliveryType: "standard" });
+                setPosLabelForm({ recipientName: selectedTransaction?.customerName || "", recipientEmail: "", streetAddress: "", atollIsland: "", phone: selectedTransaction?.customerPhone || "", deliveryType: "standard", boxCount: 1 });
                 setShowPosLabelModal(true);
               }}
             >
