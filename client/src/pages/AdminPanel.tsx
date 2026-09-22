@@ -4674,7 +4674,7 @@ export default function AdminPanel() {
 
       {/* POS Variant Selection Modal */}
       <Dialog open={permittedTabs.includes("POS") && showPosVariantModal} onOpenChange={setShowPosVariantModal}>
-        <DialogContent className="pos-dialog pos-variant-dialog max-w-md rounded-2xl">
+        <DialogContent mobileFullscreen className="pos-dialog pos-variant-dialog md:max-w-md md:rounded-2xl">
           <DialogHeader>
             <DialogTitle className="font-serif text-xl">Select Variant</DialogTitle>
           </DialogHeader>
@@ -4828,7 +4828,7 @@ export default function AdminPanel() {
 
       {/* POS Shipping Label Modal */}
       <Dialog open={permittedTabs.includes("POS") && showPosLabelModal} onOpenChange={setShowPosLabelModal}>
-        <DialogContent className="pos-dialog max-w-md rounded-2xl">
+        <DialogContent mobileFullscreen className="pos-dialog md:max-w-md md:rounded-2xl">
           <DialogHeader>
             <DialogTitle className="font-serif text-xl">Shipping Label Details</DialogTitle>
             <DialogDescription>Enter the customer delivery details for this POS transaction.</DialogDescription>
@@ -4915,7 +4915,7 @@ export default function AdminPanel() {
 
       {/* Invoice Modal */}
       <Dialog open={permittedTabs.includes("POS") && showInvoiceModal} onOpenChange={setShowInvoiceModal}>
-        <DialogContent className="pos-dialog pos-invoice-dialog max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl p-0">
+        <DialogContent mobileFullscreen className="pos-dialog pos-invoice-dialog md:max-w-3xl md:max-h-[90vh] overflow-y-auto md:rounded-2xl p-0">
           <DialogHeader className="sr-only">
             <DialogTitle>Invoice</DialogTitle>
           </DialogHeader>
