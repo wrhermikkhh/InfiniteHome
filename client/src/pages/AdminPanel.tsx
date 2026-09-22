@@ -1245,6 +1245,8 @@ export default function AdminPanel() {
     const cleanTrackingNumber = selectedTransaction.trackingNumber
       || selectedTransaction.transactionNumber.replace(/^POS-/, '').replace(/-/g, '');
     const safeRef = escJs(cleanTrackingNumber);
+    const headerBarcodeWidth = cleanTrackingNumber.length > 16 ? 0.9 : 1.15;
+    const trackingBarcodeWidth = cleanTrackingNumber.length > 16 ? 1.15 : 1.5;
     const fullAddress = posLabelForm.atollIsland
       ? `${posLabelForm.streetAddress}, ${posLabelForm.atollIsland}`
       : posLabelForm.streetAddress;
@@ -1357,11 +1359,12 @@ export default function AdminPanel() {
           .items-label { font-size: 6.5pt; font-weight: bold; text-transform: uppercase; color: #666; margin-bottom: 3px; }
           .items-text { font-size: 8pt; line-height: 1.4; }
           .payment-info { font-size: 7pt; color: #444; margin-top: 3px; font-weight: bold; }
-          .tracking-section { flex: 1; min-height: 0; padding: 0.08in 0.12in 0.1in; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+          .tracking-section { flex: 1; min-width: 0; min-height: 0; padding: 0.08in 0.16in 0.1in; display: flex; flex-direction: column; justify-content: center; overflow: hidden; text-align: center; }
           .tracking-label { font-size: 10pt; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.06in; }
-          .barcode-container { width: 100%; overflow: hidden; }
-          .barcode { width: 100%; height: 70px; }
-          .tracking-number { font-size: 11pt; font-weight: bold; font-family: 'Courier New', monospace; letter-spacing: 2px; margin-top: 0.05in; }
+          .barcode-container { width: 100%; min-width: 0; display: flex; justify-content: center; overflow: hidden; }
+          .barcode, .header-barcode { display: block; width: 100% !important; max-width: 100%; overflow: hidden; }
+          .barcode { height: 70px; }
+          .tracking-number { width: 100%; max-width: 100%; font-size: 9pt; font-weight: bold; font-family: 'Courier New', monospace; line-height: 1.15; letter-spacing: 0.6px; overflow-wrap: anywhere; word-break: break-all; margin-top: 0.05in; }
           @media print {
             @page { margin: 0; size: ${printPageSize}; }
             html, body { margin: 0; }
@@ -1376,10 +1379,10 @@ export default function AdminPanel() {
             if (printed) return; printed = true;
             try {
               document.querySelectorAll('.header-barcode').forEach(function(el) {
-                JsBarcode(el, '${safeRef}', { format: 'CODE128', width: 1.5, height: 28, displayValue: false, margin: 0 });
+                JsBarcode(el, '${safeRef}', { format: 'CODE128', width: ${headerBarcodeWidth}, height: 28, displayValue: false, margin: 0 });
               });
               document.querySelectorAll('.barcode').forEach(function(el) {
-                JsBarcode(el, '${safeRef}', { format: 'CODE128', width: 2.2, height: 70, displayValue: false, margin: 0 });
+                JsBarcode(el, '${safeRef}', { format: 'CODE128', width: ${trackingBarcodeWidth}, height: 70, displayValue: false, margin: 0 });
               });
             } catch(e) { return; }
             var qrImg = document.querySelector('.qr-img');
