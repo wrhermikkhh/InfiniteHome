@@ -323,6 +323,20 @@ export default function AdminPanel() {
   }, []);
   const { toast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [mobileMenuOpen]);
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1902,40 +1916,60 @@ export default function AdminPanel() {
   return (
     <div className="admin-shell min-h-[100dvh]">
       {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-background border-b border-border px-4 py-3 flex items-center justify-between">
-        <h1 className="font-serif text-lg">INFINITE HOME</h1>
-        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2">
+      <div className="admin-mobile-header md:hidden fixed top-0 left-0 right-0 z-50 bg-background border-b border-border px-4 py-2.5 flex items-center justify-between">
+        <div className="min-w-0">
+          <h1 className="font-serif text-lg leading-none tracking-[.08em]">INFINITE HOME</h1>
+          <p className="admin-kicker mt-1.5 truncate">{activeTab} / {user?.name || "Admin"}</p>
+        </div>
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="p-2.5 -mr-1 rounded-md text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"}
+          aria-expanded={mobileMenuOpen}
+        >
           {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-40 admin-sidebar pt-16">
-          <div className="p-4 space-y-2">
-            {menuItems.map((item) => (
-              <button
-                key={item.label}
-                onClick={() => { switchTab(item.label); setMobileMenuOpen(false); }}
-                className={cn(
-                  "nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors",
-                )}
-                data-active={activeTab === item.label}
-              >
-                <item.icon size={18} />
-                {item.label}
-              </button>
-            ))}
-            <div className="pt-4 border-t border-border mt-4">
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-white/60 hover:text-white hover:bg-white/10 gap-3"
-                onClick={logout}
-              >
-                Sign Out
-              </Button>
+        <div className="admin-mobile-overlay md:hidden fixed inset-0 z-40">
+          <button
+            type="button"
+            className="absolute inset-0 h-full w-full bg-slate-950/55 backdrop-blur-[2px]"
+            aria-label="Close navigation"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <nav className="admin-mobile-menu admin-sidebar relative h-full w-[min(86vw,22rem)] pt-16 overflow-y-auto" aria-label="Admin navigation">
+            <div className="flex min-h-full flex-col p-4">
+              <div className="space-y-2">
+                <p className="px-4 pb-2 text-[10px] font-semibold uppercase tracking-[.18em] text-white/40">Workspace</p>
+                {menuItems.map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => { switchTab(item.label); setMobileMenuOpen(false); }}
+                    className={cn(
+                      "nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors",
+                    )}
+                    data-active={activeTab === item.label}
+                  >
+                    <item.icon size={18} />
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-auto border-t border-white/10 pt-4">
+                <p className="mb-3 px-4 text-xs text-white/45 truncate">Signed in as {user?.name || "Admin"}</p>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-white/60 hover:text-white hover:bg-white/10 gap-3"
+                  onClick={logout}
+                >
+                  Sign Out
+                </Button>
+              </div>
             </div>
-          </div>
+          </nav>
         </div>
       )}
 
@@ -1945,6 +1979,12 @@ export default function AdminPanel() {
           <div className="px-4 py-6 mb-5">
             <h1 className="font-serif text-xl tracking-[.12em]">INFINITE HOME</h1>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50 mt-2">Operations console</p>
+            <div className="mt-6 flex items-center gap-2.5 text-xs text-white/65">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-[11px] font-semibold text-white">
+                {(user?.name || "A").slice(0, 1).toUpperCase()}
+              </span>
+              <span className="truncate">{user?.name || "Admin"}</span>
+            </div>
           </div>
           {menuItems.map((item) => (
             <button

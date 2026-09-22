@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -116,77 +117,93 @@
 
 /* Operations console: a quiet, tactile system for long work sessions. */
 .admin-shell {
-  --background: 42 28% 96%;
-  --foreground: 213 28% 18%;
-  --primary: 213 32% 22%;
-  --primary-foreground: 42 28% 97%;
-  --secondary: 39 24% 91%;
-  --secondary-foreground: 213 28% 18%;
-  --muted: 40 20% 92%;
-  --muted-foreground: 213 12% 46%;
-  --accent: 17 52% 54%;
-  --accent-foreground: 42 28% 97%;
-  --border: 38 18% 84%;
-  --input: 38 18% 80%;
-  --ring: 17 52% 54%;
-  --card: 42 30% 98%;
-  --card-foreground: 213 28% 18%;
-  --popover: 42 30% 98%;
-  --popover-foreground: 213 28% 18%;
-  --radius: .35rem;
-  font-family: 'DM Sans', sans-serif;
-  letter-spacing: -0.01em;
+  --background: 34 32% 96%;
+  --foreground: 224 27% 17%;
+  --primary: 224 27% 17%;
+  --primary-foreground: 34 32% 97%;
+  --secondary: 34 25% 91%;
+  --secondary-foreground: 224 27% 17%;
+  --muted: 34 23% 92%;
+  --muted-foreground: 224 11% 47%;
+  --accent: 11 63% 56%;
+  --accent-foreground: 34 32% 97%;
+  --border: 34 17% 84%;
+  --input: 34 17% 79%;
+  --ring: 11 63% 56%;
+  --card: 34 36% 98%;
+  --card-foreground: 224 27% 17%;
+  --popover: 34 36% 98%;
+  --popover-foreground: 224 27% 17%;
+  --radius: .55rem;
+  font-family: 'Manrope', sans-serif;
+  letter-spacing: -0.015em;
   background:
-    radial-gradient(circle at 88% -10%, hsl(17 52% 54% / .09), transparent 30rem),
+    radial-gradient(circle at 88% -10%, hsl(11 63% 56% / .12), transparent 30rem),
+    radial-gradient(circle at 12% 40%, hsl(224 27% 17% / .025), transparent 32rem),
     hsl(var(--background));
 }
 .admin-shell .admin-sidebar {
-  background: hsl(213 32% 22%);
-  color: hsl(42 28% 94%);
-  box-shadow: 12px 0 30px hsl(213 32% 12% / .08);
+  background: hsl(224 27% 17%);
+  color: hsl(34 32% 94%);
+  box-shadow: 14px 0 36px hsl(224 27% 12% / .12);
 }
-.admin-shell .admin-sidebar .nav-item { color: hsl(42 20% 75%); border-left: 2px solid transparent; }
-.admin-shell .admin-sidebar .nav-item:hover { color: hsl(42 28% 98%); background: hsl(42 28% 96% / .08); }
-.admin-shell .admin-sidebar .nav-item[data-active="true"] { color: hsl(42 28% 98%); background: hsl(17 52% 54% / .92); border-left-color: hsl(42 28% 98%); }
+.admin-shell .admin-sidebar .nav-item { color: hsl(34 20% 74%); border-left: 2px solid transparent; border-radius: .45rem; }
+.admin-shell .admin-sidebar .nav-item:hover { color: hsl(34 36% 98%); background: hsl(34 32% 96% / .08); transform: translateX(2px); }
+.admin-shell .admin-sidebar .nav-item[data-active="true"] { color: hsl(34 36% 98%); background: hsl(11 63% 56% / .94); border-left-color: hsl(34 36% 98%); box-shadow: 0 8px 18px hsl(11 63% 30% / .18); }
 .admin-shell .admin-content { background: transparent; }
 .admin-login {
-  --background: 42 28% 96%;
-  --foreground: 213 28% 18%;
-  --primary: 213 32% 22%;
-  --primary-foreground: 42 28% 97%;
-  --secondary: 39 24% 91%;
-  --secondary-foreground: 213 28% 18%;
-  --muted: 40 20% 92%;
-  --muted-foreground: 213 12% 46%;
-  --accent: 17 52% 54%;
-  --accent-foreground: 42 28% 97%;
-  --border: 38 18% 84%;
-  --input: 38 18% 80%;
-  --ring: 17 52% 54%;
-  --card: 42 30% 98%;
-  --card-foreground: 213 28% 18%;
-  --popover: 42 30% 98%;
-  --popover-foreground: 213 28% 18%;
-  --radius: .35rem;
-  font-family: 'DM Sans', sans-serif;
+  --background: 34 32% 96%;
+  --foreground: 224 27% 17%;
+  --primary: 224 27% 17%;
+  --primary-foreground: 34 32% 97%;
+  --secondary: 34 25% 91%;
+  --secondary-foreground: 224 27% 17%;
+  --muted: 34 23% 92%;
+  --muted-foreground: 224 11% 47%;
+  --accent: 11 63% 56%;
+  --accent-foreground: 34 32% 97%;
+  --border: 34 17% 84%;
+  --input: 34 17% 79%;
+  --ring: 11 63% 56%;
+  --card: 34 36% 98%;
+  --card-foreground: 224 27% 17%;
+  --popover: 34 36% 98%;
+  --popover-foreground: 224 27% 17%;
+  --radius: .55rem;
+  font-family: 'Manrope', sans-serif;
   letter-spacing: -0.01em;
 }
-.admin-shell .admin-kicker, .admin-login .admin-kicker { color: hsl(17 52% 46%); font: 600 10px/1 var(--font-mono); letter-spacing: .16em; text-transform: uppercase; }
-.admin-shell .admin-card { border-color: hsl(var(--border)); box-shadow: 0 8px 24px hsl(213 24% 20% / .045); transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
-.admin-shell .admin-card:hover { border-color: hsl(17 52% 54% / .4); box-shadow: 0 12px 28px hsl(213 24% 20% / .08); }
-.admin-login { background: linear-gradient(135deg, hsl(213 32% 22%) 0 52%, hsl(17 52% 54%) 52% 100%); }
-.admin-login .admin-login-card { box-shadow: 0 24px 70px hsl(213 32% 12% / .2); }
+.admin-shell .admin-kicker, .admin-login .admin-kicker { color: hsl(11 63% 48%); font: 600 10px/1 'DM Mono', monospace; letter-spacing: .16em; text-transform: uppercase; }
+.admin-shell .admin-card { border-color: hsl(var(--border)); box-shadow: 0 8px 24px hsl(224 27% 20% / .045); transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.admin-shell .admin-card:hover { border-color: hsl(11 63% 56% / .4); box-shadow: 0 12px 28px hsl(224 27% 20% / .08); }
+.admin-login { background: linear-gradient(135deg, hsl(224 27% 17%) 0 52%, hsl(11 63% 56%) 52% 100%); }
+.admin-login .admin-login-card { box-shadow: 0 24px 70px hsl(224 27% 12% / .2); }
 .admin-shell .admin-content [class*="border-border"] { border-color: hsl(var(--border)); }
-.admin-shell .admin-content .shadow-sm { box-shadow: 0 8px 24px hsl(213 24% 20% / .045); }
+.admin-shell .admin-content .shadow-sm { box-shadow: 0 8px 24px hsl(224 27% 20% / .045); }
 .admin-shell button, .admin-shell [role="button"] { min-height: 2.25rem; }
 .admin-shell input, .admin-shell select, .admin-shell textarea { font-size: 0.875rem; }
-.admin-shell th { font: 600 10px/1.2 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+.admin-shell th { font: 600 10px/1.2 'DM Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
 .admin-shell td { vertical-align: middle; }
 .admin-shell .animate-in { animation-duration: .35s; }
+.admin-shell h1, .admin-shell h2, .admin-shell h3, .admin-login h1 { font-family: 'Newsreader', serif; }
+.admin-shell .admin-content > * { animation: admin-rise .35s ease both; }
+.admin-shell .admin-mobile-overlay { animation: admin-fade-in .2s ease-out both; }
+.admin-shell .admin-mobile-menu { animation: admin-slide-in .25s cubic-bezier(.2,.8,.2,1) both; box-shadow: 24px 0 60px hsl(224 35% 8% / .34); }
+@keyframes admin-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes admin-slide-in { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes admin-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell *, .admin-login * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
 @media (max-width: 767px) {
-  .admin-shell .admin-content { padding: 1.25rem; }
+  .admin-shell .admin-content { padding: 1.1rem; padding-top: 1.25rem; }
   .admin-shell .admin-content table { min-width: 680px; }
   .admin-shell .admin-sidebar { box-shadow: none; }
+  .admin-shell .admin-content .overflow-x-auto { -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+  .admin-shell .admin-content .grid { gap: .7rem; }
+  .admin-shell .admin-content .flex-wrap { row-gap: .65rem; }
+  .admin-shell .admin-content button, .admin-shell .admin-content [role="button"] { min-height: 2.75rem; }
+  .admin-shell .admin-content input, .admin-shell .admin-content select, .admin-shell .admin-content textarea { min-height: 2.75rem; }
   .admin-shell .admin-content h1 { line-height: 1.08; }
-  .admin-shell .admin-content .grid { gap: .9rem; }
+  .admin-login { background: linear-gradient(145deg, hsl(224 27% 17%) 0 40%, hsl(11 63% 56%) 100%); }
 }
