@@ -12,6 +12,7 @@ import ManualOrderForm from "@/components/admin/ManualOrderForm";
 import { openBusinessPrint } from "@/lib/business-print";
 import { useAdminAuth, AdminPermissions, DEFAULT_PERMISSIONS } from "@/lib/auth";
 import { ADMIN_PERMISSION_OPTIONS, effectiveAdminPermission, resolvedAdminPermissions } from "@shared/admin-permissions";
+import { StaffManagement } from "@/components/admin/StaffManagement";
 import { allowedAdminTabs, hasAdminReportsAccess, resolveAdminTab, type AdminTab } from "@/lib/admin-navigation";
 import { isTerminalOrder } from "@/lib/admin-operations";
 import { useUpload } from "@/hooks/use-upload";
@@ -4952,6 +4953,7 @@ export default function AdminPanel() {
                   <div className="p-8 text-center text-muted-foreground">No admins found.</div>
                 )}
               </div>
+              <StaffManagement />
             </div>
           )}
         </main>

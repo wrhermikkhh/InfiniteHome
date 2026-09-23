@@ -85,6 +85,14 @@ export interface Admin {
   permissions?: AdminPermissions;
 }
 
+export interface StaffUser {
+  id: string;
+  name: string;
+  email: string;
+  status: string;
+  createdAt: string;
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -324,6 +332,22 @@ export const api = {
       body: JSON.stringify(admin),
     });
     if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || "Failed to add admin");
+    return res.json();
+  },
+
+  async getStaffUsers(): Promise<StaffUser[]> {
+    const res = await fetch(`${API_BASE}/admin/staff-users`);
+    if (!res.ok) throw new Error("Staff records could not be loaded.");
+    return res.json();
+  },
+
+  async createStaffUser(staff: { name: string; email: string }): Promise<StaffUser> {
+    const res = await fetch(`${API_BASE}/admin/staff-users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(staff),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || "Staff could not be added.");
     return res.json();
   },
 

@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, jsonb, timestamp, real, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, jsonb, timestamp, real, numeric, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { DEFAULT_ADMIN_PERMISSIONS, type AdminPermissions } from "./admin-permissions.js";
@@ -50,11 +50,23 @@ export const admins = pgTable("admins", {
   resetToken: text("reset_token"),
   resetTokenExpiry: timestamp("reset_token_expiry"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, table => [uniqueIndex("admins_email_ci_unique").on(sql`lower(${table.email})`)]);
 
 export const insertAdminSchema = createInsertSchema(admins).omit({ id: true, createdAt: true });
 export type InsertAdmin = z.infer<typeof insertAdminSchema>;
 export type Admin = typeof admins.$inferSelect;
+
+// Staff records are separate from administrators. No staff authentication or
+// permissions exist until the owner defines staff access.
+export const staffUsers = pgTable("staff_users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  status: text("status").notNull().default("pending_access"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => [uniqueIndex("staff_users_email_ci_unique").on(sql`lower(${table.email})`)]);
+
+export type StaffUser = typeof staffUsers.$inferSelect;
 
 // Categories
 export const categories = pgTable("categories", {

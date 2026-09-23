@@ -8,14 +8,15 @@ import { sendOrderConfirmationEmail, sendNewOrderAdminEmail, sendOrderStatusEmai
 import { sendOrderEmailOnce } from "./lib/order-email-notifications.js";
 import { hashPassword, comparePasswords } from "./auth.js";
 import { db } from "./db.js";
-import { orders } from "../shared/schema.js";
+import { admins, orders } from "../shared/schema.js";
 import { registerRedotPay } from "../shared/redotpay-routes.js";
 import { registerInventoryAdmin } from "../shared/inventory-routes.js";
 import { registerAdminDocumentRoutes } from "../shared/admin-documents-routes.js";
 import { registerAdminInventoryRoutes } from "../shared/admin-inventory-routes.js";
 import { registerAdminAccountingRoutes } from "../shared/admin-accounting-routes.js";
-import { registerAdminSecurity } from "../shared/admin-security.js";
+import { registerAdminSecurity, securityRows } from "../shared/admin-security.js";
 import { regularAdminCreation, registerAdminAuth } from "../shared/admin-auth.js";
+import { lockEmailIdentity, registerAdminStaffRoutes, staffEmailExists } from "../shared/admin-staff-routes.js";
 import { resolvedAdminPermissions } from "../shared/admin-permissions.js";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
@@ -77,6 +78,7 @@ export async function registerRoutes(
     sendOrderEmailOnce(db, order, `status:${status}`, () => sendOrderStatusEmail(order, status));
   registerAdminAuth(app, () => db);
   registerAdminSecurity(app, () => db, sendAdminPasswordResetEmail);
+  registerAdminStaffRoutes(app, () => db);
   registerRedotPay(app, () => db, orders, {
     sendOrderConfirmationEmail: notifyOrderConfirmation,
     sendOrderStatusEmail: notifyOrderStatus,
@@ -221,11 +223,33 @@ export async function registerRoutes(
     try {
       const data = insertAdminSchema.parse(req.body);
       const permissions = data.permissions == null ? undefined : adminPermissionsInput.parse(data.permissions);
-      const regularAdmin = regularAdminCreation({ ...data, permissions });
+      const regularAdmin = regularAdminCreation({
+        ...data, email: data.email.trim().toLowerCase(), permissions,
+      });
       const hashedPassword = await hashPassword(data.password);
-      const admin = await storage.createAdmin({ ...regularAdmin, password: hashedPassword });
+      const outcome = await db.transaction(async tx => {
+        await lockEmailIdentity(tx, regularAdmin.email);
+        if (await staffEmailExists(tx, regularAdmin.email)) {
+          return { conflict: "This email already belongs to staff." };
+        }
+        const duplicate = securityRows(await tx.execute(sql`
+          SELECT 1 FROM admins WHERE lower(email) = ${regularAdmin.email} LIMIT 1
+        `));
+        if (duplicate.length) return { conflict: "This admin email is already in use." };
+        const [admin] = await tx.insert(admins).values({ ...regularAdmin, password: hashedPassword }).returning();
+        return { admin };
+      });
+      if ("conflict" in outcome) {
+        res.status(409).json({ message: outcome.conflict });
+        return;
+      }
+      const admin = outcome.admin;
       res.json({ id: admin.id, name: admin.name, email: admin.email, isSuperAdmin: admin.isSuperAdmin, permissions: admin.permissions });
     } catch (error: any) {
+      if (error?.code === "23505" || error?.cause?.code === "23505") {
+        res.status(409).json({ message: "This admin email is already in use." });
+        return;
+      }
       res.status(400).json({ message: error.message });
     }
   });

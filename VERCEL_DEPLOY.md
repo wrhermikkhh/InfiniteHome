@@ -75,6 +75,11 @@ Do not deploy the current application until all three prerequisites are present.
    Before deploying quotations and purchase orders, also apply the additive
    `script/admin-documents-migration.sql` to the confirmed database. The
    documents table is server-only and does not change existing order data.
+   Before deploying staff creation, apply `script/staff-users-migration.sql`
+   to each confirmed development, sandbox, and external live database. Check
+   for case-insensitive duplicate admin emails before applying its unique
+   index; verify the staff table, both normalized-email indexes, RLS, and
+   server-role access. Apply it before deploying code that checks staff emails.
 4. Verify customer/admin sessions, both throttle mechanisms, customer email
    proofs, the canonical `legacy_inventory_reservations` ledger and its
    reconciliation audit fields, RedotPay objects and audit objects;
