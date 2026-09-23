@@ -2,15 +2,14 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { getProductVariants, type Product } from "@/lib/products";
 import { quoteLineFromProduct, type QuotationLine } from "@/lib/quotation-catalog";
+import { adminControlClass } from "./admin-ui";
 
-export function QuotationCatalogPicker({ onAdd }: { onAdd: (item: QuotationLine) => void }) {
+export function QuotationCatalogPicker({ onAdd, disabled = false }: { onAdd: (item: QuotationLine) => void; disabled?: boolean }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [productId, setProductId] = useState("");
-  const [size, setSize] = useState("");
-  const [color, setColor] = useState("");
+  const [added, setAdded] = useState("");
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
@@ -27,49 +26,38 @@ export function QuotationCatalogPicker({ onAdd }: { onAdd: (item: QuotationLine)
     return () => { active = false; };
   }, [reload]);
 
-  const selected = products.find(product => product.id === productId);
-  const variants = selected ? getProductVariants(selected) : [];
-  const colors = selected?.colors?.filter(Boolean) || [];
   const matches = products.filter(product =>
     `${product.name} ${product.sku || ""} ${product.category}`.toLowerCase().includes(search.trim().toLowerCase()));
-  const line = selected ? quoteLineFromProduct(selected, size, color) : null;
-  const fieldClass = "h-10 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm text-[#12334a] outline-none focus:border-[#16877f] focus:ring-2 focus:ring-[#16877f]/10";
+  const choices = matches.map(product => ({
+    product,
+    options: getProductVariants(product).flatMap((variant, variantIndex) =>
+      (product.colors?.filter(Boolean).length ? product.colors.filter(Boolean) : [""]).map((color, colorIndex) => ({
+        key: `${product.id}:${variantIndex}:${colorIndex}`,
+        line: quoteLineFromProduct(product, variant.size, color),
+      }))).filter(choice => choice.line !== null),
+  }));
+  const fieldClass = `${adminControlClass} w-full min-w-0`;
 
-  return <section aria-label="Add catalog product" className="mb-5 rounded-lg border border-[#b9ded8] bg-white p-4">
-    <div className="mb-3">
-      <h3 className="text-sm font-semibold text-[#12334a]">Add from catalog</h3>
-      <p className="mt-1 text-xs text-slate-500">Copies the current name and full price into an editable quotation line. This does not reserve stock or change existing quotes.</p>
-    </div>
+  return <section aria-label="Add catalog product" className="mb-5 rounded-xl border border-[#b9ded8] bg-white p-4">
+    <h3 className="text-sm font-semibold text-[#12334a]">Products from catalog</h3>
+    <p className="mb-3 mt-1 text-xs text-slate-500">Choose a product to add a priced line immediately. Adjust quantity or price in the line below.</p>
     {error && <p role="alert" className="mb-3 text-sm text-[#a44539]">{error} <button type="button" className="font-semibold underline" onClick={() => setReload(value => value + 1)}>Retry</button></p>}
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,.7fr)_minmax(0,.7fr)]">
-      <label className="flex min-w-0 flex-col gap-1 text-xs text-slate-600">Search products
-        <input value={search} onChange={event => { setSearch(event.target.value); setProductId(""); }} onKeyDown={event => { if (event.key === "Enter") event.preventDefault(); }} placeholder="Name, SKU or category" className={fieldClass} />
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label className="flex min-w-0 flex-col gap-1.5 text-xs font-semibold text-slate-600">Search catalog
+        <input value={search} onChange={event => setSearch(event.target.value)} onKeyDown={event => { if (event.key === "Enter") event.preventDefault(); }} placeholder="Name, SKU or category" className={fieldClass} />
       </label>
-      <label className="flex min-w-0 flex-col gap-1 text-xs text-slate-600">Product
-        <select aria-label="Catalog product" value={productId} disabled={loading || !!error} onChange={event => {
-          const product = products.find(item => item.id === event.target.value);
-          setProductId(event.target.value);
-          setSize(product ? getProductVariants(product)[0]?.size || "Standard" : "");
-          setColor(product?.colors?.[0] || "");
+      <label className="flex min-w-0 flex-col gap-1.5 text-xs font-semibold text-slate-600">Add a product
+        <select aria-label="Add catalog product to quotation" value="" disabled={loading || !!error || disabled} onChange={event => {
+          const choice = choices.flatMap(group => group.options).find(option => option.key === event.target.value);
+          if (choice?.line) { onAdd(choice.line); setAdded(choice.line.description); }
         }} className={fieldClass}>
-          <option value="">{loading ? "Loading catalog…" : matches.length ? "Select a product" : "No matching products"}</option>
-          {matches.map(product => <option key={product.id} value={product.id}>{product.name}{product.sku ? ` · ${product.sku}` : ""}{product.showOnStorefront === false ? " (not on storefront)" : ""}</option>)}
+          <option value="">{disabled ? "Maximum of 50 lines" : loading ? "Loading catalog…" : choices.some(group => group.options.length) ? "Select a product and variant" : "No matching products"}</option>
+          {choices.map(({ product, options }) => options.length > 0 && <optgroup key={product.id} label={`${product.name}${product.showOnStorefront === false ? " (not on storefront)" : ""}`}>
+            {options.map(({ key, line }) => <option key={key} value={key}>{line!.description} · MVR {line!.unitPrice.toFixed(2)}</option>)}
+          </optgroup>)}
         </select>
       </label>
-      {variants.length > 1 && <label className="flex min-w-0 flex-col gap-1 text-xs text-slate-600">Size
-        <select aria-label="Product size" value={size} onChange={event => setSize(event.target.value)} className={fieldClass}>
-          {variants.map(variant => <option key={variant.size} value={variant.size}>{variant.size}</option>)}
-        </select>
-      </label>}
-      {colors.length > 1 && <label className="flex min-w-0 flex-col gap-1 text-xs text-slate-600">Color
-        <select aria-label="Product color" value={color} onChange={event => setColor(event.target.value)} className={fieldClass}>
-          {colors.map(value => <option key={value} value={value}>{value}</option>)}
-        </select>
-      </label>}
     </div>
-    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-      <span className="text-xs text-slate-500">{selected && (line ? `${selected.isPreOrder ? "Full pre-order price" : "Current catalog price"}: MVR ${line.unitPrice.toFixed(2)}` : "This product has no valid full price or description. Use a manual line.")}</span>
-      <button type="button" disabled={!line} onClick={() => { if (line) onAdd(line); }} className="rounded-lg bg-[#12334a] px-4 py-2 text-xs font-bold uppercase tracking-[.08em] text-white hover:bg-[#0c283b] disabled:cursor-not-allowed disabled:opacity-50">Add product to quote</button>
-    </div>
+    {added && <p role="status" className="mt-3 text-xs font-medium text-[#126f69]">Added {added} to the quotation below.</p>}
   </section>;
 }

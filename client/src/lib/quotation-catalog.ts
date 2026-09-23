@@ -6,10 +6,8 @@ export function quoteLineFromProduct(product: Product, size: string, color: stri
   const variant = getProductVariants(product).find(item => item.size === size);
   if (!variant) return null;
 
-  // A quotation offers the full pre-order price, never the checkout deposit.
-  const price = product.isPreOrder
-    ? product.preOrderPrice
-    : getDisplayPrice(product, variant.price);
+  // Quotes use the catalog's variant price, not a pre-order payment amount.
+  const price = getDisplayPrice(product, variant.price);
   if (price == null || !Number.isFinite(price) || price < 0 || price > 10000000) return null;
 
   const options = [size !== "Standard" ? size : "", color !== "Default" ? color : ""].filter(Boolean);

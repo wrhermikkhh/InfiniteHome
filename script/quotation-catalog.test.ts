@@ -16,10 +16,10 @@ test("catalog selection snapshots selected variant, color, and current sale pric
   assert.equal(quoteLineFromProduct(product, "Unknown", "Blue"), null);
 });
 
-test("pre-order quotes use full price, not the checkout deposit", () => {
+test("pre-order quotes use the catalog variant price, not either pre-order amount", () => {
   const preorder = { ...product, isPreOrder: true, preOrderPrice: 800, preOrderInitialPayment: 100 };
-  assert.equal(quoteLineFromProduct(preorder, "Queen", "White")?.unitPrice, 800);
-  assert.equal(quoteLineFromProduct({ ...preorder, preOrderPrice: null }, "Queen", "White"), null);
+  assert.equal(quoteLineFromProduct(preorder, "Queen", "White")?.unitPrice, 450);
+  assert.equal(quoteLineFromProduct({ ...preorder, preOrderPrice: null }, "Queen", "White")?.unitPrice, 450);
 });
 
 test("normal products without variants retain their catalog price", () => {

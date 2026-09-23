@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS admin_documents (
   due_date text,
   status text NOT NULL DEFAULT 'draft',
   items jsonb NOT NULL,
+  discount numeric(12,2) NOT NULL DEFAULT 0,
   total numeric(12,2) NOT NULL,
   created_by varchar NOT NULL REFERENCES admins(id),
   created_at timestamp DEFAULT now(),
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS admin_documents (
 -- Earlier sandbox versions of this additive table used real. Upgrade in place.
 ALTER TABLE admin_documents ALTER COLUMN total TYPE numeric(12,2)
   USING round(total::numeric, 2);
+ALTER TABLE admin_documents ADD COLUMN IF NOT EXISTS discount numeric(12,2) NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS admin_documents_kind_created_idx
   ON admin_documents (kind, created_at DESC);

@@ -94,6 +94,7 @@ import {
   DialogTrigger 
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { adminActionRowClass, adminButtonClass, adminControlClass } from "@/components/admin/admin-ui";
 
 // Helper function to resolve variant stock with fallback matching
 function resolveVariantStock(variantStock: { [key: string]: number } | null, size: string, color: string): number {
@@ -2274,7 +2275,7 @@ export default function AdminPanel() {
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-6">
                       <h3 className="font-serif text-lg">Order Value · Last 7 Days</h3>
-                      {permittedTabs.includes("Charts") && <Button variant="outline" size="sm" onClick={() => switchTab("Charts")}>Explore charts</Button>}
+                      {permittedTabs.includes("Charts") && <Button variant="outline" className={adminButtonClass("outline")} onClick={() => switchTab("Charts")}>Explore charts</Button>}
                     </div>
                     <div className="h-[300px] w-full">
                       {analytics.chartData.length > 0 ? (
@@ -2373,7 +2374,7 @@ export default function AdminPanel() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="font-serif text-lg">Recent Orders</h3>
-                    <Button variant="outline" size="sm" className="rounded-none text-xs" onClick={() => switchTab("Orders")}>
+                    <Button variant="outline" className={adminButtonClass("outline")} onClick={() => switchTab("Orders")}>
                       View All
                     </Button>
                   </div>
@@ -2439,7 +2440,7 @@ export default function AdminPanel() {
                 <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
                   <DialogTrigger asChild>
                     <Button 
-                      className="rounded-none uppercase tracking-widest font-bold"
+                      className={adminButtonClass("primary")}
                       onClick={() => { setEditingProduct(null); resetProductForm(); }}
                       data-testid="button-add-product"
                     >
@@ -3139,7 +3140,7 @@ export default function AdminPanel() {
                           </div>
                         )}
                       </div>
-                      <Button onClick={handleSaveProduct} className="w-full rounded-none">
+                      <Button onClick={handleSaveProduct} className={`${adminButtonClass("primary")} w-full`}>
                         {editingProduct ? "Update Product" : "Create Product"}
                       </Button>
                     </div>
@@ -3151,15 +3152,15 @@ export default function AdminPanel() {
                 <CardContent className="p-0">
                   <div className="divide-y divide-border">
                     {products.map((product) => (
-                      <div key={product.id} className="p-4 flex items-center justify-between hover:bg-secondary/5 transition-colors">
-                        <div className="flex items-center gap-4">
+                      <div key={product.id} className="flex flex-col gap-3 p-4 hover:bg-secondary/5 transition-colors sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex min-w-0 items-center gap-4">
                           <img src={product.image} className="w-12 h-16 object-cover bg-secondary/20" alt={product.name} />
                           <div>
                             <h4 className="font-medium">{product.name}</h4>
                             <p className="text-xs text-muted-foreground uppercase tracking-wider">{product.category} — {formatCurrency(product.price)}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className={adminActionRowClass}>
                           {(() => {
                             const variantStock = (product as any).variantStock as { [key: string]: number } | null;
                             const totalStock = variantStock ? Object.values(variantStock).reduce((sum, v) => sum + (v || 0), 0) : 0;
@@ -3178,7 +3179,7 @@ export default function AdminPanel() {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8"
+                              className={`${adminButtonClass("quiet")} h-10 w-10 p-0`}
                               onClick={() => handleEditProduct(product)}
                             >
                               <Edit size={14} />
@@ -3186,7 +3187,7 @@ export default function AdminPanel() {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8 text-destructive"
+                              className={`${adminButtonClass("danger")} h-10 w-10 p-0`}
                               onClick={() => deleteProduct(product.id)}
                             >
                               <Trash2 size={14} />
@@ -3257,7 +3258,7 @@ export default function AdminPanel() {
                     <Search size={18} className="text-muted-foreground" />
                     <Input
                       placeholder="Search products by name, SKU, or barcode..."
-                      className="rounded-none flex-1"
+                      className={`${adminControlClass} flex-1`}
                       value={inventorySearch}
                       onChange={(e) => setInventorySearch(e.target.value)}
                     />
@@ -3347,18 +3348,18 @@ export default function AdminPanel() {
                                       toast({ title: "Error", description: "Failed to update visibility", variant: "destructive" });
                                     }
                                   }}
-                                  className={`p-2 rounded transition-colors ${isVisible ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                                  className={`${adminButtonClass(isVisible ? "quiet" : "outline")} h-10 w-10 p-0 ${isVisible ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
                                   title={isVisible ? "Click to hide from storefront" : "Click to show on storefront"}
                                 >
                                   {isVisible ? <Eye size={16} /> : <EyeOff size={16} />}
                                 </button>
                               </td>
                               <td className="px-4 py-3">
-                                <div className="flex items-center gap-2">
+                                <div className={adminActionRowClass}>
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="rounded-none h-8"
+                                    className={adminButtonClass("outline")}
                                     onClick={() => {
                                       handleEditProduct(product);
                                     }}
@@ -3368,7 +3369,7 @@ export default function AdminPanel() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="rounded-none h-8 text-red-500 hover:bg-red-50 hover:text-red-600"
+                                    className={adminButtonClass("danger")}
                                     onClick={async () => {
                                       if (confirm(`Are you sure you want to delete ${product.name}?`)) {
                                         try {
@@ -3411,17 +3412,17 @@ export default function AdminPanel() {
                   <h1 className="text-3xl font-serif">Point of Sale</h1>
                   <p className="text-muted-foreground">Fast checkout for the floor team.</p>
                 </div>
-                <div className="pos-mode-switch flex gap-2">
+                <div className={`${adminActionRowClass} pos-mode-switch`}>
                   <Button
                     variant={posViewMode === "checkout" ? "default" : "outline"}
-                    className="rounded-lg"
+                    className={adminButtonClass(posViewMode === "checkout" ? "primary" : "outline")}
                     onClick={() => setPosViewMode("checkout")}
                   >
                     <ShoppingCart size={16} /> <span className="hidden sm:inline">Checkout</span>
                   </Button>
                   <Button
                     variant={posViewMode === "history" ? "default" : "outline"}
-                    className="rounded-lg"
+                    className={adminButtonClass(posViewMode === "history" ? "primary" : "outline")}
                     onClick={() => {
                       setPosViewMode("history");
                       api.getAllPosTransactions()

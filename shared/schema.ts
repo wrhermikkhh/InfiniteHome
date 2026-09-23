@@ -242,6 +242,7 @@ export const adminDocuments = pgTable("admin_documents", {
   dueDate: text("due_date"),
   status: text("status").notNull().default("draft"),
   items: jsonb("items").$type<{ description: string; quantity: number; unitPrice: number }[]>().notNull(),
+  discount: numeric("discount", { precision: 12, scale: 2 }).notNull().default("0"),
   total: numeric("total", { precision: 12, scale: 2 }).notNull(),
   createdBy: varchar("created_by").notNull().references(() => admins.id),
   createdAt: timestamp("created_at").defaultNow(),
