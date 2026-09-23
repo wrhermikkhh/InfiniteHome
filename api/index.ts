@@ -35,7 +35,7 @@ function injectOg(html: string, og: { title: string; description: string; image:
 const ready = registerRoutes(createServer(app), app).then(() => {
   app.get("/track", async (req, res) => {
     const html = template();
-    if (!html) return res.redirect(302, "/");
+    if (!html) return res.status(503).type("text").send("Tracking is temporarily unavailable. Please retry.");
     const number = typeof req.query.order === "string" ? req.query.order : "";
     const og = {
       title: "Order Tracking - INFINITE HOME",
@@ -45,7 +45,7 @@ const ready = registerRoutes(createServer(app), app).then(() => {
     };
     try {
       if (number) {
-        const order = await storage.getOrderByNumber(number);
+        const order = await storage.getOrderByNumber(number) || await storage.getOrderByTrackingNumber(number);
         if (order) {
           og.title = `Order #${number} - INFINITE HOME`;
           og.description = `Track your order of ${order.items?.length || 1} item(s). Current status: ${(order.status || "").replace(/_/g, " ")}.`;
