@@ -4,7 +4,7 @@ import express from "express";
 import { createHash, scryptSync } from "node:crypto";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { readFileSync } from "node:fs";
-import { registerAdminAuth, verifyAdminPassword, adminPermissionFor, hasAdminPermission } from "../shared/admin-auth";
+import { registerAdminAuth, verifyAdminPassword, adminPermissionFor, hasAdminPermission, fullAdminCreation } from "../shared/admin-auth";
 
 const salt = "12".repeat(16);
 const password = `${scryptSync("test-only-password", salt, 64).toString("hex")}.${salt}`;
@@ -25,6 +25,15 @@ test("permission mapping denies implicit defaults and forged truthy flags", () =
   assert.equal(adminPermissionFor("POST", "/api/coupons/validate"), null);
   assert.equal(adminPermissionFor("DELETE", "/api/coupons/1"), "canManageCoupons");
   assert.equal(adminPermissionFor("POST", "/api/admins"), "super");
+});
+
+test("new admin accounts always receive full access and cannot request restricted staff privileges", () => {
+  const created = fullAdminCreation({ name: "New admin" });
+  assert.equal(created.isSuperAdmin, true);
+  assert.equal(hasAdminPermission(created, "super"), true);
+  assert.throws(() => fullAdminCreation({ isSuperAdmin: false }), /Restricted staff accounts/);
+  assert.throws(() => fullAdminCreation({ permissions: { canManageOrders: false } }), /Restricted staff accounts/);
+  assert.equal(fullAdminCreation({ permissions: { canManageOrders: true } }).isSuperAdmin, true);
 });
 
 test("both adapters install shared sessions before payment and admin routes; no profile-only login remains", () => {

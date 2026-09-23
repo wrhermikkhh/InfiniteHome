@@ -15,7 +15,7 @@ import { registerAdminDocumentRoutes } from "../shared/admin-documents-routes.js
 import { registerAdminInventoryRoutes } from "../shared/admin-inventory-routes.js";
 import { registerAdminAccountingRoutes } from "../shared/admin-accounting-routes.js";
 import { registerAdminSecurity } from "../shared/admin-security.js";
-import { registerAdminAuth } from "../shared/admin-auth.js";
+import { fullAdminCreation, registerAdminAuth } from "../shared/admin-auth.js";
 import { sql } from "drizzle-orm";
 import { toPublicOrderTracking, toPublicPosTracking } from "../shared/public-tracking.js";
 import { calculatePosTax, settleSplitTender } from "../shared/admin-accounting-math.js";
@@ -206,8 +206,9 @@ export async function registerRoutes(
   app.post("/api/admins", async (req, res) => {
     try {
       const data = insertAdminSchema.parse(req.body);
+      const fullAdmin = fullAdminCreation(data);
       const hashedPassword = await hashPassword(data.password);
-      const admin = await storage.createAdmin({ ...data, password: hashedPassword });
+      const admin = await storage.createAdmin({ ...fullAdmin, password: hashedPassword });
       res.json({ id: admin.id, name: admin.name, email: admin.email, isSuperAdmin: admin.isSuperAdmin, permissions: admin.permissions });
     } catch (error: any) {
       res.status(400).json({ message: error.message });

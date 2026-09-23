@@ -22,6 +22,17 @@ export function hasAdminPermission(admin: any, permission: string): boolean {
   return !!admin && (admin.isSuperAdmin === true || (permission !== "super" && admin.permissions?.[permission] === true));
 }
 
+/** Admin accounts are full-access; restricted staff accounts need a separate creation flow. */
+export function fullAdminCreation<T extends { isSuperAdmin?: boolean | null; permissions?: Record<string, boolean> | null }>(
+  candidate: T,
+): T & { isSuperAdmin: true } {
+  if (candidate.isSuperAdmin === false ||
+      (candidate.permissions && Object.values(candidate.permissions).some(value => value !== true))) {
+    throw new Error("Admin accounts have full access. Restricted staff accounts are not available yet.");
+  }
+  return { ...candidate, isSuperAdmin: true };
+}
+
 export function isAdminSameOrigin(req: Pick<Request, "headers" | "get">): boolean {
   const configured = process.env.ADMIN_PUBLIC_ORIGIN || process.env.REDOTPAY_PUBLIC_ORIGIN;
   try {

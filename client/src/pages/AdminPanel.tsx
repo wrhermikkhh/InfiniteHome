@@ -427,7 +427,6 @@ export default function AdminPanel() {
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [newAdminName, setNewAdminName] = useState("");
-  const [newAdminPermissions, setNewAdminPermissions] = useState<AdminPermissions>({ ...DEFAULT_PERMISSIONS });
   const [editingAdminPermissions, setEditingAdminPermissions] = useState<{ [adminId: string]: AdminPermissions }>({});
   const [adminPasswordInputs, setAdminPasswordInputs] = useState<{ [adminId: string]: string }>({});
   const [savingPermissions, setSavingPermissions] = useState<{ [adminId: string]: boolean }>({});
@@ -1794,13 +1793,11 @@ export default function AdminPanel() {
         name: newAdminName,
         email: newAdminEmail,
         password: newAdminPassword,
-        permissions: { ...newAdminPermissions },
       });
       await loadData();
       setNewAdminEmail("");
       setNewAdminPassword("");
       setNewAdminName("");
-      setNewAdminPermissions({ ...DEFAULT_PERMISSIONS });
       toast({ title: "Admin added", description: `${newAdminName} can now access the panel` });
     } catch (error) {
       console.error("Failed to add admin:", error);
@@ -4835,7 +4832,7 @@ export default function AdminPanel() {
               <div className="mb-8">
                 <p className="admin-kicker mb-2">Infinite Home / Access</p>
                 <h1 className="text-3xl md:text-4xl font-serif">Admin Management</h1>
-                <p className="text-muted-foreground">Add admins and control their access permissions</p>
+                <p className="text-muted-foreground">Add full-access admins. Restricted staff accounts can be added later.</p>
               </div>
 
               {/* Add New Admin */}
@@ -4845,28 +4842,11 @@ export default function AdminPanel() {
                   <div className="flex flex-wrap gap-4 mb-4">
                     <Input placeholder="Name" value={newAdminName} onChange={(e) => setNewAdminName(e.target.value)} className="rounded-none flex-1 min-w-[150px]" data-testid="input-new-admin-name" />
                     <Input type="email" placeholder="Email" value={newAdminEmail} onChange={(e) => setNewAdminEmail(e.target.value)} className="rounded-none flex-1 min-w-[200px]" data-testid="input-new-admin-email" />
-                    <Input type="password" placeholder="Password (min 6 chars)" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} className="rounded-none flex-1 min-w-[180px]" data-testid="input-new-admin-password" />
+                    <Input type="password" placeholder="Password (min 8 chars)" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} className="rounded-none flex-1 min-w-[180px]" data-testid="input-new-admin-password" />
                   </div>
-                  <div className="mb-4">
-                    <p className="text-xs uppercase tracking-widest font-bold mb-3">Access Permissions</p>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {([ 
-                        { key: "canManageProducts", label: "Manage Products" },
-                        { key: "canManageStock", label: "Manage Inventory" },
-                        { key: "canManageOrders", label: "Manage Orders" },
-                        { key: "canManageCoupons", label: "Manage Coupons" },
-                        { key: "canAccessPOS", label: "Access POS" },
-                      ] as { key: keyof AdminPermissions; label: string }[]).map(({ key, label }) => (
-                        <div key={key} className="flex items-center gap-2">
-                          <Switch
-                            checked={newAdminPermissions[key]}
-                            onCheckedChange={(v) => setNewAdminPermissions(p => ({ ...p, [key]: v }))}
-                          />
-                          <span className="text-sm">{label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <p className="mb-4 text-sm text-muted-foreground">
+                    New admins receive full access, including Accounting and Admin Management.
+                  </p>
                   <Button onClick={handleAddAdmin} className="rounded-none" data-testid="button-add-admin">
                     <Plus size={14} className="mr-2" /> Add Admin
                   </Button>
