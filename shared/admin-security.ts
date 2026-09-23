@@ -2,11 +2,12 @@ import { createHash, randomBytes, randomInt, scryptSync } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { Express, Request, Response } from "express";
 import type { Admin } from "./schema.js";
+import type { AdminPermissionKey } from "./admin-permissions.js";
 import { transportPeerBucket } from "./request-identity.js";
 import { hasAdminPermission as sessionPermission, isAdminSameOrigin } from "./admin-auth.js";
 
 type Database = { execute: (query: any) => Promise<any> };
-type Permission = "canManageProducts" | "canManageStock" | "canManageOrders" | "canManageCoupons" | "canAccessPOS";
+type Permission = AdminPermissionKey;
 export const securityRows = (result: any): any[] => Array.isArray(result) ? result : result?.rows || [];
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const customerCookie = "veltrix_customer_session";
@@ -68,8 +69,8 @@ export function adminPermissionForRoute(path: string, method: string): Permissio
   if (/^\/api\/admin\/manual-orders(?:\/|$)/.test(path)) return "canManageOrders";
   if (path.startsWith("/api/admin/inventory/")) return "canManageStock";
   if (/^\/api\/admin\/product-details(?:\/|$)/.test(path)) return "canManageProducts";
-  if (/^\/api\/admin\/quotations(?:\/|$)/.test(path)) return "canManageOrders";
-  if (/^\/api\/admin\/purchase-orders(?:\/|$)/.test(path)) return "canManageStock";
+  if (/^\/api\/admin\/quotations(?:\/|$)/.test(path)) return "canManageQuotations";
+  if (/^\/api\/admin\/purchase-orders(?:\/|$)/.test(path)) return "canManagePurchaseOrders";
   if (path.startsWith("/api/admin/")) return "super";
   if (/^\/api\/(products|categories)(?:\/|$)/.test(path) && write)
     return /\/stock(?:\/|$)/.test(path) ? "canManageStock" : "canManageProducts";

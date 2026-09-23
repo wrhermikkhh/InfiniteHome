@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { api, Customer } from "./api";
 import { useCart } from "./cart";
 import { toast } from "@/hooks/use-toast";
+import { DEFAULT_ADMIN_PERMISSIONS, type AdminPermissions } from "@shared/admin-permissions";
 
 interface User {
   id: string;
@@ -91,21 +92,8 @@ export const useAuth = create<AuthStore>()(
 );
 
 // Separate admin auth for admin panel only
-export interface AdminPermissions {
-  canManageProducts: boolean;
-  canManageStock: boolean;
-  canManageOrders: boolean;
-  canManageCoupons: boolean;
-  canAccessPOS: boolean;
-}
-
-export const DEFAULT_PERMISSIONS: AdminPermissions = {
-  canManageProducts: true,
-  canManageStock: true,
-  canManageOrders: true,
-  canManageCoupons: true,
-  canAccessPOS: true,
-};
+export type { AdminPermissions } from "@shared/admin-permissions";
+export const DEFAULT_PERMISSIONS: AdminPermissions = DEFAULT_ADMIN_PERMISSIONS;
 
 interface AdminAuthStore {
   admin: { id: string; name: string; email: string; isSuperAdmin?: boolean; permissions?: AdminPermissions } | null;

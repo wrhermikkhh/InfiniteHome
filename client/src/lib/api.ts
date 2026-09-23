@@ -1,5 +1,6 @@
 import { Product } from "./products";
 import type { PublicOrderTracking } from "@shared/public-tracking";
+import type { AdminPermissions } from "@shared/admin-permissions";
 
 const API_BASE = "/api";
 
@@ -81,13 +82,7 @@ export interface Admin {
   name: string;
   email: string;
   isSuperAdmin?: boolean;
-  permissions?: {
-    canManageProducts: boolean;
-    canManageStock: boolean;
-    canManageOrders: boolean;
-    canManageCoupons: boolean;
-    canAccessPOS: boolean;
-  };
+  permissions?: AdminPermissions;
 }
 
 export interface Customer {
@@ -328,6 +323,7 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(admin),
     });
+    if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || "Failed to add admin");
     return res.json();
   },
 

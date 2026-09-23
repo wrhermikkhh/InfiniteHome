@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { allowedAdminTabs, resolveAdminTab } from "../client/src/lib/admin-navigation";
+import { allowedAdminTabs, hasAdminReportsAccess, resolveAdminTab } from "../client/src/lib/admin-navigation";
 
 const denied = { canManageProducts: false, canManageStock: false, canManageOrders: false, canManageCoupons: false, canAccessPOS: false };
 const ordersOnly = { permissions: { ...denied, canManageOrders: true } };
 
 test("orders-only login and forged Products hash resolve before content rendering", () => {
   const tabs = allowedAdminTabs(ordersOnly);
-  assert.deepEqual(tabs, ["Overview", "Orders", "Customers", "Logistics", "Quotations", "Transactions", "Analytics", "Finance", "Charts"]);
+  assert.deepEqual(tabs, ["Overview", "Orders", "Customers", "Logistics", "Transactions", "Quotations", "Analytics", "Charts", "Finance"]);
   assert.equal(resolveAdminTab("Products", tabs), "Orders");
   assert.equal(resolveAdminTab("Admin Management", tabs), "Orders");
   assert.equal(resolveAdminTab("Accounting", tabs), "Orders");
@@ -19,6 +19,30 @@ test("orders-only login and forged Products hash resolve before content renderin
   assert.equal(resolveAdminTab("Purchase Orders", tabs), "Orders");
   assert.equal(resolveAdminTab("Overview", tabs), "Overview");
   assert.ok(!tabs.includes("Accounting"));
+});
+
+test("explicitly revoked area access overrides legacy Orders and Inventory inheritance", () => {
+  const tabs = allowedAdminTabs({ permissions: {
+    ...denied, canManageOrders: true, canManageStock: true,
+    canManageQuotations: false, canManagePurchaseOrders: false,
+    canViewFinance: false, canViewAnalytics: false,
+  } });
+  assert.ok(tabs.includes("Orders"));
+  assert.ok(tabs.includes("Inventory"));
+  for (const hidden of ["Quotations", "Purchase Orders", "Finance", "Analytics", "Charts", "Accounting", "Admin Management"])
+    assert.ok(!tabs.includes(hidden as any), `${hidden} should be hidden`);
+});
+
+test("Finance and Analytics can be enabled independently without hiding the report component", () => {
+  const financeOnly = allowedAdminTabs({ permissions: { ...denied, canManageOrders: true, canViewFinance: true, canViewAnalytics: false } });
+  assert.ok(financeOnly.includes("Finance"));
+  assert.ok(!financeOnly.includes("Analytics"));
+  assert.equal(hasAdminReportsAccess(financeOnly), true);
+  const analyticsOnly = allowedAdminTabs({ permissions: { ...denied, canManageOrders: true, canViewFinance: false, canViewAnalytics: true } });
+  assert.ok(!analyticsOnly.includes("Finance"));
+  assert.ok(analyticsOnly.includes("Analytics"));
+  assert.equal(hasAdminReportsAccess(analyticsOnly), true);
+  assert.equal(hasAdminReportsAccess(allowedAdminTabs({ permissions: denied })), false);
 });
 
 test("identity and permission changes cannot retain unauthorized content", () => {

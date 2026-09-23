@@ -2,6 +2,7 @@ import type { Express, Request } from "express";
 import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { sql } from "drizzle-orm";
+import { DEFAULT_ADMIN_PERMISSIONS, LEGACY_PERMISSION_PARENTS, effectiveAdminPermission, resolvedAdminPermissions, type AdminPermissions } from "./admin-permissions.js";
 
 const derive = promisify(scrypt);
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -19,18 +20,22 @@ export async function verifyAdminPassword(password: unknown, stored: unknown): P
 }
 
 export function hasAdminPermission(admin: any, permission: string): boolean {
-  return !!admin && (admin.isSuperAdmin === true || (permission !== "super" && admin.permissions?.[permission] === true));
+  return effectiveAdminPermission(admin, permission);
 }
 
-/** Admin accounts are full-access; restricted staff accounts need a separate creation flow. */
-export function fullAdminCreation<T extends { isSuperAdmin?: boolean | null; permissions?: Record<string, boolean> | null }>(
+/** The Add Admin flow creates regular accounts; the two designated super-admins are not assigned here. */
+export function regularAdminCreation<T extends { isSuperAdmin?: boolean | null; permissions?: Partial<AdminPermissions> | null }>(
   candidate: T,
-): T & { isSuperAdmin: true } {
-  if (candidate.isSuperAdmin === false ||
-      (candidate.permissions && Object.values(candidate.permissions).some(value => value !== true))) {
-    throw new Error("Admin accounts have full access. Restricted staff accounts are not available yet.");
+): Omit<T, "permissions" | "isSuperAdmin"> & { isSuperAdmin: false; permissions: AdminPermissions } {
+  if (candidate.isSuperAdmin === true) throw new Error("Super-admin accounts cannot be created from Add Admin.");
+  const requested = candidate.permissions ?? {};
+  const base = { ...DEFAULT_ADMIN_PERMISSIONS, ...requested };
+  for (const [key, parent] of Object.entries(LEGACY_PERMISSION_PARENTS)) {
+    if (requested[key as keyof AdminPermissions] === undefined) {
+      base[key as keyof AdminPermissions] = base[parent as keyof AdminPermissions];
+    }
   }
-  return { ...candidate, isSuperAdmin: true };
+  return { ...candidate, isSuperAdmin: false, permissions: resolvedAdminPermissions(base) };
 }
 
 export function isAdminSameOrigin(req: Pick<Request, "headers" | "get">): boolean {
@@ -57,6 +62,8 @@ export function adminPermissionFor(method: string, path: string): string | null 
   if (/^\/api\/admins(?:\/|$)/.test(path)) return "super";
   if (/^\/api\/email(?:\/|$)/.test(path)) return "super";
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") return null;
+  if (/^\/api\/admin\/quotations(?:\/|$)/.test(path)) return "canManageQuotations";
+  if (/^\/api\/admin\/purchase-orders(?:\/|$)/.test(path)) return "canManagePurchaseOrders";
   if (/^\/api\/products\/[^/]+\/stock\/?$/.test(path)) return "canManageStock";
   if (/^\/api\/(products|categories)(?:\/|$)/.test(path)) return "canManageProducts";
   if (/^\/api\/coupons(?:\/|$)/.test(path) && !/^\/api\/coupons\/validate(?:\/|$)/.test(path)) return "canManageCoupons";

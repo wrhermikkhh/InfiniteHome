@@ -11,7 +11,8 @@ import AdminProductCommercialFields, { getAdminProductDetails, saveAdminProductD
 import ManualOrderForm from "@/components/admin/ManualOrderForm";
 import { openBusinessPrint } from "@/lib/business-print";
 import { useAdminAuth, AdminPermissions, DEFAULT_PERMISSIONS } from "@/lib/auth";
-import { allowedAdminTabs, resolveAdminTab, type AdminTab } from "@/lib/admin-navigation";
+import { ADMIN_PERMISSION_OPTIONS, effectiveAdminPermission, resolvedAdminPermissions } from "@shared/admin-permissions";
+import { allowedAdminTabs, hasAdminReportsAccess, resolveAdminTab, type AdminTab } from "@/lib/admin-navigation";
 import { isTerminalOrder } from "@/lib/admin-operations";
 import { useUpload } from "@/hooks/use-upload";
 import { useLocation } from "wouter";
@@ -427,6 +428,7 @@ export default function AdminPanel() {
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [newAdminName, setNewAdminName] = useState("");
+  const [newAdminPermissions, setNewAdminPermissions] = useState<AdminPermissions>({ ...DEFAULT_PERMISSIONS });
   const [editingAdminPermissions, setEditingAdminPermissions] = useState<{ [adminId: string]: AdminPermissions }>({});
   const [adminPasswordInputs, setAdminPasswordInputs] = useState<{ [adminId: string]: string }>({});
   const [savingPermissions, setSavingPermissions] = useState<{ [adminId: string]: boolean }>({});
@@ -649,7 +651,7 @@ export default function AdminPanel() {
       setOrders([]);
       setPosTransactions([]);
       const allowed = (permission: keyof AdminPermissions) =>
-        !!user && (user.isSuperAdmin === true || user.permissions?.[permission] === true);
+        effectiveAdminPermission(user, permission);
       const [productsResult, ordersResult, couponsResult, adminsResult, categoriesResult, posDeliveriesResult, posReportsResult] = await Promise.allSettled([
         api.getProducts(),
         allowed("canManageOrders") ? api.getOrders() : Promise.resolve([]),
@@ -1793,11 +1795,13 @@ export default function AdminPanel() {
         name: newAdminName,
         email: newAdminEmail,
         password: newAdminPassword,
+        permissions: newAdminPermissions,
       });
       await loadData();
       setNewAdminEmail("");
       setNewAdminPassword("");
       setNewAdminName("");
+      setNewAdminPermissions({ ...DEFAULT_PERMISSIONS });
       toast({ title: "Admin added", description: `${newAdminName} can now access the panel` });
     } catch (error) {
       console.error("Failed to add admin:", error);
@@ -1810,11 +1814,12 @@ export default function AdminPanel() {
     if (!perms) return;
     setSavingPermissions(p => ({ ...p, [adminId]: true }));
     try {
-      await fetch(`/api/admins/${adminId}/permissions`, {
+      const response = await fetch(`/api/admins/${adminId}/permissions`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(perms),
       });
+      if (!response.ok) throw new Error("Could not save permissions");
       await loadData();
       toast({ title: "Permissions updated", description: "Admin permissions saved." });
     } catch {
@@ -2267,12 +2272,14 @@ export default function AdminPanel() {
               <AdminAccounting isSuperAdmin={isSuperAdmin} />
             </div>
           )}
-          {permittedTabs.includes("Analytics") && (
+          {hasAdminReportsAccess(permittedTabs) && (
             <div className={["Analytics", "Finance", "Charts"].includes(activeTab || "") ? "" : "hidden"}>
               {reportsError && <div role="alert" className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">{reportsError}</div>}
               {reportsError !== "Orders could not be loaded. Refresh to try again." && (
                 <AdminReports
-                  view={["Analytics", "Finance", "Charts"].includes(activeTab || "") ? activeTab as "Analytics" | "Finance" | "Charts" : "Analytics"}
+                  view={["Analytics", "Finance", "Charts"].includes(activeTab || "") && permittedTabs.includes(activeTab as AdminTab)
+                    ? activeTab as "Analytics" | "Finance" | "Charts"
+                    : permittedTabs.includes("Analytics") ? "Analytics" : "Finance"}
                   orders={orders}
                   posTransactions={posTransactions}
                   canViewPos={permittedTabs.includes("POS") && !reportsError}
@@ -4832,7 +4839,7 @@ export default function AdminPanel() {
               <div className="mb-8">
                 <p className="admin-kicker mb-2">Infinite Home / Access</p>
                 <h1 className="text-3xl md:text-4xl font-serif">Admin Management</h1>
-                <p className="text-muted-foreground">Add full-access admins. Restricted staff accounts can be added later.</p>
+                <p className="text-muted-foreground">Only Raamih and IT Admin have super-admin access. Choose what other admins can use.</p>
               </div>
 
               {/* Add New Admin */}
@@ -4845,7 +4852,20 @@ export default function AdminPanel() {
                     <Input type="password" placeholder="Password (min 8 chars)" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} className="rounded-none flex-1 min-w-[180px]" data-testid="input-new-admin-password" />
                   </div>
                   <p className="mb-4 text-sm text-muted-foreground">
-                    New admins receive full access, including Accounting and Admin Management.
+                    New admins are regular admins, not super-admins. Accounting and Admin Management stay super-admin only.
+                  </p>
+                  <p className="text-xs uppercase tracking-widest font-bold mb-3">Initial access</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                    {ADMIN_PERMISSION_OPTIONS.map(({ key, label }) => (
+                      <div key={key} className="flex items-center gap-2">
+                        <Switch aria-label={`New admin: ${label}`} checked={newAdminPermissions[key]}
+                          onCheckedChange={value => setNewAdminPermissions(current => ({ ...current, [key]: value }))} />
+                        <span className="text-sm">{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mb-4 text-xs text-muted-foreground">
+                    Finance and Analytics control page visibility and also require Orders; order data remains governed by Orders access. Purchase orders also require Inventory.
                   </p>
                   <Button onClick={handleAddAdmin} className="rounded-none" data-testid="button-add-admin">
                     <Plus size={14} className="mr-2" /> Add Admin
@@ -4856,7 +4876,7 @@ export default function AdminPanel() {
               {/* Existing Admins */}
               <div className="space-y-4">
                 {admins.map((admin) => {
-                  const adminPerms: AdminPermissions = editingAdminPermissions[admin.id] ?? ((admin as any).permissions ?? DEFAULT_PERMISSIONS);
+                  const adminPerms: AdminPermissions = editingAdminPermissions[admin.id] ?? resolvedAdminPermissions(admin.permissions);
                   const isThisAdminSuper = (admin as any).isSuperAdmin === true;
                   const isMe = admin.id === user?.id;
                   return (
@@ -4883,15 +4903,10 @@ export default function AdminPanel() {
                           <>
                             <p className="text-xs uppercase tracking-widest font-bold mb-3">Access Permissions</p>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-                              {([
-                                { key: "canManageProducts", label: "Manage Products" },
-                                { key: "canManageStock", label: "Manage Inventory" },
-                                { key: "canManageOrders", label: "Manage Orders" },
-                                { key: "canManageCoupons", label: "Manage Coupons" },
-                                { key: "canAccessPOS", label: "Access POS" },
-                              ] as { key: keyof AdminPermissions; label: string }[]).map(({ key, label }) => (
+                              {ADMIN_PERMISSION_OPTIONS.map(({ key, label }) => (
                                 <div key={key} className="flex items-center gap-2">
                                   <Switch
+                                    aria-label={`${admin.name}: ${label}`}
                                     checked={adminPerms[key]}
                                     onCheckedChange={(v) => setEditingAdminPermissions(ep => ({
                                       ...ep,
@@ -4903,6 +4918,9 @@ export default function AdminPanel() {
                                 </div>
                               ))}
                             </div>
+                            <p className="mb-4 text-xs text-muted-foreground">
+                              Finance and Analytics control page visibility and also require Orders; order data remains governed by Orders access. Purchase orders also require Inventory. Accounting and Admin Management are super-admin only.
+                            </p>
                             <Button size="sm" variant="outline" className="rounded-none text-xs uppercase tracking-widest mb-4" onClick={() => handleUpdatePermissions(admin.id)} disabled={savingPermissions[admin.id]} data-testid={`button-save-permissions-${admin.id}`}>
                               {savingPermissions[admin.id] ? "Saving..." : "Save Permissions"}
                             </Button>

@@ -15,12 +15,26 @@ import { registerAdminDocumentRoutes } from "../shared/admin-documents-routes.js
 import { registerAdminInventoryRoutes } from "../shared/admin-inventory-routes.js";
 import { registerAdminAccountingRoutes } from "../shared/admin-accounting-routes.js";
 import { registerAdminSecurity } from "../shared/admin-security.js";
-import { fullAdminCreation, registerAdminAuth } from "../shared/admin-auth.js";
+import { regularAdminCreation, registerAdminAuth } from "../shared/admin-auth.js";
+import { resolvedAdminPermissions } from "../shared/admin-permissions.js";
+import { z } from "zod";
 import { sql } from "drizzle-orm";
 import { toPublicOrderTracking, toPublicPosTracking } from "../shared/public-tracking.js";
 import { calculatePosTax, settleSplitTender } from "../shared/admin-accounting-math.js";
 import { accountingSettings, posAccounting, productVariantCommercial } from "../shared/admin-ledger-schema.js";
 import { registerAdminManualOrders } from "../shared/admin-manual-orders.js";
+
+const adminPermissionsInput = z.object({
+  canManageProducts: z.boolean(),
+  canManageStock: z.boolean(),
+  canManageOrders: z.boolean(),
+  canManageCoupons: z.boolean(),
+  canAccessPOS: z.boolean(),
+  canManageQuotations: z.boolean().optional(),
+  canManagePurchaseOrders: z.boolean().optional(),
+  canViewFinance: z.boolean().optional(),
+  canViewAnalytics: z.boolean().optional(),
+}).strict();
 
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
@@ -206,9 +220,10 @@ export async function registerRoutes(
   app.post("/api/admins", async (req, res) => {
     try {
       const data = insertAdminSchema.parse(req.body);
-      const fullAdmin = fullAdminCreation(data);
+      const permissions = data.permissions == null ? undefined : adminPermissionsInput.parse(data.permissions);
+      const regularAdmin = regularAdminCreation({ ...data, permissions });
       const hashedPassword = await hashPassword(data.password);
-      const admin = await storage.createAdmin({ ...fullAdmin, password: hashedPassword });
+      const admin = await storage.createAdmin({ ...regularAdmin, password: hashedPassword });
       res.json({ id: admin.id, name: admin.name, email: admin.email, isSuperAdmin: admin.isSuperAdmin, permissions: admin.permissions });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -217,7 +232,13 @@ export async function registerRoutes(
 
   app.patch("/api/admins/:id/permissions", async (req, res) => {
     try {
-      const updated = await storage.updateAdmin(req.params.id, { permissions: req.body });
+      const changes = adminPermissionsInput.parse(req.body);
+      const current = (await storage.getAllAdmins()).find(admin => admin.id === req.params.id);
+      if (!current) return res.status(404).json({ message: "Admin not found" });
+      if (current.isSuperAdmin) return res.status(403).json({ message: "Super-admin access cannot be edited here" });
+      const updated = await storage.updateAdmin(req.params.id, {
+        permissions: resolvedAdminPermissions({ ...current.permissions, ...changes }),
+      });
       if (!updated) return res.status(404).json({ message: "Admin not found" });
       res.json({ id: updated.id, name: updated.name, email: updated.email, isSuperAdmin: updated.isSuperAdmin, permissions: updated.permissions });
     } catch (error: any) {
