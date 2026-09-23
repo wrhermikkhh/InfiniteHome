@@ -4,6 +4,11 @@ import { InventoryReconciliation } from "@/components/InventoryReconciliation";
 import { AdminReports } from "@/components/admin/AdminReports";
 import { AdminCommerceTools } from "@/components/admin/AdminCommerceTools";
 import AdminDocuments from "@/components/admin/AdminDocuments";
+import AdminAccounting from "@/components/admin/AdminAccounting";
+import AdminBatchInventory from "@/components/admin/AdminBatchInventory";
+import PosPayments, { type PosPaymentLine, type PosTaxType } from "@/components/admin/PosPayments";
+import AdminProductCommercialFields, { getAdminProductDetails, saveAdminProductDetails, type AdminProductCommercialFields as ProductCommercialFields, type AdminProductDetails } from "@/components/admin/AdminProductCommercialFields";
+import ManualOrderForm from "@/components/admin/ManualOrderForm";
 import { openBusinessPrint } from "@/lib/business-print";
 import { useAdminAuth, AdminPermissions, DEFAULT_PERMISSIONS } from "@/lib/auth";
 import { allowedAdminTabs, resolveAdminTab, type AdminTab } from "@/lib/admin-navigation";
@@ -438,6 +443,7 @@ export default function AdminPanel() {
   const [orderDeliveryFilter, setOrderDeliveryFilter] = useState("all");
   const [orderDateFrom, setOrderDateFrom] = useState("");
   const [orderDateTo, setOrderDateTo] = useState("");
+  const [manualOrderOpen, setManualOrderOpen] = useState(false);
 
   const orderFilterOptions = useMemo(() => ({
     statuses: Array.from(new Set(orders.map(order => order.status))).sort(),
@@ -502,7 +508,14 @@ export default function AdminPanel() {
   const [posSearch, setPosSearch] = useState("");
   const [posDiscount, setPosDiscount] = useState(0);
   const [posGstPercentage, setPosGstPercentage] = useState(0);
+  const [posTaxType, setPosTaxType] = useState<PosTaxType>("NONE");
+  const [posPaymentLines, setPosPaymentLines] = useState<PosPaymentLine[]>([]);
+  const [posProcessingFeeMvr, setPosProcessingFeeMvr] = useState("");
+  const [posAccountingSettings, setPosAccountingSettings] = useState<{ taxEnabled?: boolean; gstRate?: number; tgstRate?: number; usdToMvrRate?: number | null }>({ taxEnabled: false, usdToMvrRate: 15.42 });
+  const [posAccountingReady, setPosAccountingReady] = useState(false);
+  const [posAccountingError, setPosAccountingError] = useState("");
   const [posPaymentMethod, setPosPaymentMethod] = useState("cash");
+  const posIdempotencyRef = useRef<{ payload: string; key: string } | null>(null);
   const [posAmountReceived, setPosAmountReceived] = useState("");
   const [posCustomerName, setPosCustomerName] = useState("");
   const [posCustomerPhone, setPosCustomerPhone] = useState("");
@@ -520,6 +533,7 @@ export default function AdminPanel() {
   const [posDeliveries, setPosDeliveries] = useState<any[]>([]);
   const [showPosVariantModal, setShowPosVariantModal] = useState(false);
   const [selectedPosProduct, setSelectedPosProduct] = useState<any>(null);
+  const [posVariantUsdPrices, setPosVariantUsdPrices] = useState<Record<string, string | null>>({});
   const [selectedPosSize, setSelectedPosSize] = useState("");
   const [selectedPosColor, setSelectedPosColor] = useState("");
 
@@ -550,7 +564,12 @@ export default function AdminPanel() {
     productDetails: "",
     materialsAndCare: "",
     maxOrderQty: ""
+    ,sku: ""
+    ,costPrice: null as number | null
+    ,lowStockThreshold: 5
   });
+  const [productDetails, setProductDetails] = useState<AdminProductDetails>({ weightKg: null, lengthCm: null, widthCm: null, heightCm: null, wholesaleCostMvr: null, supplierCostMvr: null, variants: [] });
+  const [commercialDetailsReady, setCommercialDetailsReady] = useState(true);
   
   const availableCertifications = [
     "OEKO-TEX Standard 100",
@@ -593,6 +612,27 @@ export default function AdminPanel() {
       loadData();
     }
   }, [isAdminAuthenticated, user?.id, permissionKey]);
+
+  useEffect(() => {
+    if (!isAdminAuthenticated || activeTab !== "POS") return;
+    let cancelled = false;
+    setPosAccountingReady(false);
+    setPosAccountingError("");
+    fetch("/api/pos/accounting-settings", { credentials: "same-origin" })
+      .then(async response => {
+        if (!response.ok) throw new Error("POS accounting settings are unavailable.");
+        return response.json();
+      })
+      .then(settings => {
+        if (cancelled) return;
+        setPosAccountingSettings({ ...settings, usdToMvrRate: settings.usdToMvrRate ?? 15.42 });
+        setPosAccountingReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setPosAccountingError("POS accounting settings could not be loaded. Refresh before taking a payment.");
+      });
+    return () => { cancelled = true; };
+  }, [isAdminAuthenticated, activeTab]);
 
   useEffect(() => {
     if (selectedOrder) setOrderNoteText((selectedOrder as any).adminNote || "");
@@ -670,6 +710,10 @@ export default function AdminPanel() {
   const handlePrintOrderInvoice = (order: typeof orders[0]) => {
     const items = (order.items as (typeof order.items[number] & { isPreOrder?: boolean })[]) || [];
     const subtotal = items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
+    const invoiceRate = Number(order.usdToMvrRate);
+    const usdCheckoutNote = order.paymentMethod === "redotpay" && Number.isFinite(invoiceRate) && invoiceRate > 0
+      ? `USD checkout amount at order creation: USD ${(Math.round(Number(order.total) * 100 / invoiceRate) / 100).toFixed(2)} at ${invoiceRate.toFixed(6)} MVR per USD. The MVR line prices remain unchanged.`
+      : undefined;
     const printed = openBusinessPrint({
       kind: "invoice",
       number: order.invoiceNumber || order.orderNumber,
@@ -678,6 +722,7 @@ export default function AdminPanel() {
       contactLines: [order.customerEmail, order.customerPhone].filter(Boolean),
       referenceLabel: "Order",
       reference: order.orderNumber,
+      notes: usdCheckoutNote,
       items: items.map(item => ({
         description: [item.name, item.size && item.size !== "Standard" ? item.size : "", item.color && item.color !== "Default" ? item.color : "", item.isPreOrder ? "Pre-order deposit" : ""].filter(Boolean).join(" · "),
         quantity: Number(item.qty || 0),
@@ -1495,7 +1540,10 @@ export default function AdminPanel() {
       })(),
       productDetails: productForm.productDetails || null,
       materialsAndCare: productForm.materialsAndCare || null,
-      maxOrderQty: productForm.maxOrderQty ? Number(productForm.maxOrderQty) : null
+      maxOrderQty: productForm.maxOrderQty ? Number(productForm.maxOrderQty) : null,
+      sku: productForm.sku.trim() || null,
+      costPrice: productForm.costPrice === null || productForm.costPrice === undefined ? null : Number(productForm.costPrice),
+      lowStockThreshold: Number.isFinite(productForm.lowStockThreshold) ? productForm.lowStockThreshold : 0,
     };
 
     try {
@@ -1521,14 +1569,42 @@ export default function AdminPanel() {
             preOrderVariantStock: editingProduct.preOrderVariantStock || {},
           },
         } as any);
+        // Public product edits are independent from server-only commercial
+        // metadata. Never PUT defaults over a snapshot that has not completed.
+        if (!commercialDetailsReady) {
+          toast({
+            title: "Public changes saved",
+            description: "Commercial details were not ready and were left unchanged. Reload the complete details snapshot, then retry.",
+            variant: "destructive",
+          });
+          await loadData();
+          return;
+        }
+        try {
+          await saveAdminProductDetails(editingProduct.id, productDetails);
+        } catch (detailsError) {
+          toast({
+            title: "Public changes saved",
+            description: `Commercial details failed to save: ${detailsError instanceof Error ? detailsError.message : "Please retry."}`,
+            variant: "destructive",
+          });
+          await loadData();
+          return;
+        }
         toast({ title: "Product updated", description: "Changes saved successfully" });
       } else {
-        await api.createProduct(formattedProduct);
+        const created = await api.createProduct(formattedProduct);
+        try {
+          await saveAdminProductDetails(created.id, productDetails);
+        } catch (detailsError) {
+          throw new Error(`Product was created, but commercial details were not saved: ${detailsError instanceof Error ? detailsError.message : "retry from Edit Product."}`);
+        }
         toast({ title: "Product created", description: "New product added successfully" });
       }
       await loadData();
       setIsProductDialogOpen(false);
       setEditingProduct(null);
+      setCommercialDetailsReady(true);
       resetProductForm();
     } catch (error) {
       console.error("Failed to save product:", error);
@@ -1537,6 +1613,7 @@ export default function AdminPanel() {
   };
 
   const resetProductForm = () => {
+    setCommercialDetailsReady(true);
     setProductForm({ 
       name: "", 
       price: "",
@@ -1564,6 +1641,9 @@ export default function AdminPanel() {
       productDetails: "",
       materialsAndCare: "",
       maxOrderQty: ""
+      ,sku: ""
+      ,costPrice: null
+      ,lowStockThreshold: 5
     });
     setShowNewCategoryInput(false);
     setNewCategoryName("");
@@ -1571,6 +1651,7 @@ export default function AdminPanel() {
 
   const handleEditProduct = (product: Product) => {
     setEditingProduct(product);
+    setCommercialDetailsReady(false);
     const existingVariantStock = (product as any).variantStock || {};
     const variantStockStrings: { [key: string]: string } = {};
     Object.entries(existingVariantStock).forEach(([key, val]) => {
@@ -1620,8 +1701,13 @@ export default function AdminPanel() {
       })(),
       productDetails: (product as any).productDetails || "",
       materialsAndCare: (product as any).materialsAndCare || "",
-      maxOrderQty: ((product as any).maxOrderQty || "").toString()
+      maxOrderQty: ((product as any).maxOrderQty || "").toString(),
+      sku: (product as any).sku || "",
+      costPrice: (product as any).costPrice ?? null,
+      lowStockThreshold: (product as any).lowStockThreshold ?? 5
     };
+    setProductDetails({ weightKg: null, lengthCm: null, widthCm: null, heightCm: null, wholesaleCostMvr: null, supplierCostMvr: null, variants: [] });
+    void getAdminProductDetails(product.id).then(setProductDetails).catch(() => {});
     setProductForm(form);
     setInventoryFormSnapshot(structuredClone({
       variantStock: form.variantStock, preOrderVariantStock: form.preOrderVariantStock,
@@ -1780,6 +1866,7 @@ export default function AdminPanel() {
     { icon: LayoutDashboard, label: "Overview" },
     { icon: ChartNoAxesCombined, label: "Analytics" },
     { icon: Wallet, label: "Finance" },
+    { icon: Calculator, label: "Accounting" },
     { icon: ChartColumnIncreasing, label: "Charts" },
     { icon: ShoppingBag, label: "Products" },
     { icon: Warehouse, label: "Inventory" },
@@ -1796,7 +1883,7 @@ export default function AdminPanel() {
   const menuGroups = [
     { title: "Overview", labels: ["Overview", "Analytics", "Charts"] },
     { title: "eCommerce", labels: ["Orders", "Products", "Customers", "Logistics", "Inventory", "Purchase Orders", "POS", "Coupons"] },
-    { title: "Finance", labels: ["Finance", "Transactions", "Quotations"] },
+    { title: "Finance", labels: ["Finance", "Accounting", "Transactions", "Quotations"] },
     { title: "System", labels: ["Admin Management"] },
   ].map(group => ({ ...group, items: menuItems.filter(item => group.labels.includes(item.label)) }))
    .filter(group => group.items.length > 0);
@@ -2172,6 +2259,16 @@ export default function AdminPanel() {
           )}
           {(activeTab === "Quotations" || activeTab === "Purchase Orders") && permittedTabs.includes(activeTab) && (
             <AdminDocuments view={activeTab} />
+          )}
+          {activeTab === "Accounting" && isSuperAdmin && (
+            <div className="admin-view animate-in fade-in duration-500">
+              <div className="mb-8">
+                <p className="admin-kicker mb-2">Infinite Home / Finance</p>
+                <h1 className="text-3xl md:text-4xl font-serif">Accounting</h1>
+                <p className="text-muted-foreground">Tax settings, expenses, settlement and cost coverage.</p>
+              </div>
+              <AdminAccounting isSuperAdmin={isSuperAdmin} />
+            </div>
           )}
           {permittedTabs.includes("Analytics") && (
             <div className={["Analytics", "Finance", "Charts"].includes(activeTab || "") ? "" : "hidden"}>
@@ -3125,6 +3222,30 @@ export default function AdminPanel() {
                           </div>
                         )}
                       </div>
+                      <AdminProductCommercialFields
+                        productName={productForm.name}
+                        productId={editingProduct?.id}
+                        variants={(() => {
+                          // Persisted variantStock keys are authoritative. Pass them
+                          // through unchanged: splitting keys on "-" loses valid
+                          // hyphenated size/color names and can make commercial
+                          // metadata point at a different variant.
+                          const persistedKeys = editingProduct
+                            ? Object.keys(((editingProduct as any).variantStock || {}) as Record<string, number>)
+                            : [];
+                          if (persistedKeys.length > 0) return persistedKeys.map(key => ({ key }));
+                          return productForm.variants.flatMap(variant =>
+                            productForm.colorVariants.filter(color => color.name.trim()).length
+                              ? productForm.colorVariants.filter(color => color.name.trim()).map(color => ({ size: variant.size, color: color.name }))
+                              : [{ size: variant.size, color: "Default" }]
+                          );
+                        })()}
+                        productFields={{ sku: productForm.sku, costPrice: productForm.costPrice, lowStockThreshold: productForm.lowStockThreshold }}
+                        onProductFieldsChange={fields => setProductForm(current => ({ ...current, ...fields }))}
+                        details={productDetails}
+                        onDetailsChange={setProductDetails}
+                        onSnapshotReadyChange={setCommercialDetailsReady}
+                      />
                       <Button onClick={handleSaveProduct} className={`${adminButtonClass("primary")} w-full`}>
                         {editingProduct ? "Update Product" : "Create Product"}
                       </Button>
@@ -3198,6 +3319,7 @@ export default function AdminPanel() {
                 <p className="text-muted-foreground">Manage product visibility and stock levels</p>
               </div>
               <InventoryReconciliation />
+              <AdminBatchInventory products={products} onProductsChanged={loadData} />
 
               {/* Inventory Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -3465,6 +3587,17 @@ export default function AdminPanel() {
                               onClick={() => {
                                 // Open variant selection modal
                                 setSelectedPosProduct(product);
+                                 setPosVariantUsdPrices({});
+                                 void fetch(`/api/pos/products/${encodeURIComponent(product.id)}/variant-prices`)
+                                   .then(response => response.ok ? response.json() : [])
+                                   .then((rows: Array<{ variantKey?: string; usdPrice?: string | null }>) => {
+                                     const prices: Record<string, string | null> = {};
+                                     for (const row of rows) {
+                                       if (row.variantKey) prices[row.variantKey] = row.usdPrice ?? null;
+                                     }
+                                     setPosVariantUsdPrices(prices);
+                                   })
+                                   .catch(() => setPosVariantUsdPrices({}));
                                 setSelectedPosSize(product.variants?.[0]?.size || "Standard");
                                 setSelectedPosColor(product.colors?.[0] || "Default");
                                 setShowPosVariantModal(true);
@@ -3558,7 +3691,21 @@ export default function AdminPanel() {
                         )}
                       </div>
 
-                       <div className="pos-totals border-t border-border pt-4 space-y-3">
+                       <PosPayments
+                         currentTotalMvr={Math.max(0, posCart.reduce((sum, item) => sum + item.price * item.qty, 0) - posDiscount)}
+                         taxType={posTaxType}
+                         onTaxTypeChange={setPosTaxType}
+                         initialSettings={posAccountingSettings}
+                         taxEnabled={posAccountingSettings.taxEnabled}
+                         gstRate={posAccountingSettings.gstRate}
+                         tgstRate={posAccountingSettings.tgstRate}
+                         splitLines={posPaymentLines}
+                         onSplitLinesChange={setPosPaymentLines}
+                         processingFeeMvr={posProcessingFeeMvr}
+                         onProcessingFeeMvrChange={setPosProcessingFeeMvr}
+                       />
+                       {posAccountingError && <p role="alert" className="text-sm text-red-700">{posAccountingError}</p>}
+                       <div className="hidden pos-totals border-t border-border pt-4 space-y-3">
                         <div className="flex justify-between text-sm">
                           <span>Subtotal</span>
                           <span>{formatCurrency(posCart.reduce((sum, item) => sum + item.price * item.qty, 0))}</span>
@@ -3598,6 +3745,7 @@ export default function AdminPanel() {
                       </div>
 
                       <div className="mt-4 space-y-3">
+                        <div className="hidden">
                         <div className="pos-payment-grid flex gap-2">
                           <Button
                             variant={posPaymentMethod === "cash" ? "default" : "outline"}
@@ -3648,6 +3796,7 @@ export default function AdminPanel() {
                             })()}
                           </div>
                         )}
+                        </div>
 
                         <div>
                           <Label className="text-xs">Customer Name (optional)</Label>
@@ -3661,7 +3810,13 @@ export default function AdminPanel() {
 
                         <Button
                           className="pos-complete-sale w-full rounded-xl h-12 text-lg"
-                          disabled={posCart.length === 0}
+                          disabled={!posAccountingReady || posCart.length === 0 || posPaymentLines.length === 0 || posPaymentLines.some(line => !line.amount || Number(line.amount) < 0) || (() => {
+                            const base = Math.max(0, posCart.reduce((sum, item) => sum + item.price * item.qty, 0) - posDiscount);
+                            const rate = posTaxType === "GST" ? (posAccountingSettings.gstRate || 0) : posTaxType === "TGST" ? (posAccountingSettings.tgstRate || 0) : 0;
+                            const total = base + (posAccountingSettings.taxEnabled ? base * rate / 100 : 0);
+                            const settled = posPaymentLines.reduce((sum, line) => sum + Number(line.amount || 0) * (line.currency === "USD" ? Number(line.usdToMvrRate || 0) : 1), 0);
+                            return Math.round((settled - total) * 100) < 0;
+                          })()}
                           onClick={async () => {
                             try {
                               const subtotal = posCart.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -3670,34 +3825,51 @@ export default function AdminPanel() {
                               const total = Math.max(0, afterDiscount + gstAmount);
                               const amountReceived = posPaymentMethod === "cash" ? parseFloat(posAmountReceived) || total : total;
                               
+                              const payload = {
+                                items: posCart.map(item => ({
+                                  productId: item.productId,
+                                  name: item.name,
+                                  qty: item.qty,
+                                  price: item.price,
+                                  color: item.color,
+                                  size: item.size
+                                })),
+                                subtotal,
+                                discount: posDiscount,
+                                gstPercentage: 0,
+                                gstAmount: 0,
+                                tax: 0,
+                                total,
+                                paymentMethod: posPaymentLines.length > 1 ? "split" : (posPaymentLines[0]?.method === "bml_transfer" ? "transfer" : posPaymentLines[0]?.method || "cash"),
+                                taxType: posTaxType,
+                                paymentTenders: posPaymentLines.map(line => ({
+                                  method: line.method,
+                                  currency: line.currency,
+                                  amount: Number(line.amount),
+                                  usdToMvrRate: line.usdToMvrRate ? Number(line.usdToMvrRate) : undefined,
+                                  reference: line.reference || undefined,
+                                })),
+                                feeMvr: Number(posProcessingFeeMvr || 0),
+                                amountReceived,
+                                change: posPaymentMethod === "cash" ? Math.max(0, amountReceived - total) : 0,
+                                customerName: posCustomerName || null,
+                                customerPhone: posCustomerPhone || null,
+                                notes: posNotes || undefined,
+                                status: "completed"
+                              };
+                              // Keep the same key when a network retry repeats the
+                              // identical payload; a changed sale gets a new key.
+                              const payloadText = JSON.stringify(payload);
+                              if (!posIdempotencyRef.current || posIdempotencyRef.current.payload !== payloadText) {
+                                posIdempotencyRef.current = { payload: payloadText, key: crypto.randomUUID() };
+                              }
                               const res = await fetch("/api/pos/transactions", {
                                 method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  items: posCart.map(item => ({
-                                    productId: item.productId,
-                                    name: item.name,
-                                    qty: item.qty,
-                                    price: item.price,
-                                    color: item.color,
-                                    size: item.size
-                                  })),
-                                  subtotal,
-                                  discount: posDiscount,
-                                  gstPercentage: posGstPercentage,
-                                  gstAmount: gstAmount,
-                                  tax: 0,
-                                  total,
-                                  paymentMethod: posPaymentMethod,
-                                  amountReceived,
-                                  change: posPaymentMethod === "cash" ? Math.max(0, amountReceived - total) : 0,
-                                  customerName: posCustomerName || null,
-                                  customerPhone: posCustomerPhone || null,
-                                  cashierId: admins[0]?.id || "default-cashier",
-                                  cashierName: admins[0]?.name || "Admin",
-                                  notes: posNotes || undefined,
-                                  status: "completed"
-                                })
+                                headers: {
+                                  "Content-Type": "application/json",
+                                  "Idempotency-Key": posIdempotencyRef.current.key,
+                                },
+                                body: payloadText
                               });
 
                               if (!res.ok) {
@@ -3712,6 +3884,7 @@ export default function AdminPanel() {
                                 throw new Error("Transaction completed but response was invalid");
                               }
 
+                              posIdempotencyRef.current = null;
                               setLastTransaction(transaction);
                               setShowPosReceipt(true);
                               
@@ -3719,6 +3892,9 @@ export default function AdminPanel() {
                               setPosCart([]);
                               setPosDiscount(0);
                               setPosGstPercentage(0);
+                              setPosTaxType("NONE");
+                              setPosPaymentLines([]);
+                              setPosProcessingFeeMvr("");
                               setPosAmountReceived("");
                               setPosCustomerName("");
                               setPosCustomerPhone("");
@@ -3844,7 +4020,15 @@ export default function AdminPanel() {
                 <p className="admin-kicker mb-2">Infinite Home / Fulfilment</p>
                 <h1 className="text-3xl md:text-4xl font-serif">Orders</h1>
                 <p className="text-muted-foreground">Manage and track customer orders</p>
+                {user?.isSuperAdmin === true || user?.permissions?.canManageOrders === true ? (
+                  <Button type="button" className={`${adminButtonClass("primary")} mt-4`} onClick={() => setManualOrderOpen(true)}>
+                    <Plus size={15} className="mr-2" /> Create manual order
+                  </Button>
+                ) : null}
               </div>
+              {(user?.isSuperAdmin === true || user?.permissions?.canManageOrders === true) && (
+                <ManualOrderForm open={manualOrderOpen} products={products} onOpenChange={setManualOrderOpen} onCreated={loadData} />
+              )}
               {permittedTabs.includes("Orders") && <RedotPayRecovery />}
 
               {/* Order filters */}
@@ -4151,6 +4335,7 @@ export default function AdminPanel() {
                           <div>
                             <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Payment Method</p>
                             <p className="font-medium">{selectedOrder.paymentMethod === "redotpay" ? "RedotPay — USD hosted checkout" : selectedOrder.paymentMethod === "cod" ? "Cash on Delivery" : "Bank Transfer"}</p>
+                             {(selectedOrder.saleRateSnapshot ?? selectedOrder.usdToMvrRate) != null && <p className="mt-1 text-sm text-muted-foreground">Order USD/MVR rate snapshot: <strong>{Number(selectedOrder.saleRateSnapshot ?? selectedOrder.usdToMvrRate).toLocaleString("en-MV", { maximumFractionDigits: 6 })}</strong> (older snapshots unchanged)</p>}
                             {selectedOrder.paymentMethod === "redotpay" && <p className="text-sm text-amber-700">Payment is confirmed only when the provider verifies it. Pending orders are unpaid. Public manual status, delivery, invoice and cancellation changes are blocked for RedotPay; use a reviewed operator process.</p>}
                           </div>
                           {selectedOrder.paymentMethod === "bank" && selectedOrder.paymentSlip && (
@@ -4799,6 +4984,11 @@ export default function AdminPanel() {
                       )
                     )}
                   </p>
+                  {posVariantUsdPrices[`${selectedPosSize}-${selectedPosColor}`] && (
+                    <p className="text-xs text-muted-foreground">
+                      USD reference: ${posVariantUsdPrices[`${selectedPosSize}-${selectedPosColor}`]} · manual tender only
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -5115,6 +5305,7 @@ export default function AdminPanel() {
                 <div className="text-right">
                   <p className="text-[10px] uppercase tracking-widest text-stone-500 mb-2">Payment Details</p>
                   <p className="font-semibold text-stone-900 capitalize">{selectedTransaction.paymentMethod}</p>
+                                   {(selectedTransaction.saleRateSnapshot ?? selectedTransaction.usdToMvrRate) != null && <p className="text-sm text-stone-600 mt-1">Sale rate snapshot: <strong>{Number(selectedTransaction.saleRateSnapshot ?? selectedTransaction.usdToMvrRate).toLocaleString("en-MV", { maximumFractionDigits: 6 })} MVR/USD</strong></p>}
                   <p className="text-sm text-stone-600 mt-1">Served by {selectedTransaction.cashierName}</p>
                 </div>
               </div>

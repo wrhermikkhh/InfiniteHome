@@ -141,6 +141,7 @@ export const posTransactions = pgTable("pos_transactions", {
   customerId: varchar("customer_id"),
   customerName: text("customer_name"),
   customerPhone: text("customer_phone"),
+  usdToMvrRate: numeric("usd_to_mvr_rate", { precision: 14, scale: 6 }),
   cashierId: varchar("cashier_id").notNull(),
   cashierName: text("cashier_name").notNull(),
   notes: text("notes"),
@@ -211,6 +212,7 @@ export const orders = pgTable("orders", {
   discount: real("discount").default(0),
   shipping: real("shipping").notNull(),
   total: real("total").notNull(),
+  usdToMvrRate: numeric("usd_to_mvr_rate", { precision: 14, scale: 6 }),
   paymentMethod: text("payment_method").notNull(), // "cod" or "bank"
   paymentSlip: text("payment_slip"), // URL to uploaded slip
   status: text("status").notNull().default("pending"),

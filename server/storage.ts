@@ -8,10 +8,12 @@ import {
   orders, type Order, type InsertOrder,
   posTransactions, type PosTransaction, type InsertPosTransaction
 } from "../shared/schema.js";
+import { accountingAudit, expenses, posAccounting, posPaymentLines } from "../shared/admin-ledger-schema.js";
 import { db } from "./db.js";
 import { mutateInventory, recordInventory, restoreInventory, transferInventory } from "../shared/legacy-inventory.js";
 import { inventoryProductEdit } from "../shared/inventory-admin.js";
 import { createCatalogOrder } from "../shared/checkout.js";
+import { recordSaleCosts, restoreSaleCosts, transferSaleCosts } from "../shared/inventory.js";
 import { eq, ilike, or, sql, desc } from "drizzle-orm";
 
 export interface IStorage {
@@ -89,7 +91,12 @@ export interface IStorage {
   getPosTransaction(id: string): Promise<PosTransaction | undefined>;
   getPosTransactionByNumber(transactionNumber: string): Promise<PosTransaction | undefined>;
   getPosTransactionByTrackingNumber(trackingNumber: string): Promise<PosTransaction | undefined>;
-  createPosTransaction(transaction: InsertPosTransaction): Promise<PosTransaction>;
+  createPosTransaction(transaction: InsertPosTransaction, accounting?: {
+    paymentLines?: Array<{ method: string; currency: "MVR" | "USD"; amount: string; usdToMvrRate?: string | null; amountMvr: string; feeMvr?: string; reference?: string | null }>;
+    posAccounting?: { idempotencyKey?: string | null; requestHash?: string | null; taxType: "NONE" | "GST" | "TGST"; taxableBaseMvr: string; taxRate: string; taxAmountMvr: string; fxVarianceMvr?: string };
+    expense?: { category: string; description: string; amount: string; currency: "MVR" | "USD"; usdToMvrRate?: string | null; amountMvr: string; actorId: string };
+    audit?: { actorId: string; entityKind: string; action: string; reason: string; data: Record<string, unknown> };
+  }): Promise<PosTransaction>;
   updatePosTransaction(id: string, data: Partial<InsertPosTransaction>): Promise<PosTransaction | undefined>;
   getTodayPosTransactions(): Promise<PosTransaction[]>;
 }
@@ -298,6 +305,7 @@ export class DatabaseStorage implements IStorage {
       const [newOrder] = await tx.insert(orders).values(order).returning();
       if (fromPosId) {
         await transferInventory(tx, fromPosId, newOrder.id);
+        await transferSaleCosts(tx, fromPosId, newOrder.id);
         await tx.update(posTransactions).set({ convertedToOrderId: newOrder.id }).where(eq(posTransactions.id, fromPosId));
       } else await recordInventory(tx, "order", newOrder.id, allocations!);
       return newOrder;
@@ -310,7 +318,10 @@ export class DatabaseStorage implements IStorage {
     if (!existing[0]) return undefined;
     if (existing[0].status === "cancelled" && status !== "cancelled") throw new Error("Cancelled orders cannot be reopened; create a new order");
     if (existing[0].paymentMethod === "redotpay" && status === "cancelled") throw new Error("Close and reconcile RedotPay payment before cancellation");
-    if (status === "cancelled" && existing[0].status !== "cancelled") await restoreInventory(tx, "order", id);
+    if (status === "cancelled" && existing[0].status !== "cancelled") {
+      await restoreInventory(tx, "order", id);
+      await restoreSaleCosts(tx, "order", id);
+    }
     if (existing[0].status === status) return existing[0];
     // Build status history: backfill from createdAt if history is empty (old orders)
     let currentHistory = (existing[0].statusHistory as { status: string; timestamp: string; location?: string }[]) || [];
@@ -481,12 +492,62 @@ export class DatabaseStorage implements IStorage {
     return undefined;
   }
 
-  async createPosTransaction(transaction: InsertPosTransaction): Promise<PosTransaction> {
+  async createPosTransaction(transaction: InsertPosTransaction, accounting?: {
+    paymentLines?: Array<{ method: string; currency: "MVR" | "USD"; amount: string; usdToMvrRate?: string | null; amountMvr: string; feeMvr?: string; reference?: string | null }>;
+    posAccounting?: { idempotencyKey?: string | null; requestHash?: string | null; taxType: "NONE" | "GST" | "TGST"; taxableBaseMvr: string; taxRate: string; taxAmountMvr: string; fxVarianceMvr?: string };
+    expense?: { category: string; description: string; amount: string; currency: "MVR" | "USD"; usdToMvrRate?: string | null; amountMvr: string; actorId: string };
+    audit?: { actorId: string; entityKind: string; action: string; reason: string; data: Record<string, unknown> };
+  }): Promise<PosTransaction> {
     if (transaction.status === "cancelled") throw new Error("Cannot create a cancelled POS sale");
     return db.transaction(async tx => {
+      // Lock the active rate in the same transaction as inventory, the POS row,
+      // and its payment lines. This closes the race where settings change after
+      // the route validates tenders but before the sale is recorded.
+      const rateResult = await tx.execute(sql`SELECT usd_to_mvr_rate AS "usdToMvrRate"
+        FROM accounting_settings WHERE id = 1 FOR SHARE`);
+      const rateRow = Array.isArray(rateResult) ? rateResult[0] : rateResult.rows?.[0];
+      const activeRate = Number(rateRow?.usdToMvrRate ?? 15.42);
+      if (!Number.isFinite(activeRate) || activeRate <= 0) throw new Error("Active USD/MVR rate is invalid");
+      const suppliedRate = transaction.usdToMvrRate == null ? activeRate : Number(transaction.usdToMvrRate);
+      if (!Number.isFinite(suppliedRate) || suppliedRate !== activeRate) {
+        throw Object.assign(new Error("USD/MVR rate changed. Refresh the POS sale and try again."), { status: 409 });
+      }
+      transaction = { ...transaction, usdToMvrRate: activeRate.toFixed(6) };
       const allocations = await mutateInventory(tx, transaction.items, false, true);
       const [newTransaction] = await tx.insert(posTransactions).values(transaction).returning();
+      if (!newTransaction) throw new Error("POS transaction could not be created");
       await recordInventory(tx, "pos", newTransaction.id, allocations);
+      await recordSaleCosts(tx, "pos", newTransaction.id, transaction.items);
+      if (accounting?.paymentLines?.length) {
+        await tx.insert(posPaymentLines).values(accounting.paymentLines.map(line => ({
+          posId: newTransaction.id,
+          method: line.method,
+          currency: line.currency,
+          amount: line.amount,
+          usdToMvrRate: line.usdToMvrRate ?? null,
+          amountMvr: line.amountMvr,
+          feeMvr: line.feeMvr ?? "0",
+          reference: line.reference ?? null,
+        })));
+      }
+      if (accounting?.posAccounting) {
+        await tx.insert(posAccounting).values({ posId: newTransaction.id, ...accounting.posAccounting });
+      }
+      if (accounting?.expense) {
+        await tx.insert(expenses).values({
+          ...accounting.expense,
+          expenseDate: new Date(),
+          description: accounting.expense.description,
+          isLanded: false,
+        });
+      }
+      if (accounting?.audit) {
+        await tx.insert(accountingAudit).values({
+          ...accounting.audit,
+          entityId: newTransaction.id,
+          data: accounting.audit.data,
+        });
+      }
       return newTransaction;
     });
   }
@@ -499,6 +560,7 @@ export class DatabaseStorage implements IStorage {
     if (data.status !== undefined && data.status !== current.status) {
       if (data.status !== "cancelled" || current.status === "cancelled" || current.convertedToOrderId) throw new Error("Only an unconverted POS sale can be cancelled");
       await restoreInventory(tx, "pos", id);
+      await restoreSaleCosts(tx, "pos", id);
     }
     let finalData: any = { ...data };
     if (data.deliveryStatus !== undefined) {

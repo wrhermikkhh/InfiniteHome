@@ -7,3 +7,8 @@
 - [Order email durability](order-email-durability.md) — customer, sales, and status emails need separate durable events plus stable provider idempotency keys.
 - [Payment return identity](payment-return-identity.md) — returning from payment must identify the exact attempt; a successful charge can otherwise display an older cancellation.
 - [Finance reporting semantics](finance-reporting-semantics.md) — booked order value is not settled revenue; keep POS conversions and provider-confirmed receipts distinct.
+- [GitHub release transport](github-release-transport.md) — if remote push auth fails, the GitHub connector can publish; verify binary blobs and whole-tree equality.
+- [Document database targets](document-database-targets.md) — development, sandbox, and live document storage are distinct targets; additive schema changes need each target checked.
+- [Additive migration reruns](additive-migration-reruns.md) — a clean first application skips existing-object checks; verify the same migration also reruns safely.
+- [Currency and rate snapshots](currency-rate-snapshots.md) — keep USD and MVR receivables native; admin rate changes must affect new orders only.
+- [External POS key type](external-pos-key-type.md) — live Supabase POS IDs are uuid, unlike development varchar; adapt new POS foreign keys before migrating.

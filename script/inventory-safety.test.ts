@@ -65,6 +65,14 @@ class FakeDb {
         } else if (sql.startsWith("SELECT a.value AS allocation FROM legacy_inventory_reservations")) {
           result = Object.values(this.sales).filter(s => !s.restored_at).flatMap(s => s.allocations)
             .filter(a => a.productId === p[0]).map(a => ({ allocation: structuredClone(a) }));
+        } else if (
+          sql.includes("to_regclass('public.inventory_batches')")
+          && sql.includes("to_regclass('public.sale_cogs_lines')")
+        ) {
+          // The additive cost ledger is intentionally absent from this
+          // legacy-inventory fake database. Keep the query explicit so other
+          // unexpected SQL still fails below.
+          result = [{ batches: null, cogs: null }];
         } else if (sql.startsWith("SELECT to_regclass")) {
           result = [{ relation: null }];
         } else if (sql.startsWith("SELECT id FROM orders")) {

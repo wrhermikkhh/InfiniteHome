@@ -1,0 +1,15 @@
+Analyze our existing custom admin panel accounting and product code. Ignore and do not duplicate any features that are already implemented. 
+
+CRITICAL SAFETY SAFEGUARDS:
+- Database Protection: Do NOT delete, overwrite, or corrupt any existing data currently in the database. Write backward-compatible migrations or schema additions (e.g., adding new fields/tables without breaking old ones).
+- Frontend Isolation: The public-facing website frontend must remain completely unchanged. Do not alter its design, user flow, checkout process, or current MVR pricing structure. All new features are strictly backend admin-panel tools.
+
+Build and integrate the following brand-new advanced features for our admin panel:
+
+1. Advanced Product Creation Form: Rebuild or enhance the product addition form to include multi-variant pricing (MVR/USD specific pricing), custom fields for wholesale/supplier costs, SKU generation, minimum stock alert thresholds, and weight/dimension tracking for shipping.
+2. Advanced Inventory & Multi-Channel Batch Tracking: Implement batch tracking (FIFO/Average Cost) to log exactly when inventory arrives, from which supplier, and at what cost. Include a bulk inventory adjustment tool to update stock levels across website and POS channels simultaneously with audit logs (who changed what, and why).
+3. POS-Exclusive USD Cash Option (Manual Entry): Restrict USD payments to the POS/offline channel only (website orders remain strictly MVR). Do not use an auto-refreshing exchange rate for POS USD orders; instead, require the staff member to manually toggle USD on the checkout screen and type in the exact USD amount collected or manually set the day's conversion rate.
+4. Flexible Maldives GST Module (Disabled by Default): Create a localized tax calculation system (GST/TGST) that is turned OFF by default. Provide a master admin toggle to turn it ON later, allowing us to set custom tax percentages and generate MRA-ready tax summaries when activated.
+5. Advanced Multi-Currency Bookkeeping: Support manual overrides for the MVR/USD exchange rate. Track and log currency exchange gains or losses if an order is paid in USD but tied to MVR-valued inventory.
+6. Split Payments & Fee Tracking: Allow POS/manual orders to accept split payments (e.g., partial BML transfer + partial Cash). Add a field to log bank/gateway processing fees as direct operational expenses.
+7. Expense Logger & Landed COGS: Add a brand-new expense management log for overheads (shipping, supplier bills, customs duties). Link these costs directly to inventory batches to calculate an accurate, landed Cost of Goods Sold (COGS) and true net profit.

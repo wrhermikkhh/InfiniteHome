@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS public.redotpay_payments (
   checkout_url text,
   payload jsonb NOT NULL,
   allocations jsonb NOT NULL,
+  rate numeric(14,6) NOT NULL DEFAULT 15.42,
   reservation_key text,
   expires_at timestamptz NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -62,7 +63,11 @@ CREATE INDEX IF NOT EXISTS redotpay_operator_audit_payment_idx
   ON public.redotpay_operator_audit(payment_id, created_at);
 -- Direct browser Supabase clients must never access payment capabilities/state.
 -- Existing payments were all quoted at 15.42; backfill before enforcing immutability.
-ALTER TABLE public.redotpay_payments ADD COLUMN IF NOT EXISTS rate numeric(10,4) NOT NULL DEFAULT 15.42;
+ALTER TABLE public.redotpay_payments ADD COLUMN IF NOT EXISTS rate numeric(14,6) NOT NULL DEFAULT 15.42;
+-- Widen legacy four-decimal rates without changing any stored value.
+ALTER TABLE public.redotpay_payments
+  ALTER COLUMN rate TYPE numeric(14,6)
+  USING rate::numeric(14,6);
 ALTER TABLE public.redotpay_payments ADD COLUMN IF NOT EXISTS owner_hash text;
 ALTER TABLE public.redotpay_payments ADD COLUMN IF NOT EXISTS recovery_after timestamptz NOT NULL DEFAULT now();
 CREATE INDEX IF NOT EXISTS redotpay_recovery_due ON public.redotpay_payments(recovery_after) WHERE state NOT IN ('paid','closed');

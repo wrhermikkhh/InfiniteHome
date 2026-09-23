@@ -16,9 +16,11 @@ merchant credentials are not sandbox credentials.
 
 **How to apply:** Keep both live gates disabled until the migration, isolated
 Vercel acceptance, provider sandbox acceptance, and production rollout are
-separately approved and evidenced. Use MVR 15.42 per USD and the confirmed
-canonical production origin `https://infinite-home.vercel.app`; neither value is
-evidence that deployment or acceptance occurred.
+separately approved and evidenced. The USD conversion starts at MVR 15.42 per
+USD but an administrator can update it for new quotes/orders; existing payment
+and invoice rate snapshots must not be repriced. The confirmed canonical
+production origin is `https://infinite-home.vercel.app`; neither that origin nor
+the starting rate is evidence that deployment or acceptance occurred.
 
 The Vercel entrypoint delegates to the shared server routes and storage; do not
 maintain a second backend. The release prerequisites are, in order,

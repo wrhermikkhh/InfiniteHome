@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { inventoryRows } from "./inventory.js";
+import { recordSaleCosts } from "./inventory.js";
 import { mutateInventory, recordInventory } from "./legacy-inventory.js";
 
 function cents(value: unknown) {
@@ -32,7 +33,7 @@ export function calculateCatalogQuote(input: any, products: any[], coupon: any =
   for (const item of cart) requested.set(item.productId, (requested.get(item.productId) || 0) + item.qty);
   const items = cart.map(item => {
     const p = products.find(p => p.id === item.productId);
-    if (!p || p.show_on_storefront === false) throw new Error("Product is unavailable");
+    if (!p || (p.show_on_storefront === false && !input.adminManual)) throw new Error("Product is unavailable");
     if (p.max_order_qty && requested.get(p.id)! > p.max_order_qty) throw new Error("Maximum order quantity exceeded");
     const size = text(item.size || "Standard", "product size", 80);
     const color = text(item.color || "Default", "product color", 80);
@@ -110,7 +111,10 @@ export function catalogOrderPayload(input: any, quote: ReturnType<typeof calcula
 
 // Quote, stock validation, deductions, order insertion and allocation journal
 // are one transaction. Locks precede all catalog pricing and coupon reads.
-export async function createCatalogOrder(db: any, input: any, insert: (tx: any, payload: any) => Promise<any>) {
+export async function createCatalogOrder(db: any, input: any, insert: (tx: any, payload: any) => Promise<any>, hooks?: {
+  validateQuote?: (tx: any, payload: any) => Promise<void>;
+  afterInsert?: (tx: any, payload: any, order: any) => Promise<void>;
+}) {
   const items = cartItems(input);
   return db.transaction(async (tx: any) => {
     const products = [];
@@ -125,9 +129,12 @@ export async function createCatalogOrder(db: any, input: any, insert: (tx: any, 
       coupon = inventoryRows(await tx.execute(sql`SELECT * FROM coupons WHERE code = ${code} FOR SHARE`))[0] || null;
     }
     const payload = catalogOrderPayload(input, calculateCatalogQuote(input, products, coupon));
+    await hooks?.validateQuote?.(tx, payload);
     const allocations = await mutateInventory(tx, payload.items);
     const order = await insert(tx, payload);
     await recordInventory(tx, "order", order.id, allocations);
+    await recordSaleCosts(tx, "order", order.id, payload.items);
+    await hooks?.afterInsert?.(tx, payload, order);
     return order;
   });
 }

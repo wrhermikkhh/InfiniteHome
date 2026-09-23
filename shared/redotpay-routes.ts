@@ -27,7 +27,13 @@ export function providerCheckoutUrl(result: any, environment: "WEB" | "H5" | "AP
   return url.href;
 }
 
-export function calculateQuote(input: any, products: any[], coupon: any = null) {
+export function calculateQuote(input: any, products: any[], coupon: any = null, rate = REDOTPAY_RATE) {
+  // Keep the historical third argument (coupon) compatible while allowing
+  // lightweight callers/tests to supply a rate directly.
+  if (typeof coupon === "number") {
+    rate = coupon;
+    coupon = null;
+  }
   if (!Array.isArray(input.items) || !input.items.length || input.items.length > 50) throw new Error("Invalid cart");
   if (!["male", "hulhumale", "boat"].includes(input.deliveryType) || !["standard", "express"].includes(input.shippingSpeed)) throw new Error("Invalid delivery option");
   let subtotal = 0, shipping = 0, eligible = 0;
@@ -62,7 +68,7 @@ export function calculateQuote(input: any, products: any[], coupon: any = null) 
     discount = Math.min(eligible, coupon.type === "percentage" ? Math.round(eligible * Math.min(100, money(coupon.discount) / 100) / 100) : money(coupon.discount));
   }
   const totalCents = subtotal - discount + shipping;
-  const cents = usdCents(totalCents);
+  const cents = usdCents(totalCents, rate);
   // Provider goodsAmount supports at most 10,000 USD; use one basket line.
   if (cents > 1000000) throw new Error("Order exceeds the hosted checkout limit");
   return { items, subtotal: subtotal / 100, discount: discount / 100, shipping: shipping / 100, total: totalCents / 100, usdCents: cents };
@@ -168,11 +174,19 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
   async function audit(id: string | null, actor: string, action: string, outcome: string, db = getDb()) {
     await db.execute(sql`INSERT INTO redotpay_audit(payment_id, actor, action, outcome) VALUES (${id}, ${actor}, ${action}, ${outcome})`);
   }
-  async function quote(db: any, input: any, lock = false) {
+  async function quote(db: any, input: any, lock = false, suppliedRate?: number) {
     const productRows = rows(await db.execute(lock ? sql`SELECT * FROM products ORDER BY id FOR UPDATE` : sql`SELECT * FROM products`));
     let coupon = null;
     if (input.couponCode) coupon = rows(await db.execute(sql`SELECT * FROM coupons WHERE code = ${text(input.couponCode, 100)}`))[0];
-    return { quote: calculateQuote(input, productRows, coupon), products: productRows };
+    let rate: number;
+    if (suppliedRate !== undefined) {
+      rate = suppliedRate;
+    } else {
+      const settingRows = rows(await db.execute(sql`SELECT usd_to_mvr_rate FROM accounting_settings WHERE id = 1`));
+      const configuredRate = settingRows[0]?.usd_to_mvr_rate;
+      rate = configuredRate == null ? REDOTPAY_RATE : Number(configuredRate);
+    }
+    return { quote: calculateQuote(input, productRows, coupon, rate), products: productRows, rate };
   }
   async function authorized(req: Request) {
     const token = req.get("authorization")?.replace(/^Bearer /, "") || "";
@@ -312,7 +326,13 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
       if (!active || active.total >= 100 || active.owned >= 2 || active.hourly >= 200 || active.owner_hourly >= 10) {
         throw Object.assign(new Error("Payment reservation limit reached. Recover or close your existing checkout first."), { status: 429 });
       }
-      const { quote: q, products } = await quote(tx, input, true);
+      // A shared row lock linearizes this snapshot with accounting-settings
+      // updates. The rate is carried through the payment/order as immutable
+      // data; retries and provider recovery never consult settings again.
+      const settingRows = rows(await tx.execute(sql`SELECT usd_to_mvr_rate FROM accounting_settings WHERE id = 1 FOR SHARE`));
+      const configuredRate = settingRows[0]?.usd_to_mvr_rate;
+      const rate = configuredRate == null ? REDOTPAY_RATE : Number(configuredRate);
+      const { quote: q, products } = await quote(tx, input, true, rate);
       if (q.items.reduce((sum: number, item: any) => sum + item.qty, 0) > 20) throw new Error("Maximum hosted payment reservation is 20 units");
       if (input.expectedUsdCents !== q.usdCents) throw new Error("Checkout total changed. Request a new quote before paying.");
       const allocations: any[] = [];
@@ -348,11 +368,12 @@ export function registerRedotPay(app: Express, getDb: () => any, ordersTable: an
         ...(input.deliveryType === "boat" ? { boatName: text(input.boatName), boatNumber: text(input.boatNumber), boatLocation: text(input.boatLocation), boatAtollIsland: text(input.boatAtollIsland) } : {}),
         items: q.items, subtotal: q.subtotal, discount: q.discount, shipping: q.shipping, total: q.total,
         couponCode: input.couponCode || null, paymentMethod: "redotpay", status: "payment_pending",
+        usdToMvrRate: rate,
         orderNumber: `ECOM-${dateStr}-${timeStr}-${seq}`, trackingNumber: `${dateStr}${timeStr}${seq}`, statusHistory: [{ status: "payment_pending", timestamp: new Date().toISOString() }] };
       const [order] = await tx.insert(ordersTable).values(payload).returning();
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
       return rows(await tx.execute(sql`INSERT INTO redotpay_payments (id, token_hash, usd_cents, rate, owner_hash, state, order_id, payload, allocations, expires_at)
-        VALUES (${id}, ${tokenHash}, ${q.usdCents}, ${REDOTPAY_RATE}, ${reservationOwner}, 'creating', ${order.id}, ${JSON.stringify(payload)}::jsonb, ${JSON.stringify(allocations)}::jsonb, ${expiresAt})
+        VALUES (${id}, ${tokenHash}, ${q.usdCents}, ${rate}, ${reservationOwner}, 'creating', ${order.id}, ${JSON.stringify(payload)}::jsonb, ${JSON.stringify(allocations)}::jsonb, ${expiresAt})
         RETURNING *`))[0];
     });
     // Claim once. A crash/timeout is ambiguous: never issue another create.

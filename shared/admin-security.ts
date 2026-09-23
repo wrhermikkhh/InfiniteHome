@@ -65,7 +65,9 @@ export function adminPermissionForRoute(path: string, method: string): Permissio
   if (/^\/api\/admins(?:\/|$)/.test(path)) return "super";
   if (/^\/api\/(email|settings|storage\/health|uploads\/debug)(?:\/|$)/.test(path)) return "super";
   if (path.startsWith("/api/admin/redotpay")) return "canManageOrders";
+  if (/^\/api\/admin\/manual-orders(?:\/|$)/.test(path)) return "canManageOrders";
   if (path.startsWith("/api/admin/inventory/")) return "canManageStock";
+  if (/^\/api\/admin\/product-details(?:\/|$)/.test(path)) return "canManageProducts";
   if (/^\/api\/admin\/quotations(?:\/|$)/.test(path)) return "canManageOrders";
   if (/^\/api\/admin\/purchase-orders(?:\/|$)/.test(path)) return "canManageStock";
   if (path.startsWith("/api/admin/")) return "super";

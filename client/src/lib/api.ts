@@ -71,6 +71,9 @@ export interface Order {
   balanceInvoicedAt?: string | null;
   couponCode?: string;
   createdAt?: string;
+  /** USD/MVR sale-rate snapshot captured when the order/invoice was created. */
+  usdToMvrRate?: number | null;
+  saleRateSnapshot?: number | null;
 }
 
 export interface Admin {
@@ -516,4 +519,7 @@ export interface PosTransaction {
   notes?: string;
   status: string;
   createdAt?: string;
+  /** USD/MVR sale-rate snapshot captured at booking time. */
+  usdToMvrRate?: number | null;
+  saleRateSnapshot?: number | null;
 }

@@ -25,9 +25,10 @@ O1ZY/jzB5d6I/zX4JENG1xrP8ThPZ9qMWtmputJ0XYKymiZgZP6vh0L+G6P/Z98v
 lQIDAQAB
 -----END PUBLIC KEY-----`;
 
-export function usdCents(mvrCents: number): number {
+export function usdCents(mvrCents: number, rate = REDOTPAY_RATE): number {
   if (!Number.isSafeInteger(mvrCents) || mvrCents <= 0) throw new Error("Invalid MVR total");
-  const cents = Math.round(mvrCents / REDOTPAY_RATE);
+  if (!Number.isFinite(rate) || rate <= 0) throw new Error("Invalid RedotPay exchange rate");
+  const cents = Math.round(mvrCents / rate);
   if (cents < 1) throw new Error("Order is below the minimum USD payment amount");
   return cents;
 }
@@ -62,7 +63,6 @@ export function config(env: NodeJS.ProcessEnv = process.env): RedotPayConfig {
   const sandbox = env.REDOTPAY_ENVIRONMENT === "sandbox";
   if (!sandbox && env.REDOTPAY_ENVIRONMENT !== "production") throw new Error("RedotPay environment must be sandbox or production");
   if (!sandbox && env.REDOTPAY_LIVE_APPROVED !== "true") throw new Error("RedotPay live payments remain disabled pending sandbox acceptance and security review");
-  if (env.REDOTPAY_MVR_PER_USD !== String(REDOTPAY_RATE)) throw new Error(`RedotPay exchange rate must be ${REDOTPAY_RATE} MVR per USD`);
   if (!env.REDOTPAY_APP_KEY || !env.REDOTPAY_PRIVATE_KEY || !/^[1-9]\d*$/.test(env.REDOTPAY_KEY_VERSION || "")) {
     throw new Error("RedotPay merchant credentials or key version are missing");
   }

@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { createHash } from "node:crypto";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
 import { insertProductSchema, insertCouponSchema, insertOrderSchema, insertAdminSchema, insertCustomerSchema, insertCustomerAddressSchema, insertCategorySchema, insertPosTransactionSchema } from "../shared/schema.js";
@@ -11,10 +12,40 @@ import { orders } from "../shared/schema.js";
 import { registerRedotPay } from "../shared/redotpay-routes.js";
 import { registerInventoryAdmin } from "../shared/inventory-routes.js";
 import { registerAdminDocumentRoutes } from "../shared/admin-documents-routes.js";
+import { registerAdminInventoryRoutes } from "../shared/admin-inventory-routes.js";
+import { registerAdminAccountingRoutes } from "../shared/admin-accounting-routes.js";
 import { registerAdminSecurity } from "../shared/admin-security.js";
 import { registerAdminAuth } from "../shared/admin-auth.js";
 import { sql } from "drizzle-orm";
 import { toPublicOrderTracking, toPublicPosTracking } from "../shared/public-tracking.js";
+import { calculatePosTax, settleSplitTender } from "../shared/admin-accounting-math.js";
+import { accountingSettings, posAccounting, productVariantCommercial } from "../shared/admin-ledger-schema.js";
+import { registerAdminManualOrders } from "../shared/admin-manual-orders.js";
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value as Record<string, unknown>).sort().map(key => `${JSON.stringify(key)}:${stableJson((value as Record<string, unknown>)[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function requestHash(body: unknown): string {
+  return createHash("sha256").update(stableJson(body)).digest("hex");
+}
+
+/** POS uses the same sale semantics as the existing getVariantSalePrice helper. */
+function posVariantSalePrice(product: any, variantPrice: number): number {
+  if (!product.isOnSale) return variantPrice;
+  if (product.salePercent) {
+    return Math.round(variantPrice * (1 - product.salePercent / 100) * 100) / 100;
+  }
+  if (product.salePrice && product.price > 0) {
+    const derivedPercent = ((product.price - product.salePrice) / product.price) * 100;
+    return Math.round(variantPrice * (1 - derivedPercent / 100) * 100) / 100;
+  }
+  return variantPrice;
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -38,6 +69,23 @@ export async function registerRoutes(
   });
   registerInventoryAdmin(app, () => db);
   registerAdminDocumentRoutes(app, () => db);
+  registerAdminInventoryRoutes(app, () => db);
+  registerAdminAccountingRoutes(app, () => db);
+  registerAdminManualOrders(app, () => db);
+  app.get("/api/pos/accounting-settings", async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const [settings] = await db.select().from(accountingSettings).limit(1);
+      res.json({
+        taxEnabled: settings?.taxEnabled ?? false,
+        gstRate: Number(settings?.gstRate ?? 0),
+        tgstRate: Number(settings?.tgstRate ?? 0),
+         usdToMvrRate: settings?.usdToMvrRate ?? 15.42,
+      });
+    } catch {
+      res.status(503).json({ message: "POS accounting settings are unavailable. Complete the accounting migration before taking payments." });
+    }
+  });
   app.get("/api/ping", (_req, res) => res.json({ pong: true, timestamp: new Date().toISOString() }));
   app.get("/api/health", async (_req, res) => {
     try {
@@ -810,31 +858,77 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/pos/transactions", async (req, res) => {
+  // POS-only commercial reference. This never participates in MVR pricing or
+  // checkout; USD tender still requires a manually entered amount and rate.
+  app.get("/api/pos/products/:id/variant-prices", async (req, res) => {
     try {
-      const items = req.body.items as { productId: string; name: string; qty: number; price: number; color?: string; size?: string }[];
-      
-      if (!items || items.length === 0) {
+      const rows = await db.select({
+        variantKey: productVariantCommercial.variantKey,
+        usdPrice: productVariantCommercial.usdPrice,
+      }).from(productVariantCommercial)
+        .where(sql`product_id = ${req.params.id}`);
+      res.setHeader("Cache-Control", "no-store");
+      res.json(rows);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/pos/transactions", async (req, res) => {
+    let idempotencyKey: string | null = null;
+    let incomingRequestHash = "";
+    try {
+      const actor = req.res?.locals.admin as { id: string; name: string } | undefined;
+      if (!actor?.id) return res.status(401).json({ message: "Admin session required" });
+      const suppliedKey = req.get("Idempotency-Key")?.trim();
+      if (suppliedKey) {
+        if (suppliedKey.length > 200 || /[\r\n]/.test(suppliedKey)) {
+          return res.status(400).json({ message: "Invalid Idempotency-Key" });
+        }
+        idempotencyKey = suppliedKey;
+        incomingRequestHash = requestHash(req.body);
+        const [existing] = await db.select().from(posAccounting).where(sql`idempotency_key = ${idempotencyKey}`).limit(1);
+        if (existing) {
+          if (existing.requestHash !== incomingRequestHash) {
+            return res.status(409).json({ message: "Idempotency-Key was already used for a different POS payload" });
+          }
+          const existingTransaction = await storage.getPosTransaction(existing.posId);
+          if (existingTransaction) return res.json(existingTransaction);
+        }
+      }
+      if ((req.body.cashierId !== undefined && req.body.cashierId !== actor.id) ||
+          (req.body.cashierName !== undefined && req.body.cashierName !== actor.name)) {
+        return res.status(403).json({ message: "Cashier identity is controlled by the signed-in admin" });
+      }
+      const inputItems = req.body.items as Array<{ productId?: string; name?: string; qty: number; price?: number; color?: string; size?: string }>;
+      if (!Array.isArray(inputItems) || inputItems.length === 0) {
         return res.status(400).json({ message: "No items in transaction" });
       }
 
-      // Validate stock for each item (using variant stock only)
       const allProducts = await storage.getAllProducts();
       const productMap = new Map(allProducts.map(p => [p.id, p]));
-      
+      const items: Array<{ productId: string; name: string; qty: number; price: number; color?: string; size?: string }> = [];
       const stockErrors: string[] = [];
-      for (const item of items) {
-        // Custom/non-catalog items have no productId — skip stock check
-        if (!item.productId) continue;
-        const product = productMap.get(item.productId);
-        if (!product) {
-          stockErrors.push(`Product "${item.name}" not found`);
+      for (const item of inputItems) {
+        if (!Number.isSafeInteger(item.qty) || item.qty <= 0) return res.status(400).json({ message: "Item quantities must be positive whole numbers" });
+        if (!item.productId) {
+          if (typeof item.price !== "number" || !Number.isFinite(item.price) || item.price < 0) return res.status(400).json({ message: "Custom items require a valid non-negative price" });
+          items.push({ productId: "", name: String(item.name || "Custom item").slice(0, 200), qty: item.qty, price: item.price, color: item.color, size: item.size });
           continue;
         }
-        
+        const product = productMap.get(item.productId);
+        if (!product) {
+          stockErrors.push(`Product not found: ${item.productId}`);
+          continue;
+        }
+        const itemSize = item.size || "Standard";
+        const itemColor = item.color || "Default";
+        const variant = (product.variants || []).find(v => v.size.toLowerCase() === itemSize.toLowerCase());
+        const rawVariantPrice = Number(variant?.price ?? product.price);
+        const catalogPrice = posVariantSalePrice(product, rawVariantPrice);
+        if (!Number.isFinite(catalogPrice) || catalogPrice < 0) return res.status(400).json({ message: `Invalid catalog price for ${product.name}` });
+        items.push({ productId: product.id, name: product.name, qty: item.qty, price: catalogPrice, color: itemColor, size: itemSize });
         const variantStock = product.variantStock as { [key: string]: number } | null;
-        const itemSize = item.size || 'Standard';
-        const itemColor = item.color || 'Default';
         const variantKey = `${itemSize}-${itemColor}`;
         let availableStock = 0;
         
@@ -871,13 +965,77 @@ export async function registerRoutes(
         }
         
         if (availableStock < item.qty) {
-          stockErrors.push(`${item.name} (${itemSize}/${itemColor}) only has ${availableStock} available`);
+          stockErrors.push(`${product.name} (${itemSize}/${itemColor}) only has ${availableStock} available`);
         }
       }
-      
       if (stockErrors.length > 0) {
         return res.status(400).json({ message: "Stock validation failed: " + stockErrors.join("; ") });
       }
+
+      const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+      const discount = req.body.discount === undefined ? 0 : Number(req.body.discount);
+      if (!Number.isFinite(discount) || discount < 0) return res.status(400).json({ message: "Discount must be non-negative" });
+       let settings: any = { taxEnabled: false, gstRate: "0", tgstRate: "0", costingMethod: "FIFO", usdToMvrRate: "15.42" };
+      try {
+         const result = await db.execute(sql`SELECT
+           tax_enabled AS "taxEnabled",
+           gst_rate AS "gstRate",
+           tgst_rate AS "tgstRate",
+           usd_to_mvr_rate AS "usdToMvrRate"
+           FROM accounting_settings WHERE id = 1 FOR SHARE`);
+         const stored = (Array.isArray(result) ? result[0] : result.rows?.[0]) as any;
+        if (stored) settings = stored;
+      } catch (error: any) {
+        if (!String(error?.message || "").includes("does not exist")) throw error;
+      }
+      const requestedTaxType = req.body.taxType === "TGST" ? "TGST" : req.body.taxType === "GST" ? "GST" : "NONE";
+      const taxType = settings.taxEnabled ? requestedTaxType : "NONE";
+      const taxRate = taxType === "TGST" ? settings.tgstRate : taxType === "GST" ? settings.gstRate : "0";
+      const tax = calculatePosTax({ subtotal, discount, taxEnabled: settings.taxEnabled === true, taxType, taxRate });
+      const total = tax.totalMinor / 100;
+
+      const rawTenders = Array.isArray(req.body.paymentTenders) ? req.body.paymentTenders : null;
+      if (rawTenders && rawTenders.length === 0) {
+        return res.status(400).json({ message: "At least one payment tender is required" });
+      }
+      const legacyMethod = String(req.body.paymentMethod || "cash").toLowerCase();
+      // Older POS clients call the BML option "transfer"; keep that one-method
+      // contract working while storing the canonical accounting method.
+      const normalizedLegacyMethod = legacyMethod === "transfer" || legacyMethod === "bank" ? "bml_transfer" : legacyMethod;
+      const tenders = rawTenders || [{
+        method: normalizedLegacyMethod,
+        currency: "MVR",
+        amount: req.body.amountReceived === undefined ? total : req.body.amountReceived,
+      }];
+       const activeUsdToMvrRate = Number(settings.usdToMvrRate ?? 15.42);
+       if (!Number.isFinite(activeUsdToMvrRate) || activeUsdToMvrRate <= 0) {
+         return res.status(503).json({ message: "Active USD/MVR rate is invalid. Update accounting settings before taking payments." });
+       }
+      const validTender = (line: any, legacy = false) => {
+        if (!line || typeof line.method !== "string" || typeof line.currency !== "string") return false;
+        const method = line.method.toLowerCase();
+        const currency = line.currency.toUpperCase();
+        if (currency === "MVR") return ["cash", "bml_transfer", "card"].includes(method);
+        return currency === "USD" && method === "usd_cash";
+      };
+      if (!tenders.every((line: any) => validTender(line, !rawTenders))) {
+        return res.status(400).json({ message: "Allowed tenders are MVR cash, bml_transfer, card, or USD usd_cash" });
+      }
+       for (const line of tenders) {
+         if (String(line.currency).toUpperCase() === "USD" && Number(line.usdToMvrRate) !== activeUsdToMvrRate) {
+           return res.status(409).json({ message: "USD/MVR rate changed. Refresh the POS sale and try again." });
+         }
+       }
+      const settled = settleSplitTender(total, tenders.map((line: any) => ({ method: line.method, currency: line.currency || "MVR", amount: line.amount, rate: line.usdToMvrRate })));
+      const feeInput = req.body.feeMvr;
+      if (feeInput !== undefined && (typeof feeInput !== "string" && typeof feeInput !== "number")) {
+        return res.status(400).json({ message: "Processing fee must be a non-negative amount with at most 2 decimals" });
+      }
+      const feeText = feeInput === undefined ? "0" : String(feeInput);
+      if (!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(feeText)) {
+        return res.status(400).json({ message: "Processing fee must be a non-negative amount with at most 2 decimals" });
+      }
+      const feeMvr = Number(feeText);
 
       // Sequential invoice number shared across web orders and POS (atomic via DB sequence)
       const invoiceSeq = await storage.getNextInvoiceSeq();
@@ -891,31 +1049,73 @@ export async function registerRoutes(
       const data = {
         transactionNumber,
         trackingNumber,
-        items: req.body.items,
-        subtotal: Number(req.body.subtotal) || 0,
-        discount: Number(req.body.discount) || 0,
-        gstPercentage: Number(req.body.gstPercentage) || 0,
-        gstAmount: Number(req.body.gstAmount) || 0,
-        tax: Number(req.body.tax) || 0,
-        total: Number(req.body.total) || 0,
-        paymentMethod: String(req.body.paymentMethod || "cash"),
-        amountReceived: Number(req.body.amountReceived) || 0,
-        change: Number(req.body.change) || 0,
+        items,
+        subtotal: subtotal,
+        discount,
+        gstPercentage: taxType === "GST" ? Number(taxRate) : 0,
+        gstAmount: taxType === "GST" ? tax.taxMinor / 100 : 0,
+        tax: tax.taxMinor / 100,
+        total,
+         usdToMvrRate: activeUsdToMvrRate.toFixed(6),
+        paymentMethod: tenders.length > 1 ? "split" : String(tenders[0].method),
+        amountReceived: settled.totalTenderedMvrMinor / 100,
+        change: settled.changeMvrMinor / 100,
         customerId: req.body.customerId || null,
         customerName: req.body.customerName || null,
         customerPhone: req.body.customerPhone || null,
-        cashierId: String(req.body.cashierId || "default"),
-        cashierName: String(req.body.cashierName || "Admin"),
+        cashierId: actor.id,
+        cashierName: actor.name,
         notes: req.body.notes || null,
-        status: String(req.body.status || "completed"),
+        status: "completed",
       };
-      const transaction = await storage.createPosTransaction(data as any);
-
-      // POS insertion and inventory reservation are atomic.
+      const transaction = await storage.createPosTransaction(data as any, {
+        paymentLines: settled.lines.map((line, index) => ({
+          method: tenders[index].method,
+          currency: line.currency,
+          amount: String(tenders[index].amount),
+          usdToMvrRate: line.rate,
+          amountMvr: (line.mvrMinor / 100).toFixed(2),
+          feeMvr: "0",
+          reference: tenders[index].reference || null,
+        })),
+        posAccounting: {
+          idempotencyKey,
+          requestHash: idempotencyKey ? incomingRequestHash : null,
+          taxType,
+          taxableBaseMvr: (tax.taxableMinor / 100).toFixed(2),
+          taxRate: String(taxRate),
+          taxAmountMvr: (tax.taxMinor / 100).toFixed(2),
+        },
+        ...(feeMvr > 0 ? { expense: {
+          category: "POS processing fee",
+          description: `Processing fee for ${transactionNumber}`,
+          amount: feeMvr.toFixed(2),
+          currency: "MVR",
+          amountMvr: feeMvr.toFixed(2),
+          actorId: actor.id,
+        } } : {}),
+        audit: {
+          actorId: actor.id,
+          entityKind: "pos",
+          action: "create",
+          reason: "POS sale recorded",
+          data: { paymentCount: settled.lines.length, feeMvr, taxType },
+        },
+      });
 
       res.json(transaction);
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      if (idempotencyKey && (error?.code === "23505" || String(error?.message || "").includes("pos_accounting_idempotency_key_idx"))) {
+        const [existing] = await db.select().from(posAccounting).where(sql`idempotency_key = ${idempotencyKey}`).limit(1);
+        if (existing) {
+          if (existing.requestHash !== incomingRequestHash) {
+            return res.status(409).json({ message: "Idempotency-Key was already used for a different POS payload" });
+          }
+          const existingTransaction = await storage.getPosTransaction(existing.posId);
+          if (existingTransaction) return res.json(existingTransaction);
+        }
+      }
+       res.status(error?.status === 409 ? 409 : 400).json({ message: error.message });
     }
   });
 
