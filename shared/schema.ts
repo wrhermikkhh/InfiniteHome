@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, jsonb, timestamp, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, jsonb, timestamp, real, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -230,3 +230,22 @@ export const orders = pgTable("orders", {
 export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true });
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
+
+// Internal commercial documents. These are offers/orders, not receipts or invoices.
+export const adminDocuments = pgTable("admin_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  kind: text("kind").notNull(),
+  number: text("number").notNull().unique(),
+  partyName: text("party_name").notNull(),
+  contact: text("contact").notNull().default(""),
+  notes: text("notes").notNull().default(""),
+  dueDate: text("due_date"),
+  status: text("status").notNull().default("draft"),
+  items: jsonb("items").$type<{ description: string; quantity: number; unitPrice: number }[]>().notNull(),
+  total: numeric("total", { precision: 12, scale: 2 }).notNull(),
+  createdBy: varchar("created_by").notNull().references(() => admins.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type AdminDocument = typeof adminDocuments.$inferSelect;

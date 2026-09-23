@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { PgDialect } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { consumePaymentRateLimit, isPaymentOperator, registerRedotPay, reservationNetwork } from "../shared/redotpay-routes";
 import { acceptanceWebhookConfig, config, SANDBOX_API_ORIGIN, SANDBOX_PUBLIC_KEY, providerRequest } from "../shared/redotpay";
 
@@ -47,6 +48,58 @@ test("legacy fulfillment exception is paid-only and cannot change payment status
   await guard({ ...req, path: "/status", body: { status: "cancelled" } }, res, () => passed++);
   await guard({ ...req, body: { deliveryStatus: "delivered", status: "confirmed" } }, res, () => passed++);
   assert.equal(passed, 1);
+});
+
+test("main admin status dropdown permits only paid authorized RedotPay fulfillment", async () => {
+  for (const arrayResult of [true, false]) {
+    const routes: Record<string, any> = {};
+    const app: any = Object.fromEntries(["get", "post", "use"].map(m => [m, (p: string, handler: any) => { routes[`${m} ${p}`] = handler; }]));
+    let state = "paid", status = "confirmed", writes = 0, emails = 0;
+    const wrap = (value: any[]) => arrayResult ? value : { rows: value };
+    const db: any = {
+      transaction: async (fn: any) => fn(db),
+      select: () => ({ from: () => ({ where: () => [{ id: "o1", status }] }) }),
+      execute: async (query: any) => {
+        const q = dialect.sqlToQuery(query);
+        if (q.sql.includes("SELECT payment_method")) return wrap([{ payment_method: "redotpay" }]);
+        if (q.sql.includes("SELECT * FROM redotpay_payments")) return wrap([{ id: "p1", order_id: "o1", state }]);
+        if (q.sql.includes("SELECT status FROM orders")) return wrap([{ status }]);
+        if (q.sql.includes("UPDATE orders SET status")) { status = q.params[0] as string; writes++; }
+        if (q.sql.includes('order_number AS "orderNumber"')) return wrap([{ id: "o1", customerEmail: "fixture@example.com" }]);
+        return wrap([]);
+      },
+    };
+    registerRedotPay(app, () => db, { id: sql`id` }, { sendOrderStatusEmail: async () => { emails++; } });
+    const guard = routes["use /api/orders/:id"];
+    let code = 200, body: any;
+    const admin = { id: "operator", permissions: { canManageOrders: true } };
+    const res: any = { locals: { admin }, status: (n: number) => { code = n; return res; }, json: (value: any) => { body = value; return res; } };
+    const req: any = { method: "PATCH", params: { id: "o1" }, path: "/status", body: { status: "shipped", location: "MLE" } };
+    const next = () => { throw new Error("Must not bypass payment protection"); };
+    await guard(req, res, next);
+    assert.equal(code, 200);
+    assert.equal(body.status, "shipped");
+    assert.equal(writes, 1);
+    assert.equal(emails, 1);
+    for (const forbidden of ["confirmed", "cancelled", "refunded", "payment_verification"]) {
+      await guard({ ...req, body: { status: forbidden } }, res, next);
+      assert.equal(code, 403);
+    }
+    state = "pending";
+    await guard({ ...req, body: { status: "delivered" } }, res, next);
+    assert.equal(code, 409);
+    state = "paid";
+    await guard({ ...req, body: { status: "processing" } }, res, next);
+    assert.equal(code, 409);
+    res.locals.admin = null;
+    await guard(req, res, next);
+    assert.equal(code, 403);
+    res.locals.admin = admin;
+    await guard({ ...req, body: { status: "delivered", paymentMethod: "cod" } }, res, next);
+    assert.equal(code, 403);
+    assert.equal(writes, 1);
+    assert.equal(emails, 1);
+  }
 });
 
 test("sandbox uses only documented pinned endpoint/key; live requires a separate release gate", async () => {

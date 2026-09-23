@@ -6,3 +6,4 @@
 - [Vercel Hobby cron limit](vercel-hobby-cron-limit.md) — this project’s Vercel plan accepts only daily cron schedules; keep real-time payment reconciliation event-driven.
 - [Order email durability](order-email-durability.md) — customer, sales, and status emails need separate durable events plus stable provider idempotency keys.
 - [Payment return identity](payment-return-identity.md) — returning from payment must identify the exact attempt; a successful charge can otherwise display an older cancellation.
+- [Finance reporting semantics](finance-reporting-semantics.md) — booked order value is not settled revenue; keep POS conversions and provider-confirmed receipts distinct.

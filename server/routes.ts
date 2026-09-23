@@ -10,6 +10,7 @@ import { db } from "./db.js";
 import { orders } from "../shared/schema.js";
 import { registerRedotPay } from "../shared/redotpay-routes.js";
 import { registerInventoryAdmin } from "../shared/inventory-routes.js";
+import { registerAdminDocumentRoutes } from "../shared/admin-documents-routes.js";
 import { registerAdminSecurity } from "../shared/admin-security.js";
 import { registerAdminAuth } from "../shared/admin-auth.js";
 import { sql } from "drizzle-orm";
@@ -36,6 +37,7 @@ export async function registerRoutes(
     sendOrderStatusEmail: notifyOrderStatus,
   });
   registerInventoryAdmin(app, () => db);
+  registerAdminDocumentRoutes(app, () => db);
   app.get("/api/ping", (_req, res) => res.json({ pong: true, timestamp: new Date().toISOString() }));
   app.get("/api/health", async (_req, res) => {
     try {

@@ -1,8 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import RedotPayRecovery from "@/components/RedotPayRecovery";
 import { InventoryReconciliation } from "@/components/InventoryReconciliation";
+import { AdminReports } from "@/components/admin/AdminReports";
+import { AdminCommerceTools } from "@/components/admin/AdminCommerceTools";
+import AdminDocuments from "@/components/admin/AdminDocuments";
 import { useAdminAuth, AdminPermissions, DEFAULT_PERMISSIONS } from "@/lib/auth";
 import { allowedAdminTabs, resolveAdminTab, type AdminTab } from "@/lib/admin-navigation";
+import { isTerminalOrder } from "@/lib/admin-operations";
 import { useUpload } from "@/hooks/use-upload";
 import { useLocation } from "wouter";
 import { api, Coupon, Order, Admin, Category } from "@/lib/api";
@@ -60,9 +64,14 @@ import {
   Search,
   CreditCard,
   Receipt,
+  ChartNoAxesCombined,
+  Wallet,
+  ChartColumnIncreasing,
+  Truck,
   Minus,
   Calculator,
   FileText,
+  ClipboardList,
   SlidersHorizontal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -346,6 +355,9 @@ export default function AdminPanel() {
     try { return decodeURIComponent(window.location.hash.replace('#', '')) || "Products"; }
     catch { return "Products"; }
   });
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    Overview: true, eCommerce: true, Finance: true, System: true,
+  });
   const permittedTabs = allowedAdminTabs(isAdminAuthenticated ? user : null);
   // Every content branch uses this derived value, preventing a forbidden-tab
   // frame on login, rehydration, identity changes or permission downgrades.
@@ -435,7 +447,7 @@ export default function AdminPanel() {
   ].filter(Boolean).length;
 
   const filteredOrders = useMemo(() => orders.filter(order => {
-    const terminal = order.status === "delivered" || order.status === "cancelled" || order.status === "refunded";
+    const terminal = isTerminalOrder(order);
     if (orderFilter === "completed" && !terminal) return false;
     if (orderFilter === "active" && terminal) return false;
     if (orderStatusFilter !== "all" && order.status !== orderStatusFilter) return false;
@@ -489,6 +501,7 @@ export default function AdminPanel() {
   const [posCustomerPhone, setPosCustomerPhone] = useState("");
   const [posNotes, setPosNotes] = useState("");
   const [posTransactions, setPosTransactions] = useState<any[]>([]);
+  const [reportsError, setReportsError] = useState("");
   const [showPosReceipt, setShowPosReceipt] = useState(false);
   const [lastTransaction, setLastTransaction] = useState<any>(null);
   const [posViewMode, setPosViewMode] = useState<"checkout" | "history">("checkout");
@@ -586,24 +599,40 @@ export default function AdminPanel() {
 
   const loadData = async () => {
     try {
+      setReportsError("");
+      setOrders([]);
+      setPosTransactions([]);
       const allowed = (permission: keyof AdminPermissions) =>
         !!user && (user.isSuperAdmin === true || user.permissions?.[permission] === true);
-      const [productsData, ordersData, couponsData, adminsData, categoriesData, posDeliveriesData] = await Promise.all([
+      const [productsResult, ordersResult, couponsResult, adminsResult, categoriesResult, posDeliveriesResult, posReportsResult] = await Promise.allSettled([
         api.getProducts(),
         allowed("canManageOrders") ? api.getOrders() : Promise.resolve([]),
         allowed("canManageCoupons") ? api.getCoupons() : Promise.resolve([]),
         user?.isSuperAdmin ? api.getAdmins() : Promise.resolve([]),
         api.getCategories(),
         allowed("canAccessPOS") ? api.getPosTransactionsWithLabels() : Promise.resolve([]),
+        allowed("canManageOrders") && allowed("canAccessPOS") ? api.getAllPosTransactions() : Promise.resolve([]),
       ]);
-      setProducts(productsData);
-      setOrders(ordersData);
-      setCoupons(couponsData);
-      setAdmins(adminsData);
-      setCategories(categoriesData);
-      setPosDeliveries(posDeliveriesData);
+      const list = <T,>(result: PromiseSettledResult<T[]>) =>
+        result.status === "fulfilled" && Array.isArray(result.value) ? result.value : [] as T[];
+      setProducts(list(productsResult));
+      setOrders(list(ordersResult));
+      setCoupons(list(couponsResult));
+      setAdmins(list(adminsResult));
+      setCategories(list(categoriesResult));
+      setPosDeliveries(list(posDeliveriesResult));
+      setPosTransactions(list(posReportsResult));
+      if (ordersResult.status !== "fulfilled" || !Array.isArray(ordersResult.value)) {
+        setReportsError("Orders could not be loaded. Refresh to try again.");
+      } else if (posReportsResult.status !== "fulfilled" || !Array.isArray(posReportsResult.value)) {
+        setReportsError("POS records could not be loaded. Showing orders only.");
+      }
+      for (const result of [productsResult, ordersResult, couponsResult, adminsResult, categoriesResult, posDeliveriesResult, posReportsResult]) {
+        if (result.status === "rejected") console.error("Failed to load admin data:", result.reason);
+      }
     } catch (error) {
       console.error("Failed to load data:", error);
+      setReportsError("Reporting data could not be loaded. Refresh to try again.");
     }
   };
 
@@ -1765,14 +1794,66 @@ export default function AdminPanel() {
 
   const menuItems = [
     { icon: LayoutDashboard, label: "Overview" },
+    { icon: ChartNoAxesCombined, label: "Analytics" },
+    { icon: Wallet, label: "Finance" },
+    { icon: ChartColumnIncreasing, label: "Charts" },
     { icon: ShoppingBag, label: "Products" },
     { icon: Warehouse, label: "Inventory" },
     { icon: CreditCard, label: "POS" },
     { icon: Package, label: "Orders" },
+    { icon: Users, label: "Customers" },
+    { icon: Truck, label: "Logistics" },
+    { icon: ClipboardList, label: "Purchase Orders" },
+    { icon: FileText, label: "Quotations" },
     { icon: Receipt, label: "Transactions" },
     { icon: Tag, label: "Coupons" },
     { icon: Settings, label: "Admin Management" },
   ].filter(item => permittedTabs.includes(item.label as AdminTab));
+  const menuGroups = [
+    { title: "Overview", labels: ["Overview", "Analytics", "Charts"] },
+    { title: "eCommerce", labels: ["Orders", "Products", "Customers", "Logistics", "Inventory", "Purchase Orders", "POS", "Coupons"] },
+    { title: "Finance", labels: ["Finance", "Transactions", "Quotations"] },
+    { title: "System", labels: ["Admin Management"] },
+  ].map(group => ({ ...group, items: menuItems.filter(item => group.labels.includes(item.label)) }))
+   .filter(group => group.items.length > 0);
+  const openOrders = orders.filter(order => !isTerminalOrder(order)).length;
+  const renderMenuGroups = (mobile: boolean) => menuGroups.map(group => (
+    <section key={group.title} className="border-t border-white/10 pt-3 first:border-0 first:pt-0">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between rounded-md px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-[.18em] text-white/50 hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+        onClick={() => setExpandedSections(current => ({ ...current, [group.title]: !current[group.title] }))}
+        aria-expanded={expandedSections[group.title]}
+        aria-controls={`admin-${mobile ? "mobile" : "desktop"}-${group.title}`}
+      >
+        {group.title}
+        <ChevronDown size={14} className={cn("transition-transform", !expandedSections[group.title] && "-rotate-90")} />
+      </button>
+      {expandedSections[group.title] && (
+        <div id={`admin-${mobile ? "mobile" : "desktop"}-${group.title}`} className="space-y-0.5">
+          {group.items.map(item => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => { switchTab(item.label); if (mobile) setMobileMenuOpen(false); }}
+              className="nav-item flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium transition-colors"
+              data-active={activeTab === item.label}
+              data-testid={`tab-${item.label.toLowerCase().replace(' ', '-')}${mobile ? '-mobile' : ''}`}
+              aria-current={activeTab === item.label ? "page" : undefined}
+            >
+              <item.icon size={17} />
+              <span className="flex-1">{item.label === "Overview" ? "Dashboard" : item.label === "Transactions" ? "Invoices" : item.label}</span>
+              {item.label === "Orders" && openOrders > 0 && (
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] tabular-nums text-white/80">{openOrders}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  ));
+  const quickMenuItems = ["Overview", "Products", "Inventory", "POS", "Orders"]
+    .map(label => menuItems.find(item => item.label === label)).filter((item): item is typeof menuItems[number] => Boolean(item));
 
   // Dashboard Analytics Calculations - must be before conditional returns
   const analytics = useMemo(() => {
@@ -1785,8 +1866,9 @@ export default function AdminPanel() {
       recentActivity: []
     };
 
-    const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
-    const avgOrderValue = totalRevenue / orders.length;
+    const reportableOrders = orders.filter(o => o.status !== "cancelled" && o.status !== "refunded");
+    const totalRevenue = reportableOrders.reduce((sum, o) => sum + o.total, 0);
+    const avgOrderValue = reportableOrders.length ? totalRevenue / reportableOrders.length : 0;
 
     // Group orders by day for chart
     const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -1796,7 +1878,7 @@ export default function AdminPanel() {
     });
 
     const chartData = last7Days.map(date => {
-      const dayOrders = orders.filter(o => o.createdAt && new Date(o.createdAt).toISOString().split('T')[0] === date);
+      const dayOrders = reportableOrders.filter(o => o.createdAt && new Date(o.createdAt).toISOString().split('T')[0] === date);
       return {
         name: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),
         revenue: dayOrders.reduce((sum, o) => sum + o.total, 0),
@@ -2016,7 +2098,7 @@ export default function AdminPanel() {
       <div className="admin-mobile-header md:hidden fixed top-0 left-0 right-0 z-50 bg-background border-b border-border px-4 py-2.5 flex items-center justify-between">
         <div className="min-w-0">
           <h1 className="font-serif text-lg leading-none tracking-[.08em]">INFINITE HOME</h1>
-          <p className="admin-kicker mt-1.5 truncate">{activeTab} / {user?.name || "Admin"}</p>
+          <p className="admin-kicker mt-1.5 truncate">{activeTab === "Overview" ? "Dashboard" : activeTab === "Transactions" ? "Invoices" : activeTab} / {user?.name || "Admin"}</p>
         </div>
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -2039,22 +2121,7 @@ export default function AdminPanel() {
           />
           <nav className="admin-mobile-menu admin-sidebar relative h-full w-[min(86vw,22rem)] pt-16 overflow-y-auto" aria-label="Admin navigation">
             <div className="flex min-h-full flex-col p-4">
-              <div className="space-y-2">
-                <p className="px-4 pb-2 text-[10px] font-semibold uppercase tracking-[.18em] text-white/40">Workspace</p>
-                {menuItems.map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => { switchTab(item.label); setMobileMenuOpen(false); }}
-                    className={cn(
-                      "nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors",
-                    )}
-                    data-active={activeTab === item.label}
-                  >
-                    <item.icon size={18} />
-                    {item.label}
-                  </button>
-                ))}
-              </div>
+              <div className="space-y-2">{renderMenuGroups(true)}</div>
               <div className="mt-auto border-t border-white/10 pt-4">
                 <p className="mb-3 px-4 text-xs text-white/45 truncate">Signed in as {user?.name || "Admin"}</p>
                 <Button
@@ -2072,7 +2139,7 @@ export default function AdminPanel() {
 
       {/* Thumb-friendly primary navigation stays within reach on phones. Less-used areas remain in the menu above. */}
       <nav className="admin-mobile-bottom-nav md:hidden fixed bottom-0 inset-x-0 z-30 grid grid-cols-5" aria-label="Quick admin navigation">
-        {menuItems.slice(0, 5).map((item) => (
+        {quickMenuItems.map((item) => (
           <button
             key={`quick-${item.label}`}
             type="button"
@@ -2089,8 +2156,8 @@ export default function AdminPanel() {
 
       <div className="flex min-h-[100dvh] md:pt-0 pt-14">
         {/* Sidebar - Desktop only */}
-        <aside className="admin-sidebar w-64 p-4 space-y-1 hidden md:block md:sticky md:top-0 md:h-[100dvh]">
-          <div className="px-4 py-6 mb-5">
+        <aside className="admin-sidebar hidden w-64 shrink-0 flex-col p-4 md:sticky md:top-0 md:flex md:h-[100dvh]">
+          <div className="px-4 py-5 mb-2">
             <h1 className="font-serif text-xl tracking-[.12em]">INFINITE HOME</h1>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50 mt-2">Operations console</p>
             <div className="mt-6 flex items-center gap-2.5 text-xs text-white/65">
@@ -2100,21 +2167,8 @@ export default function AdminPanel() {
               <span className="truncate">{user?.name || "Admin"}</span>
             </div>
           </div>
-          {menuItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => switchTab(item.label)}
-              className={cn(
-                "nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all duration-200",
-              )}
-              data-active={activeTab === item.label}
-              data-testid={`tab-${item.label.toLowerCase().replace(' ', '-')}`}
-            >
-              <item.icon size={18} />
-              {item.label}
-            </button>
-          ))}
-          <div className="pt-8 mt-5 border-t border-white/10">
+          <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto" aria-label="Admin sections">{renderMenuGroups(false)}</nav>
+          <div className="mt-3 border-t border-white/10 pt-3">
             <Button variant="ghost" className="w-full justify-start text-white/60 hover:text-white hover:bg-white/10 rounded-sm" onClick={() => void logout()}>
               Sign Out
             </Button>
@@ -2123,6 +2177,31 @@ export default function AdminPanel() {
 
         {/* Main Content */}
         <main className="admin-content flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4 md:p-8 lg:p-10">
+          {permittedTabs.includes("Customers") && (activeTab === "Customers" || activeTab === "Logistics") && (
+            reportsError === "Orders could not be loaded. Refresh to try again."
+              ? <div role="alert" className="rounded-xl border border-destructive/30 p-5 text-destructive">{reportsError}</div>
+              : <AdminCommerceTools
+                  view={activeTab}
+                  orders={orders}
+                  onOpenOrder={(order) => { setSelectedOrder(order); switchTab("Orders"); }}
+                />
+          )}
+          {(activeTab === "Quotations" || activeTab === "Purchase Orders") && permittedTabs.includes(activeTab) && (
+            <AdminDocuments view={activeTab} />
+          )}
+          {permittedTabs.includes("Analytics") && (
+            <div className={["Analytics", "Finance", "Charts"].includes(activeTab || "") ? "" : "hidden"}>
+              {reportsError && <div role="alert" className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">{reportsError}</div>}
+              {reportsError !== "Orders could not be loaded. Refresh to try again." && (
+                <AdminReports
+                  view={["Analytics", "Finance", "Charts"].includes(activeTab || "") ? activeTab as "Analytics" | "Finance" | "Charts" : "Analytics"}
+                  orders={orders}
+                  posTransactions={posTransactions}
+                  canViewPos={permittedTabs.includes("POS") && !reportsError}
+                />
+              )}
+            </div>
+          )}
           {activeTab === "Overview" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
               <div>
@@ -2138,12 +2217,9 @@ export default function AdminPanel() {
                       <div className="p-2 bg-primary/5 rounded-none">
                         <DollarSign size={20} className="text-primary" />
                       </div>
-                      <span className="flex items-center text-xs font-medium text-emerald-600">
-                        <ArrowUpRight size={14} className="mr-1" /> 12%
-                      </span>
                     </div>
                     <div>
-                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Total Revenue</p>
+                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Order Value (not payment verified)</p>
                       <p className="text-2xl font-bold">{formatCurrency(analytics.totalRevenue)}</p>
                     </div>
                   </CardContent>
@@ -2155,9 +2231,6 @@ export default function AdminPanel() {
                       <div className="p-2 bg-primary/5 rounded-none">
                         <ShoppingCart size={20} className="text-primary" />
                       </div>
-                      <span className="flex items-center text-xs font-medium text-emerald-600">
-                        <ArrowUpRight size={14} className="mr-1" /> 8%
-                      </span>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Total Orders</p>
@@ -2186,9 +2259,6 @@ export default function AdminPanel() {
                       <div className="p-2 bg-primary/5 rounded-none">
                         <TrendingUp size={20} className="text-primary" />
                       </div>
-                      <span className="flex items-center text-xs font-medium text-emerald-600">
-                        <ArrowUpRight size={14} className="mr-1" /> 5%
-                      </span>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Avg. Order Value</p>
@@ -2203,16 +2273,8 @@ export default function AdminPanel() {
                 <Card className="lg:col-span-2 rounded-none border-border shadow-sm">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-6">
-                      <h3 className="font-serif text-lg">Revenue Trend</h3>
-                      <Select defaultValue="7d">
-                        <SelectTrigger className="w-[120px] rounded-none h-8 text-xs">
-                          <SelectValue placeholder="Period" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-none">
-                          <SelectItem value="7d">Last 7 Days</SelectItem>
-                          <SelectItem value="30d">Last 30 Days</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <h3 className="font-serif text-lg">Order Value · Last 7 Days</h3>
+                      {permittedTabs.includes("Charts") && <Button variant="outline" size="sm" onClick={() => switchTab("Charts")}>Explore charts</Button>}
                     </div>
                     <div className="h-[300px] w-full">
                       {analytics.chartData.length > 0 ? (
@@ -2239,7 +2301,7 @@ export default function AdminPanel() {
                             />
                             <Tooltip 
                               contentStyle={{ borderRadius: '0px', border: '1px solid #eee', fontSize: '12px' }}
-                              formatter={(value: any) => [formatCurrency(value), "Revenue"]}
+                              formatter={(value: any) => [formatCurrency(value), "Order value"]}
                             />
                             <Area 
                               type="monotone" 
@@ -2253,7 +2315,7 @@ export default function AdminPanel() {
                         </ResponsiveContainer>
                       ) : (
                         <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                          No revenue data yet
+                          No order value data yet
                         </div>
                       )}
                     </div>
@@ -4287,8 +4349,8 @@ export default function AdminPanel() {
           {activeTab === "Transactions" && (
             <div className="animate-in fade-in duration-500">
               <div className="mb-8">
-                <h1 className="text-3xl font-serif">Transactions</h1>
-                <p className="text-muted-foreground">Invoiced storefront orders — auto-created when order is confirmed</p>
+                <h1 className="text-3xl font-serif">Invoices</h1>
+                <p className="text-muted-foreground">Invoiced storefront orders — created when confirmed. An invoice is not proof of payment.</p>
               </div>
 
               {(() => {
@@ -4306,7 +4368,7 @@ export default function AdminPanel() {
                     <Card className="rounded-none border-border shadow-none">
                       <CardContent className="p-12 text-center">
                         <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-muted-foreground">No transactions yet.</p>
+                        <p className="text-muted-foreground">No invoices yet.</p>
                         <p className="text-sm text-muted-foreground mt-1">Invoices are created automatically when an order is set to <strong>Confirmed</strong>.</p>
                       </CardContent>
                     </Card>

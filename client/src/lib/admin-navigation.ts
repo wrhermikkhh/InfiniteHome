@@ -1,6 +1,6 @@
 import type { AdminPermissions } from "./auth";
 
-export type AdminTab = "Overview" | "Products" | "Inventory" | "POS" | "Orders" | "Transactions" | "Coupons" | "Admin Management";
+export type AdminTab = "Overview" | "Analytics" | "Finance" | "Charts" | "Products" | "Inventory" | "POS" | "Orders" | "Customers" | "Logistics" | "Quotations" | "Purchase Orders" | "Transactions" | "Coupons" | "Admin Management";
 type NavigationAdmin = { isSuperAdmin?: boolean; permissions?: AdminPermissions | null };
 
 /** One permission-derived list drives navigation and render-time content gating. */
@@ -11,9 +11,9 @@ export function allowedAdminTabs(admin: NavigationAdmin | null): AdminTab[] {
   return [
     "Overview",
     ...(allowed("canManageProducts") ? ["Products" as const] : []),
-    ...(allowed("canManageStock") ? ["Inventory" as const] : []),
+    ...(allowed("canManageStock") ? ["Inventory" as const, "Purchase Orders" as const] : []),
     ...(allowed("canAccessPOS") ? ["POS" as const] : []),
-    ...(allowed("canManageOrders") ? ["Orders" as const, "Transactions" as const] : []),
+    ...(allowed("canManageOrders") ? ["Orders" as const, "Customers" as const, "Logistics" as const, "Quotations" as const, "Transactions" as const, "Analytics" as const, "Finance" as const, "Charts" as const] : []),
     ...(allowed("canManageCoupons") ? ["Coupons" as const] : []),
     ...(admin.isSuperAdmin === true ? ["Admin Management" as const] : []),
   ];

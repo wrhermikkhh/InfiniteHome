@@ -72,6 +72,9 @@ Do not deploy the current application until all three prerequisites are present.
    `script/admin-security-migration.sql`, then
    `script/redotpay-migration.sql`, then
    `script/inventory-safety-migration.sql`.
+   Before deploying quotations and purchase orders, also apply the additive
+   `script/admin-documents-migration.sql` to the confirmed database. The
+   documents table is server-only and does not change existing order data.
 4. Verify customer/admin sessions, both throttle mechanisms, customer email
    proofs, the canonical `legacy_inventory_reservations` ledger and its
    reconciliation audit fields, RedotPay objects and audit objects;

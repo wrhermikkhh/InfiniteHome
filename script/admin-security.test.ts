@@ -108,6 +108,10 @@ test("permission map protects management, uploads, customer-data and preserves p
   assert.equal(adminPermissionForRoute("/api/products/p", "PATCH"), "canManageProducts");
   assert.equal(adminPermissionForRoute("/api/orders", "GET"), "canManageOrders");
   assert.equal(adminPermissionForRoute("/api/admin/redotpay", "GET"), "canManageOrders");
+  assert.equal(adminPermissionForRoute("/api/admin/quotations", "GET"), "canManageOrders");
+  assert.equal(adminPermissionForRoute("/api/admin/quotations/id", "PATCH"), "canManageOrders");
+  assert.equal(adminPermissionForRoute("/api/admin/purchase-orders", "GET"), "canManageStock");
+  assert.equal(adminPermissionForRoute("/api/admin/purchase-orders/id", "PATCH"), "canManageStock");
   assert.equal(adminPermissionForRoute("/api/uploads/product-images", "POST"), "canManageProducts");
   assert.equal(adminPermissionForRoute("/api/products", "GET"), null);
   assert.equal(adminPermissionForRoute("/api/orders/track/number", "GET"), null);
