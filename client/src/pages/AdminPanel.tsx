@@ -371,6 +371,11 @@ export default function AdminPanel() {
     window.location.hash = activeTab;
   }, [activeTab, user?.id, permissionKey]);
 
+  const mainContentRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    mainContentRef.current?.scrollTo({ top: 0, behavior: "auto" });
+  }, [activeTab]);
+
   const switchTab = (tab: string) => {
     if (!permittedTabs.includes(tab as AdminTab)) return;
     setRequestedTab(tab);
@@ -2133,9 +2138,9 @@ export default function AdminPanel() {
         ))}
       </nav>
 
-      <div className="flex min-h-[100dvh] md:pt-0 pt-14">
+      <div className="admin-layout flex min-h-[100dvh] md:pt-0 pt-14">
         {/* Sidebar - Desktop only */}
-        <aside className="admin-sidebar hidden w-64 shrink-0 flex-col p-4 md:sticky md:top-0 md:flex md:h-[100dvh]">
+        <aside className="admin-desktop-sidebar admin-sidebar hidden w-64 shrink-0 flex-col p-4 md:flex">
           <div className="px-4 py-5 mb-2">
             <h1 className="font-serif text-xl tracking-[.12em]">INFINITE HOME</h1>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50 mt-2">Operations console</p>
@@ -2146,7 +2151,7 @@ export default function AdminPanel() {
               <span className="truncate">{user?.name || "Admin"}</span>
             </div>
           </div>
-          <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto" aria-label="Admin sections">{renderMenuGroups(false)}</nav>
+          <nav className="admin-sidebar-nav min-h-0 flex-1 space-y-2 overflow-y-auto pr-1" aria-label="Admin sections">{renderMenuGroups(false)}</nav>
           <div className="mt-3 border-t border-white/10 pt-3">
             <Button variant="ghost" className="w-full justify-start text-white/60 hover:text-white hover:bg-white/10 rounded-sm" onClick={() => void logout()}>
               Sign Out
@@ -2155,7 +2160,7 @@ export default function AdminPanel() {
         </aside>
 
         {/* Main Content */}
-        <main className="admin-content flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4 md:p-8 lg:p-10">
+        <main ref={mainContentRef} className="admin-content flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4 md:p-8 lg:p-10">
           {permittedTabs.includes("Customers") && (activeTab === "Customers" || activeTab === "Logistics") && (
             reportsError === "Orders could not be loaded. Refresh to try again."
               ? <div role="alert" className="rounded-xl border border-destructive/30 p-5 text-destructive">{reportsError}</div>
@@ -2183,17 +2188,18 @@ export default function AdminPanel() {
           )}
           {activeTab === "Overview" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-serif mb-2">Dashboard Overview</h1>
+              <div className="admin-overview-header">
+                <p className="admin-kicker">Infinite Home / Operations</p>
+                <h1 className="text-3xl md:text-4xl font-serif mb-2">Dashboard Overview</h1>
                 <p className="text-muted-foreground">Welcome back, {user?.name || 'Admin'}. Here's what's happening today.</p>
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card className="rounded-none border-border shadow-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+                 <Card className="admin-kpi-card rounded-none border-border shadow-sm">
                   <CardContent className="p-6">
                     <div className="flex justify-between items-start mb-4">
-                      <div className="p-2 bg-primary/5 rounded-none">
+                       <div className="admin-kpi-icon p-2 bg-primary/5 rounded-none">
                         <DollarSign size={20} className="text-primary" />
                       </div>
                     </div>
@@ -2204,10 +2210,10 @@ export default function AdminPanel() {
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-none border-border shadow-sm">
+                 <Card className="admin-kpi-card rounded-none border-border shadow-sm">
                   <CardContent className="p-6">
                     <div className="flex justify-between items-start mb-4">
-                      <div className="p-2 bg-primary/5 rounded-none">
+                       <div className="admin-kpi-icon p-2 bg-primary/5 rounded-none">
                         <ShoppingCart size={20} className="text-primary" />
                       </div>
                     </div>
@@ -2218,10 +2224,10 @@ export default function AdminPanel() {
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-none border-border shadow-sm">
+                 <Card className="admin-kpi-card rounded-none border-border shadow-sm">
                   <CardContent className="p-6">
                     <div className="flex justify-between items-start mb-4">
-                      <div className="p-2 bg-primary/5 rounded-none">
+                       <div className="admin-kpi-icon p-2 bg-primary/5 rounded-none">
                         <Package size={20} className="text-primary" />
                       </div>
                     </div>
@@ -2232,10 +2238,10 @@ export default function AdminPanel() {
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-none border-border shadow-sm">
+                 <Card className="admin-kpi-card rounded-none border-border shadow-sm">
                   <CardContent className="p-6">
                     <div className="flex justify-between items-start mb-4">
-                      <div className="p-2 bg-primary/5 rounded-none">
+                       <div className="admin-kpi-icon p-2 bg-primary/5 rounded-none">
                         <TrendingUp size={20} className="text-primary" />
                       </div>
                     </div>
@@ -2248,8 +2254,8 @@ export default function AdminPanel() {
               </div>
 
               {/* Charts Row */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2 rounded-none border-border shadow-sm">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                 <Card className="admin-chart-card lg:col-span-2 rounded-none border-border shadow-sm">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-6">
                       <h3 className="font-serif text-lg">Order Value · Last 7 Days</h3>
@@ -2301,7 +2307,7 @@ export default function AdminPanel() {
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-none border-border shadow-sm">
+                 <Card className="admin-chart-card rounded-none border-border shadow-sm">
                   <CardContent className="p-6">
                     <h3 className="font-serif text-lg mb-6">Order Status</h3>
                     <div className="h-[250px] w-full">
@@ -2348,7 +2354,7 @@ export default function AdminPanel() {
               </div>
 
               {/* Bottom Row: Recent Orders */}
-              <Card className="rounded-none border-border shadow-sm">
+               <Card className="admin-surface-card rounded-none border-border shadow-sm">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="font-serif text-lg">Recent Orders</h3>
@@ -2409,10 +2415,11 @@ export default function AdminPanel() {
           )}
 
           {activeTab === "Products" && (
-            <div className="animate-in fade-in duration-500">
+            <div className="admin-view animate-in fade-in duration-500">
               <div className="flex justify-between items-end mb-8">
                 <div>
-                  <h1 className="text-3xl font-serif">Products</h1>
+                  <p className="admin-kicker mb-2">Infinite Home / Catalog</p>
+                  <h1 className="text-3xl md:text-4xl font-serif">Products</h1>
                   <p className="text-muted-foreground">Manage your storefront inventory</p>
                 </div>
                 <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
@@ -3126,7 +3133,7 @@ export default function AdminPanel() {
                 </Dialog>
               </div>
 
-              <Card className="rounded-none border-border shadow-none">
+              <Card className="admin-surface-card rounded-none border-border shadow-none">
                 <CardContent className="p-0">
                   <div className="divide-y divide-border">
                     {products.map((product) => (
@@ -3184,22 +3191,23 @@ export default function AdminPanel() {
           )}
 
           {activeTab === "Inventory" && (
-            <div className="animate-in fade-in duration-500">
+            <div className="admin-view animate-in fade-in duration-500">
               <div className="mb-8">
-                <h1 className="text-3xl font-serif">Inventory Management</h1>
+                <p className="admin-kicker mb-2">Infinite Home / Stock control</p>
+                <h1 className="text-3xl md:text-4xl font-serif">Inventory Management</h1>
                 <p className="text-muted-foreground">Manage product visibility and stock levels</p>
               </div>
               <InventoryReconciliation />
 
               {/* Inventory Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <Card className="rounded-none border-border shadow-none">
+                <Card className="admin-surface-card rounded-none border-border shadow-none">
                   <CardContent className="p-4">
                     <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Total Products</div>
                     <div className="text-2xl font-bold">{products.length}</div>
                   </CardContent>
                 </Card>
-                <Card className="rounded-none border-border shadow-none">
+                <Card className="admin-surface-card rounded-none border-border shadow-none">
                   <CardContent className="p-4">
                     <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Visible on Store</div>
                     <div className="text-2xl font-bold text-green-600">
@@ -3207,7 +3215,7 @@ export default function AdminPanel() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="rounded-none border-border shadow-none">
+                <Card className="admin-surface-card rounded-none border-border shadow-none">
                   <CardContent className="p-4">
                     <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Hidden</div>
                     <div className="text-2xl font-bold text-gray-400">
@@ -3215,7 +3223,7 @@ export default function AdminPanel() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="rounded-none border-border shadow-none">
+                <Card className="admin-surface-card rounded-none border-border shadow-none">
                   <CardContent className="p-4">
                     <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Low Stock</div>
                     <div className="text-2xl font-bold text-amber-600">
@@ -3230,7 +3238,7 @@ export default function AdminPanel() {
               </div>
 
               {/* Inventory Search */}
-              <Card className="rounded-none border-border shadow-none mb-6">
+              <Card className="admin-surface-card rounded-none border-border shadow-none mb-6">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2">
                     <Search size={18} className="text-muted-foreground" />
@@ -3245,7 +3253,7 @@ export default function AdminPanel() {
               </Card>
 
               {/* Inventory Table */}
-              <Card className="rounded-none border-border shadow-none">
+              <Card className="admin-surface-card rounded-none border-border shadow-none">
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
                     <table className="w-full">
@@ -3383,11 +3391,11 @@ export default function AdminPanel() {
           )}
 
           {activeTab === "POS" && (
-            <div className="pos-register animate-in fade-in duration-500">
+            <div className="admin-view pos-register animate-in fade-in duration-500">
               <div className="pos-register-header mb-5 flex items-center justify-between gap-3">
                 <div>
                   <div className="admin-kicker mb-2">Infinite Home / Register</div>
-                  <h1 className="text-3xl font-serif">Point of Sale</h1>
+                  <h1 className="text-3xl md:text-4xl font-serif">Point of Sale</h1>
                   <p className="text-muted-foreground">Fast checkout for the floor team.</p>
                 </div>
                 <div className={`${adminActionRowClass} pos-mode-switch`}>
@@ -3831,9 +3839,10 @@ export default function AdminPanel() {
           )}
 
           {activeTab === "Orders" && (
-            <div className="animate-in fade-in duration-500">
+            <div className="admin-view animate-in fade-in duration-500">
               <div className="mb-8">
-                <h1 className="text-3xl font-serif">Orders</h1>
+                <p className="admin-kicker mb-2">Infinite Home / Fulfilment</p>
+                <h1 className="text-3xl md:text-4xl font-serif">Orders</h1>
                 <p className="text-muted-foreground">Manage and track customer orders</p>
               </div>
               {permittedTabs.includes("Orders") && <RedotPayRecovery />}
@@ -4335,9 +4344,10 @@ export default function AdminPanel() {
           )}
 
           {activeTab === "Transactions" && (
-            <div className="animate-in fade-in duration-500">
+            <div className="admin-view animate-in fade-in duration-500">
               <div className="mb-8">
-                <h1 className="text-3xl font-serif">Invoices</h1>
+                <p className="admin-kicker mb-2">Infinite Home / Reporting</p>
+                <h1 className="text-3xl md:text-4xl font-serif">Invoices</h1>
                 <p className="text-muted-foreground">Invoiced storefront orders — created when confirmed. An invoice is not proof of payment.</p>
               </div>
 
@@ -4459,13 +4469,14 @@ export default function AdminPanel() {
           )}
 
           {activeTab === "Coupons" && (
-            <div className="animate-in fade-in duration-500">
+            <div className="admin-view animate-in fade-in duration-500">
               <div className="mb-8">
-                <h1 className="text-3xl font-serif">Coupons</h1>
+                <p className="admin-kicker mb-2">Infinite Home / Promotions</p>
+                <h1 className="text-3xl md:text-4xl font-serif">Coupons</h1>
                 <p className="text-muted-foreground">Manage discount codes</p>
               </div>
 
-              <Card className="rounded-none border-border shadow-none mb-8">
+              <Card className="admin-surface-card rounded-none border-border shadow-none mb-8">
                 <CardContent className="p-6">
                   <h3 className="font-bold mb-4 uppercase tracking-widest text-xs">Add New Coupon</h3>
                   <div className="space-y-4">
@@ -4575,7 +4586,7 @@ export default function AdminPanel() {
                 </CardContent>
               </Card>
 
-              <Card className="rounded-none border-border shadow-none">
+              <Card className="admin-surface-card rounded-none border-border shadow-none">
                 <CardContent className="p-0">
                   <div className="divide-y divide-border">
                     {coupons.map((coupon) => (
@@ -4635,14 +4646,15 @@ export default function AdminPanel() {
           )}
 
           {activeTab === "Admin Management" && isSuperAdmin && (
-            <div className="animate-in fade-in duration-500">
+            <div className="admin-view animate-in fade-in duration-500">
               <div className="mb-8">
-                <h1 className="text-3xl font-serif">Admin Management</h1>
+                <p className="admin-kicker mb-2">Infinite Home / Access</p>
+                <h1 className="text-3xl md:text-4xl font-serif">Admin Management</h1>
                 <p className="text-muted-foreground">Add admins and control their access permissions</p>
               </div>
 
               {/* Add New Admin */}
-              <Card className="rounded-none border-border shadow-none mb-8">
+              <Card className="admin-surface-card rounded-none border-border shadow-none mb-8">
                 <CardContent className="p-6">
                   <h3 className="font-bold mb-4 uppercase tracking-widest text-xs">Add New Admin</h3>
                   <div className="flex flex-wrap gap-4 mb-4">

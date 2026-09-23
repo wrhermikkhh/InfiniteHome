@@ -143,14 +143,56 @@
     hsl(var(--background));
 }
 .admin-shell .admin-sidebar {
-  background: linear-gradient(180deg, hsl(222 31% 16%), hsl(224 30% 20%));
+  background: linear-gradient(180deg, hsl(216 42% 18%), hsl(220 39% 22%));
   color: hsl(216 30% 94%);
-  box-shadow: 14px 0 36px hsl(222 31% 12% / .14);
+  box-shadow: 14px 0 36px hsl(220 40% 12% / .14);
 }
 .admin-shell .admin-sidebar .nav-item { color: hsl(216 17% 73%); border-left: 2px solid transparent; border-radius: .55rem; }
 .admin-shell .admin-sidebar .nav-item:hover { color: hsl(216 30% 98%); background: hsl(216 30% 96% / .08); transform: translateX(2px); }
 .admin-shell .admin-sidebar .nav-item[data-active="true"] { color: hsl(216 30% 98%); background: hsl(172 48% 38%); border-left-color: hsl(172 70% 76%); box-shadow: 0 8px 18px hsl(172 48% 18% / .25); }
-.admin-shell .admin-content { background: transparent; }
+.admin-shell { min-height: 100dvh; }
+.admin-shell .admin-layout { min-height: 100dvh; }
+.admin-shell .admin-content { background: transparent; overscroll-behavior: contain; }
+.admin-shell .admin-view .admin-kicker { margin-bottom: .65rem; }
+.admin-shell .admin-content h1 { color: hsl(216 42% 18%); letter-spacing: -.025em; }
+.admin-shell .admin-content h1 + p { max-width: 48rem; color: hsl(219 13% 47%); }
+.admin-shell .admin-content .admin-overview-header .admin-kicker { margin-bottom: .65rem; }
+.admin-shell .admin-content .admin-kpi-card,
+.admin-shell .admin-content .admin-surface-card {
+  border-radius: .75rem;
+  border-color: hsl(215 19% 84% / .9);
+  background: hsl(0 0% 100% / .82);
+  box-shadow: 0 8px 25px hsl(218 34% 22% / .055);
+}
+.admin-shell .admin-content .admin-kpi-card {
+  min-height: 9.5rem;
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.admin-shell .admin-content .admin-kpi-card:hover {
+  transform: translateY(-2px);
+  border-color: hsl(172 48% 38% / .35);
+  box-shadow: 0 14px 30px hsl(218 34% 22% / .1);
+}
+.admin-shell .admin-content .admin-kpi-card .admin-kpi-icon {
+  border-radius: .55rem;
+  background: hsl(172 48% 38% / .1);
+}
+.admin-shell .admin-content .admin-chart-card {
+  border-radius: .75rem;
+  border-color: hsl(215 19% 84% / .9);
+  background: white;
+  box-shadow: 0 8px 25px hsl(218 34% 22% / .055);
+}
+.admin-shell .admin-content .admin-surface-card {
+  border-radius: .75rem;
+  border-color: hsl(215 19% 84% / .9);
+  box-shadow: 0 8px 25px hsl(218 34% 22% / .04);
+  background: white;
+}
+.admin-shell .admin-content .animate-in > .mb-8 h1,
+.admin-shell .admin-content .animate-in > .flex.justify-between h1 {
+  margin-bottom: .45rem;
+}
 .admin-login {
   --background: 216 30% 96%;
   --foreground: 222 31% 16%;
@@ -200,7 +242,8 @@
 @media (max-width: 767px) {
   .admin-shell .admin-content { padding: 1rem; padding-top: 1.25rem; padding-bottom: 5.7rem; }
   .admin-shell .admin-content table { min-width: 680px; }
-  .admin-shell .admin-sidebar { box-shadow: none; }
+  .admin-shell .admin-layout { min-height: calc(100dvh - 3.5rem); }
+  .admin-shell .admin-content { min-height: calc(100dvh - 3.5rem); scrollbar-gutter: auto; }
   .admin-shell .admin-content .overflow-x-auto { -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
   .admin-shell .admin-content .grid { gap: .7rem; }
   .admin-shell .admin-content .flex-wrap { row-gap: .65rem; }
@@ -211,6 +254,52 @@
   .admin-login .admin-login-card { border-radius: 1rem; }
   .admin-shell h1 { font-size: clamp(1.7rem, 8vw, 2.3rem); }
   .admin-shell .admin-content > * { animation-duration: .25s; }
+}
+
+@media (min-width: 768px) {
+  .admin-shell .admin-layout {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .admin-shell .admin-desktop-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    box-shadow: 14px 0 36px hsl(220 40% 12% / .14);
+  }
+  .admin-shell .admin-desktop-sidebar nav {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(172 48% 55% / .65) transparent;
+    overscroll-behavior: contain;
+  }
+  .admin-shell .admin-desktop-sidebar nav::-webkit-scrollbar { width: 4px; }
+  .admin-shell .admin-desktop-sidebar nav::-webkit-scrollbar-thumb {
+    border-radius: 4px;
+    background: hsl(172 48% 55% / .65);
+  }
+  .admin-shell .admin-desktop-sidebar > div:first-child {
+    border-bottom: 1px solid hsl(216 30% 96% / .1);
+  }
+  .admin-shell .admin-desktop-sidebar > div:last-child { flex: 0 0 auto; }
+  .admin-shell .admin-content {
+    min-height: 0;
+    height: 100dvh;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+}
+
+@media (max-width: 767px) {
+  .admin-shell .admin-mobile-menu {
+    height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .admin-shell .admin-mobile-menu::-webkit-scrollbar { width: 0; height: 0; }
 }
 
 .admin-mobile-bottom-nav {
