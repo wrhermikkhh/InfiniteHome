@@ -5233,7 +5233,7 @@ export default function AdminPanel() {
             >
               <Printer size={16} className="mr-2" /> Shipping Label
             </Button>
-            {selectedTransaction.labelAddress && (
+            {selectedTransaction?.labelAddress && (
               <Button
                 variant="outline"
                 className="rounded-none"
