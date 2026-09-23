@@ -274,7 +274,15 @@ export function registerAdminAccountingRoutes(app: Express, getDb: () => Databas
     const details = rows(await db.execute(sql`SELECT product_id AS "productId", weight_kg::float8 AS "weightKg",
       length_cm::float8 AS "lengthCm", width_cm::float8 AS "widthCm", height_cm::float8 AS "heightCm",
       wholesale_cost_mvr::float8 AS "wholesaleCostMvr", supplier_cost_mvr::float8 AS "supplierCostMvr"
-      FROM admin_product_details WHERE product_id = ${req.params.productId}`))[0] || { productId: req.params.productId };
+      FROM admin_product_details WHERE product_id = ${req.params.productId}`))[0] || {
+        productId: req.params.productId,
+        weightKg: null,
+        lengthCm: null,
+        widthCm: null,
+        heightCm: null,
+        wholesaleCostMvr: null,
+        supplierCostMvr: null,
+      };
     details.variants = rows(await db.execute(sql`SELECT product_id AS "productId", variant_key AS "variantKey",
       sku, usd_price::float8 AS "usdPrice", wholesale_cost_mvr::float8 AS "wholesaleCostMvr",
       supplier_cost_mvr::float8 AS "supplierCostMvr" FROM product_variant_commercial WHERE product_id = ${req.params.productId} ORDER BY variant_key`));

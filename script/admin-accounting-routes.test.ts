@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { accountingReportSummary, calculateRealizedFxMvr, redotPayUsdMetrics, taxExportCsv } from "../shared/admin-accounting-routes.js";
+import { accountingReportSummary, calculateRealizedFxMvr, redotPayUsdMetrics, registerAdminAccountingRoutes, taxExportCsv } from "../shared/admin-accounting-routes.js";
 
 test("accounting report separates GST, tender currency, costs, and profit coverage", () => {
   const report = accountingReportSummary({
@@ -164,4 +164,38 @@ test("manual FX settlement uses its audit event, not the default zero variance, 
   assert.match(settlement, /entity_kind = 'manual_order_fx_settlement'/);
   assert.match(settlement, /if \(already\)/);
   assert.doesNotMatch(settlement, /existingVariance/);
+});
+
+test("products without commercial metadata return a complete empty snapshot before editing", async () => {
+  const productId = "123e4567-e89b-42d3-a456-426614174000";
+  let readDetails: ((req: any, res: any) => Promise<void>) | undefined;
+  const app = {
+    get(path: string, handler: (req: any, res: any) => Promise<void>) {
+      if (path === "/api/admin/product-details/:productId") readDetails = handler;
+    },
+    put() {},
+    post() {},
+  };
+  const results = [[{ id: productId }], [], []];
+  const db = {
+    execute: async () => results.shift() ?? [],
+    transaction: async () => { throw new Error("Unexpected write"); },
+  };
+  registerAdminAccountingRoutes(app as any, () => db as any);
+  assert.ok(readDetails);
+  let response: unknown;
+  await readDetails({ params: { productId } }, {
+    json(value: unknown) { response = value; },
+    status(code: number) { throw new Error(`Unexpected HTTP ${code}`); },
+  });
+  assert.deepEqual(response, {
+    productId,
+    weightKg: null,
+    lengthCm: null,
+    widthCm: null,
+    heightCm: null,
+    wholesaleCostMvr: null,
+    supplierCostMvr: null,
+    variants: [],
+  });
 });
