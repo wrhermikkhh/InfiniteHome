@@ -83,7 +83,7 @@ import {
   SlidersHorizontal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { AdminPermissionToggle } from "@/components/admin/AdminPermissionToggle";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -4856,13 +4856,16 @@ export default function AdminPanel() {
                     New admins are regular admins, not super-admins. Accounting and Admin Management stay super-admin only.
                   </p>
                   <p className="text-xs uppercase tracking-widest font-bold mb-3">Initial access</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 mb-4">
                     {ADMIN_PERMISSION_OPTIONS.map(({ key, label }) => (
-                      <div key={key} className="flex items-center gap-2">
-                        <Switch aria-label={`New admin: ${label}`} checked={newAdminPermissions[key]}
-                          onCheckedChange={value => setNewAdminPermissions(current => ({ ...current, [key]: value }))} />
-                        <span className="text-sm">{label}</span>
-                      </div>
+                      <AdminPermissionToggle
+                        key={key}
+                        id={`new-admin-${key}`}
+                        label={label}
+                        ariaLabel={`New admin: ${label}`}
+                        checked={newAdminPermissions[key]}
+                        onCheckedChange={value => setNewAdminPermissions(current => ({ ...current, [key]: value }))}
+                      />
                     ))}
                   </div>
                   <p className="mb-4 text-xs text-muted-foreground">
@@ -4903,20 +4906,20 @@ export default function AdminPanel() {
                         {!isThisAdminSuper && (
                           <>
                             <p className="text-xs uppercase tracking-widest font-bold mb-3">Access Permissions</p>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 mb-4">
                               {ADMIN_PERMISSION_OPTIONS.map(({ key, label }) => (
-                                <div key={key} className="flex items-center gap-2">
-                                  <Switch
-                                    aria-label={`${admin.name}: ${label}`}
-                                    checked={adminPerms[key]}
-                                    onCheckedChange={(v) => setEditingAdminPermissions(ep => ({
-                                      ...ep,
-                                      [admin.id]: { ...(ep[admin.id] ?? adminPerms), [key]: v }
-                                    }))}
-                                    data-testid={`switch-${key}-${admin.id}`}
-                                  />
-                                  <span className="text-sm">{label}</span>
-                                </div>
+                                <AdminPermissionToggle
+                                  key={key}
+                                  id={`admin-${admin.id}-${key}`}
+                                  label={label}
+                                  ariaLabel={`${admin.name}: ${label}`}
+                                  checked={adminPerms[key]}
+                                  onCheckedChange={(v) => setEditingAdminPermissions(ep => ({
+                                    ...ep,
+                                    [admin.id]: { ...(ep[admin.id] ?? adminPerms), [key]: v }
+                                  }))}
+                                  testId={`switch-${key}-${admin.id}`}
+                                />
                               ))}
                             </div>
                             <p className="mb-4 text-xs text-muted-foreground">

@@ -225,6 +225,12 @@
 .admin-shell .admin-content [class*="border-border"] { border-color: hsl(var(--border)); }
 .admin-shell .admin-content .shadow-sm { box-shadow: 0 8px 24px hsl(224 27% 20% / .045); }
 .admin-shell button, .admin-shell [role="button"] { min-height: 2.25rem; }
+.admin-shell .admin-content .admin-permission-switch {
+  min-height: 1.25rem;
+  height: 1.25rem;
+  width: 2.25rem;
+  padding: 0;
+}
 .admin-shell input, .admin-shell select, .admin-shell textarea { font-size: 0.875rem; }
 .admin-shell th { font: 600 10px/1.2 'DM Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
 .admin-shell td { vertical-align: middle; }
