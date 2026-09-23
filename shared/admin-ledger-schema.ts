@@ -12,7 +12,7 @@ import {
   uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
-import { admins, orders, posTransactions, products } from "./schema";
+import { admins, orders, posTransactions, products } from "./schema.js";
 
 /** Server-only commercial metadata; public product responses do not select this table. */
 export const adminProductDetails = pgTable("admin_product_details", {
