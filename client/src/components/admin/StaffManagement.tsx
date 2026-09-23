@@ -21,7 +21,7 @@ export function StaffManagement() {
     try {
       setStaff(await api.getStaffUsers());
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "Staff records could not be loaded.");
+      setLoadError(error instanceof Error ? error.message : "User records could not be loaded.");
     } finally {
       setLoading(false);
     }
@@ -38,10 +38,10 @@ export function StaffManagement() {
       setStaff(current => [added, ...current]);
       setName("");
       setEmail("");
-      toast({ title: "Staff added", description: "This person has no sign-in access yet." });
+      toast({ title: "User added", description: "This person has no sign-in access yet." });
     } catch (error) {
       toast({
-        title: "Could not add staff",
+        title: "Could not add user",
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
@@ -53,45 +53,45 @@ export function StaffManagement() {
   return (
     <section className="mt-10" aria-labelledby="staff-management-title">
       <div className="mb-5">
-        <p className="admin-kicker mb-2">Infinite Home / Staff</p>
-        <h2 id="staff-management-title" className="text-2xl font-serif">Staff</h2>
+        <p className="admin-kicker mb-2">Infinite Home / Users</p>
+        <h2 id="staff-management-title" className="text-2xl font-serif">Users</h2>
         <p className="text-sm text-muted-foreground">
-          Add non-admin staff now. They cannot sign in or access the admin panel until you decide their access.
+          Add non-admin users here. They cannot sign in or access the admin panel until you decide their access.
         </p>
       </div>
 
       <Card className="admin-surface-card rounded-none border-border shadow-none mb-5">
         <CardContent className="p-6">
-          <h3 className="font-bold mb-4 uppercase tracking-widest text-xs">Add Staff</h3>
+          <h3 className="font-bold mb-4 uppercase tracking-widest text-xs">Add User</h3>
           <form onSubmit={addStaff} className="flex flex-wrap items-end gap-3">
             <div className="flex-1 min-w-[180px]">
-              <label htmlFor="new-staff-name" className="block text-sm mb-2">Name</label>
-              <Input id="new-staff-name" value={name} onChange={event => setName(event.target.value)}
+              <label htmlFor="new-user-name" className="block text-sm mb-2">Name</label>
+              <Input id="new-user-name" value={name} onChange={event => setName(event.target.value)}
                 autoComplete="off" required maxLength={100} className="rounded-none"
-                data-testid="input-new-staff-name" />
+                data-testid="input-new-user-name" />
             </div>
             <div className="flex-1 min-w-[220px]">
-              <label htmlFor="new-staff-email" className="block text-sm mb-2">Email</label>
-              <Input id="new-staff-email" type="email" value={email} onChange={event => setEmail(event.target.value)}
+              <label htmlFor="new-user-email" className="block text-sm mb-2">Email</label>
+              <Input id="new-user-email" type="email" value={email} onChange={event => setEmail(event.target.value)}
                 autoComplete="off" required maxLength={254} className="rounded-none"
-                data-testid="input-new-staff-email" />
+                data-testid="input-new-user-email" />
             </div>
-            <Button type="submit" disabled={saving} className="rounded-none" data-testid="button-add-staff">
-              <Plus size={14} className="mr-2" /> {saving ? "Adding..." : "Add Staff"}
+            <Button type="submit" disabled={saving} className="rounded-none" data-testid="button-add-user">
+              <Plus size={14} className="mr-2" /> {saving ? "Adding..." : "Add User"}
             </Button>
           </form>
           <p className="mt-4 text-xs text-muted-foreground">
-            No password or permissions are assigned. You can set up staff access later.
+            No password or permissions are assigned. You can set up user access later.
           </p>
         </CardContent>
       </Card>
 
-      {loading ? <p className="text-sm text-muted-foreground">Loading staff...</p> : loadError ? (
+      {loading ? <p className="text-sm text-muted-foreground">Loading users...</p> : loadError ? (
         <div role="alert" className="text-sm text-destructive">
           {loadError} <Button variant="link" size="sm" onClick={() => void loadStaff()}>Retry</Button>
         </div>
       ) : staff.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No staff added yet.</p>
+        <p className="text-sm text-muted-foreground">No users added yet.</p>
       ) : (
         <div className="space-y-3">
           {staff.map(person => (

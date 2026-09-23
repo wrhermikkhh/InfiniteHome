@@ -36,14 +36,14 @@ export function registerAdminStaffRoutes(app: Express, getDb: () => Database): v
       `));
       res.json(staff);
     } catch {
-      res.status(503).json({ message: "Staff records could not be loaded." });
+      res.status(503).json({ message: "User records could not be loaded." });
     }
   });
 
   app.post("/api/admin/staff-users", async (req, res) => {
     const parsed = staffUserInput.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ message: "Enter a valid staff name and email." });
+      res.status(400).json({ message: "Enter a valid name and email." });
       return;
     }
     const { name, email } = parsed.data;
@@ -67,10 +67,10 @@ export function registerAdminStaffRoutes(app: Express, getDb: () => Database): v
       res.status(201).json(staff);
     } catch (error: any) {
       if (error?.code === "23505" || error?.cause?.code === "23505") {
-        res.status(409).json({ message: "This staff email is already in use." });
+        res.status(409).json({ message: "This user email is already in use." });
         return;
       }
-      res.status(503).json({ message: "Staff could not be added." });
+      res.status(503).json({ message: "User could not be added." });
     }
   });
 }

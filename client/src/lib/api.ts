@@ -337,7 +337,7 @@ export const api = {
 
   async getStaffUsers(): Promise<StaffUser[]> {
     const res = await fetch(`${API_BASE}/admin/staff-users`);
-    if (!res.ok) throw new Error("Staff records could not be loaded.");
+    if (!res.ok) throw new Error("User records could not be loaded.");
     return res.json();
   },
 
@@ -347,7 +347,7 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(staff),
     });
-    if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || "Staff could not be added.");
+    if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || "User could not be added.");
     return res.json();
   },
 

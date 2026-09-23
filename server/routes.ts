@@ -230,7 +230,7 @@ export async function registerRoutes(
       const outcome = await db.transaction(async tx => {
         await lockEmailIdentity(tx, regularAdmin.email);
         if (await staffEmailExists(tx, regularAdmin.email)) {
-          return { conflict: "This email already belongs to staff." };
+          return { conflict: "This email already belongs to a non-admin user." };
         }
         const duplicate = securityRows(await tx.execute(sql`
           SELECT 1 FROM admins WHERE lower(email) = ${regularAdmin.email} LIMIT 1
