@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { QuotationCatalogPicker } from "./QuotationCatalogPicker";
 
 type View = "Quotations" | "Purchase Orders";
 type DocumentKind = "quotation" | "purchase_order";
@@ -95,6 +96,7 @@ function DocumentForm({
       </div>
       <FormField label="Notes"><textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} className="min-h-20 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm normal-case tracking-normal text-[#12334a] outline-none focus:border-[#16877f] focus:ring-2 focus:ring-[#16877f]/10" /></FormField>
       <div className="mt-5">
+        {isQuotation && <QuotationCatalogPicker onAdd={item => setForm({ ...form, items: form.items.length === 1 && !form.items[0].description.trim() && form.items[0].quantity === 1 && form.items[0].unitPrice === 0 ? [item] : [...form.items, item] })} />}
         <div className="mb-2 flex items-center justify-between gap-3"><h3 className="text-[10px] font-bold uppercase tracking-[.12em] text-slate-500">Line items</h3><button type="button" onClick={() => setForm({ ...form, items: [...form.items, emptyItem()] })} className={buttonClass()}>Add line</button></div>
         <div className="space-y-2">
           {form.items.map((item, index) => <div key={index} className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[minmax(0,1fr)_90px_120px_auto] sm:items-end">
