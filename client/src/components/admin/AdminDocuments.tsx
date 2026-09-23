@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNo
 import { QuotationCatalogPicker } from "./QuotationCatalogPicker";
 import { adminButtonClass } from "./admin-ui";
 import { quotationTotals } from "@shared/quotation-totals";
+import { openBusinessPrint } from "@/lib/business-print";
 
 type View = "Quotations" | "Purchase Orders";
 type DocumentKind = "quotation" | "purchase_order";
@@ -121,15 +122,35 @@ function DocumentForm({
 }
 
 function printDocument(document: AdminDocument) {
+  if (document.kind === "quotation") {
+    const discount = Number(document.discount || 0);
+    return openBusinessPrint({
+      kind: "quotation",
+      number: document.number,
+      date: dateLabel(document.createdAt),
+      dueDate: document.dueDate ? dateLabel(document.dueDate) : undefined,
+      partyName: document.partyName,
+      contactLines: document.contact ? [document.contact] : [],
+      referenceLabel: "Status",
+      reference: statusLabel(document.status),
+      notes: document.notes || undefined,
+      items: document.items.map(item => ({ description: item.description, quantity: item.quantity, unitPrice: item.unitPrice })),
+      summaryRows: [
+        { label: "Subtotal", value: document.total + discount },
+        ...(discount ? [{ label: "Discount", value: -discount }] : []),
+      ],
+      total: document.total,
+      closingText: "This quotation is an estimate, not an invoice. It does not collect payment or reserve stock.",
+      signature: true,
+    });
+  }
   const escape = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character] || character));
   const rows = document.items.map((item) => `<tr><td>${escape(item.description)}</td><td>${item.quantity}</td><td>${money(item.unitPrice)}</td><td>${money(item.quantity * item.unitPrice)}</td></tr>`).join("");
-  const title = document.kind === "quotation" ? "Quotation" : "Purchase Order";
-  const discount = document.discount || 0;
-  const discountRows = discount > 0 ? `<div class="total">Subtotal: ${escape(money(document.total + discount))}</div><div class="total">Discount: -${escape(money(discount))}</div>` : "";
+  const title = "Purchase Order";
   const popup = window.open("", "_blank");
   if (!popup) return false;
   popup.opener = null;
-  popup.document.write(`<!doctype html><html><head><title>${escape(title)} ${escape(document.number)}</title><style>body{font-family:Arial,sans-serif;color:#12334a;max-width:820px;margin:48px auto;padding:0 24px}h1{font-size:28px;margin:0 0 6px}p{color:#526572}.meta{border-top:2px solid #16877f;border-bottom:1px solid #d8e2e4;padding:18px 0;margin:24px 0;display:grid;grid-template-columns:1fr 1fr;gap:8px}.label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#607581}table{border-collapse:collapse;width:100%;margin-top:28px}th,td{padding:11px 8px;border-bottom:1px solid #d8e2e4;text-align:left}th{font-size:11px;text-transform:uppercase;letter-spacing:.08em}td:nth-child(n+2),th:nth-child(n+2){text-align:right}.total{text-align:right;font-size:20px;font-weight:bold;margin-top:20px}.notes{white-space:pre-wrap;margin-top:32px}@media print{body{margin:0}}</style></head><body><p>INFINITE HOME</p><h1>${escape(title)}</h1><p>${escape(document.number)} · MVR</p><div class="meta"><div><div class="label">Party</div>${escape(document.partyName)}</div><div><div class="label">Contact</div>${escape(document.contact || "Not provided")}</div><div><div class="label">Status</div>${escape(statusLabel(document.status))}</div><div><div class="label">${document.kind === "quotation" ? "Valid until" : "Expected delivery"}</div>${escape(dateLabel(document.dueDate))}</div></div><table><thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Line total</th></tr></thead><tbody>${rows}</tbody></table>${discountRows}<div class="total">Total: ${escape(money(document.total))}</div>${document.notes ? `<div class="notes"><div class="label">Notes</div>${escape(document.notes)}</div>` : ""}</body></html>`);
+  popup.document.write(`<!doctype html><html><head><title>${escape(title)} ${escape(document.number)}</title><style>body{font-family:Arial,sans-serif;color:#12334a;max-width:820px;margin:48px auto;padding:0 24px}h1{font-size:28px;margin:0 0 6px}p{color:#526572}.meta{border-top:2px solid #16877f;border-bottom:1px solid #d8e2e4;padding:18px 0;margin:24px 0;display:grid;grid-template-columns:1fr 1fr;gap:8px}.label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#607581}table{border-collapse:collapse;width:100%;margin-top:28px}th,td{padding:11px 8px;border-bottom:1px solid #d8e2e4;text-align:left}th{font-size:11px;text-transform:uppercase;letter-spacing:.08em}td:nth-child(n+2),th:nth-child(n+2){text-align:right}.total{text-align:right;font-size:20px;font-weight:bold;margin-top:20px}.notes{white-space:pre-wrap;margin-top:32px}@media print{body{margin:0}}</style></head><body><p>INFINITE HOME</p><h1>${escape(title)}</h1><p>${escape(document.number)} · MVR</p><div class="meta"><div><div class="label">Party</div>${escape(document.partyName)}</div><div><div class="label">Contact</div>${escape(document.contact || "Not provided")}</div><div><div class="label">Status</div>${escape(statusLabel(document.status))}</div><div><div class="label">Expected delivery</div>${escape(dateLabel(document.dueDate))}</div></div><table><thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Line total</th></tr></thead><tbody>${rows}</tbody></table><div class="total">Total: ${escape(money(document.total))}</div>${document.notes ? `<div class="notes"><div class="label">Notes</div>${escape(document.notes)}</div>` : ""}</body></html>`);
   popup.document.close();
   popup.focus();
   popup.print();

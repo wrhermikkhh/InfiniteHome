@@ -4,6 +4,7 @@ import { InventoryReconciliation } from "@/components/InventoryReconciliation";
 import { AdminReports } from "@/components/admin/AdminReports";
 import { AdminCommerceTools } from "@/components/admin/AdminCommerceTools";
 import AdminDocuments from "@/components/admin/AdminDocuments";
+import { openBusinessPrint } from "@/lib/business-print";
 import { useAdminAuth, AdminPermissions, DEFAULT_PERMISSIONS } from "@/lib/auth";
 import { allowedAdminTabs, resolveAdminTab, type AdminTab } from "@/lib/admin-navigation";
 import { isTerminalOrder } from "@/lib/admin-operations";
@@ -662,53 +663,30 @@ export default function AdminPanel() {
   };
 
   const handlePrintOrderInvoice = (order: typeof orders[0]) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    const esc = (s: string) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const items = (order.items as any[]) || [];
-    const subtotal = items.reduce((s: number, i: any) => s + (i.price || 0) * (i.qty || 1), 0);
-    const invoiceDate = order.invoicedAt ? new Date(order.invoicedAt) : new Date(order.createdAt || '');
-    const dateStr = invoiceDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    const rowsHtml = items.map((item: any) => `
-      <tr>
-        <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;">${esc(item.name)}${item.size && item.size !== 'Standard' ? ` <span style="color:#78716c;font-size:12px;">(${esc(item.size)})</span>` : ''}${item.color && item.color !== 'Default' ? ` <span style="color:#78716c;font-size:12px;">– ${esc(item.color)}</span>` : ''}</td>
-        <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;text-align:center;">${item.qty}</td>
-        <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;text-align:right;">MVR ${Number(item.price || 0).toLocaleString()}</td>
-        <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;text-align:right;">MVR ${(Number(item.price || 0) * Number(item.qty || 1)).toLocaleString()}</td>
-      </tr>`).join('');
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Invoice ${esc(order.invoiceNumber || '')}</title>
-      <style>@page{size:A4;margin:20mm 15mm;}*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1c1917;font-size:14px;line-height:1.5;}</style>
-    </head><body>
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1c1917;padding-bottom:20px;margin-bottom:28px;">
-        <div><div style="font-size:24px;font-weight:300;letter-spacing:4px;">INFINITE HOME</div><div style="font-size:11px;color:#78716c;letter-spacing:2px;margin-top:4px;">PREMIUM LIVING</div></div>
-        <div style="text-align:right;"><div style="font-size:22px;font-weight:300;letter-spacing:3px;">INVOICE</div><div style="font-family:monospace;font-size:14px;font-weight:700;margin-top:4px;">${esc(order.invoiceNumber || '')}</div><div style="font-size:12px;color:#78716c;margin-top:2px;">${dateStr}</div></div>
-      </div>
-      <div style="display:flex;gap:40px;margin-bottom:28px;">
-        <div style="flex:1;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#78716c;margin-bottom:6px;">Bill To</div><div style="font-weight:600;">${esc(order.customerName)}</div><div style="color:#57534e;">${esc(order.customerEmail || '')}</div><div style="color:#57534e;">${esc(order.customerPhone || '')}</div></div>
-        <div><div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#78716c;margin-bottom:6px;">Order Details</div><div><span style="color:#78716c;">Order #</span> <span style="font-family:monospace;font-weight:600;">${esc(order.orderNumber)}</span></div><div style="margin-top:2px;"><span style="color:#78716c;">Payment</span> <span style="font-weight:500;">${esc(order.paymentMethod || '')}</span></div></div>
-      </div>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
-        <thead><tr style="background:#f5f5f4;">
-          <th style="padding:10px 8px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Item</th>
-          <th style="padding:10px 8px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Qty</th>
-          <th style="padding:10px 8px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Price</th>
-          <th style="padding:10px 8px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Total</th>
-        </tr></thead>
-        <tbody>${rowsHtml}</tbody>
-      </table>
-      <div style="display:flex;justify-content:flex-end;margin-bottom:40px;">
-        <div style="width:240px;">
-          <div style="display:flex;justify-content:space-between;padding:6px 0;color:#57534e;"><span>Subtotal</span><span>MVR ${subtotal.toLocaleString()}</span></div>
-          ${order.discount ? `<div style="display:flex;justify-content:space-between;padding:6px 0;color:#16a34a;"><span>Discount</span><span>-MVR ${Number(order.discount).toLocaleString()}</span></div>` : ''}
-          ${order.shipping ? `<div style="display:flex;justify-content:space-between;padding:6px 0;color:#57534e;"><span>Shipping</span><span>MVR ${Number(order.shipping).toLocaleString()}</span></div>` : ''}
-          <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid #1c1917;margin-top:6px;font-weight:700;font-size:16px;"><span>Total</span><span>MVR ${Number(order.total).toLocaleString()}</span></div>
-        </div>
-      </div>
-      <div style="border-top:1px solid #e7e5e4;padding-top:16px;text-align:center;color:#78716c;font-size:11px;letter-spacing:1px;">THANK YOU FOR SHOPPING WITH INFINITE HOME</div>
-    </body></html>`);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+    const items = (order.items as (typeof order.items[number] & { isPreOrder?: boolean })[]) || [];
+    const subtotal = items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
+    const printed = openBusinessPrint({
+      kind: "invoice",
+      number: order.invoiceNumber || order.orderNumber,
+      date: new Date(order.invoicedAt || order.createdAt || Date.now()).toLocaleDateString("en-MV"),
+      partyName: order.customerName,
+      contactLines: [order.customerEmail, order.customerPhone].filter(Boolean),
+      referenceLabel: "Order",
+      reference: order.orderNumber,
+      items: items.map(item => ({
+        description: [item.name, item.size && item.size !== "Standard" ? item.size : "", item.color && item.color !== "Default" ? item.color : "", item.isPreOrder ? "Pre-order deposit" : ""].filter(Boolean).join(" · "),
+        quantity: Number(item.qty || 0),
+        unitPrice: Number(item.price || 0),
+      })),
+      summaryRows: [
+        { label: "Subtotal", value: subtotal },
+        ...(order.discount ? [{ label: "Discount", value: -Number(order.discount) }] : []),
+        ...(order.shipping ? [{ label: "Shipping", value: Number(order.shipping) }] : []),
+      ],
+      total: Number(order.total),
+      closingText: "Thank you for shopping with Infinite Home.",
+    });
+    if (!printed) toast({ title: "Print window blocked", description: "Allow pop-ups and try again.", variant: "destructive" });
   };
 
   const handlePrintBalanceInvoice = async (order: typeof orders[0]) => {
@@ -718,66 +696,39 @@ export default function AdminPanel() {
         ord = await api.generateBalanceInvoice(order.id);
         setOrders(prev => prev.map(o => o.id === ord.id ? ord : o));
       }
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) return;
-      const esc = (s: string) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       const items = (ord.items as any[]) || [];
-      const invoiceDate = ord.balanceInvoicedAt ? new Date(ord.balanceInvoicedAt) : new Date();
-      const dateStr = invoiceDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      let grandTotal = 0;
-      const rowsHtml = items.map((item: any) => {
-        const unitFull = item.isPreOrder && item.preOrderTotalPrice ? Number(item.preOrderTotalPrice) : Number(item.price || 0);
-        const lineTotal = unitFull * Number(item.qty || 1);
-        grandTotal += lineTotal;
-        return `
-        <tr>
-          <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;">${esc(item.name)}${item.size && item.size !== 'Standard' ? ` <span style="color:#78716c;font-size:12px;">(${esc(item.size)})</span>` : ''}${item.color && item.color !== 'Default' ? ` <span style="color:#78716c;font-size:12px;">– ${esc(item.color)}</span>` : ''}${item.isPreOrder ? ' <span style="color:#b45309;font-size:11px;font-weight:600;">PRE-ORDER</span>' : ''}</td>
-          <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;text-align:center;">${item.qty}</td>
-          <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;text-align:right;">MVR ${unitFull.toLocaleString()}</td>
-          <td style="padding:10px 8px;border-bottom:1px solid #e7e5e4;text-align:right;">MVR ${lineTotal.toLocaleString()}</td>
-        </tr>`;
-      }).join('');
+      const fullSubtotal = items.reduce((sum: number, item: any) => sum + (item.isPreOrder && item.preOrderTotalPrice ? Number(item.preOrderTotalPrice) : Number(item.price || 0)) * Number(item.qty || 0), 0);
       const discount = Number(ord.discount || 0);
       const shipping = Number(ord.shipping || 0);
-      const contractTotal = grandTotal - discount + shipping;
-      const amountPaid = Number(ord.total || 0);
-      const amountDue = Math.max(0, contractTotal - amountPaid);
-      printWindow.document.write(`<!DOCTYPE html><html><head><title>Balance Invoice ${esc(ord.balanceInvoiceNumber || '')}</title>
-        <style>@page{size:A4;margin:20mm 15mm;}*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1c1917;font-size:14px;line-height:1.5;}</style>
-      </head><body>
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1c1917;padding-bottom:20px;margin-bottom:28px;">
-          <div><div style="font-size:24px;font-weight:300;letter-spacing:4px;">INFINITE HOME</div><div style="font-size:11px;color:#78716c;letter-spacing:2px;margin-top:4px;">PREMIUM LIVING</div></div>
-          <div style="text-align:right;"><div style="font-size:22px;font-weight:300;letter-spacing:3px;">BALANCE INVOICE</div><div style="font-family:monospace;font-size:14px;font-weight:700;margin-top:4px;">${esc(ord.balanceInvoiceNumber || '')}</div><div style="font-size:12px;color:#78716c;margin-top:2px;">${dateStr}</div></div>
-        </div>
-        <div style="display:flex;gap:40px;margin-bottom:28px;">
-          <div style="flex:1;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#78716c;margin-bottom:6px;">Bill To</div><div style="font-weight:600;">${esc(ord.customerName)}</div><div style="color:#57534e;">${esc(ord.customerEmail || '')}</div><div style="color:#57534e;">${esc(ord.customerPhone || '')}</div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#78716c;margin-bottom:6px;">Order Details</div><div><span style="color:#78716c;">Order #</span> <span style="font-family:monospace;font-weight:600;">${esc(ord.orderNumber)}</span></div>${ord.invoiceNumber ? `<div style="margin-top:2px;"><span style="color:#78716c;">Deposit Invoice</span> <span style="font-family:monospace;font-weight:500;">${esc(ord.invoiceNumber)}</span></div>` : ''}</div>
-        </div>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
-          <thead><tr style="background:#f5f5f4;">
-            <th style="padding:10px 8px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Item</th>
-            <th style="padding:10px 8px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Qty</th>
-            <th style="padding:10px 8px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Full Price</th>
-            <th style="padding:10px 8px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716c;">Total</th>
-          </tr></thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>
-        <div style="display:flex;justify-content:flex-end;margin-bottom:40px;">
-          <div style="width:280px;">
-            <div style="display:flex;justify-content:space-between;padding:6px 0;color:#57534e;"><span>Subtotal (Full Value)</span><span>MVR ${grandTotal.toLocaleString()}</span></div>
-            ${discount ? `<div style="display:flex;justify-content:space-between;padding:6px 0;color:#16a34a;"><span>Discount</span><span>-MVR ${discount.toLocaleString()}</span></div>` : ''}
-            ${shipping ? `<div style="display:flex;justify-content:space-between;padding:6px 0;color:#57534e;"><span>Shipping</span><span>MVR ${shipping.toLocaleString()}</span></div>` : ''}
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #1c1917;margin-top:6px;font-weight:600;"><span>Total Order Value</span><span>MVR ${contractTotal.toLocaleString()}</span></div>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;color:#16a34a;font-weight:600;"><span>Amount Paid (Deposit)</span><span>-MVR ${amountPaid.toLocaleString()}</span></div>
-            <div style="display:flex;justify-content:space-between;padding:12px;border:2px solid #1c1917;margin-top:8px;font-weight:700;font-size:17px;background:#fef3c7;"><span>BALANCE DUE</span><span>MVR ${amountDue.toLocaleString()}</span></div>
-          </div>
-        </div>
-        <div style="border-top:1px solid #e7e5e4;padding-top:16px;text-align:center;color:#78716c;font-size:11px;letter-spacing:1px;">THANK YOU FOR SHOPPING WITH INFINITE HOME</div>
-      </body></html>`);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
-    } catch (e: any) {
+      const fullOrderValue = fullSubtotal - discount + shipping;
+      const paidDeposit = Number(ord.total || 0);
+      const balanceDue = Math.max(0, fullOrderValue - paidDeposit);
+      const printed = openBusinessPrint({
+        kind: "balance_invoice",
+        number: ord.balanceInvoiceNumber || ord.orderNumber,
+        date: new Date(ord.balanceInvoicedAt || ord.createdAt || Date.now()).toLocaleDateString("en-MV"),
+        partyName: ord.customerName,
+        contactLines: [ord.customerEmail, ord.customerPhone].filter(Boolean),
+        referenceLabel: "Order",
+        reference: ord.orderNumber,
+        items: items.map((item: any) => ({
+          description: [item.name, item.size && item.size !== "Standard" ? item.size : "", item.color && item.color !== "Default" ? item.color : "", item.isPreOrder ? "Pre-order" : ""].filter(Boolean).join(" · "),
+          quantity: Number(item.qty || 0),
+          unitPrice: item.isPreOrder && item.preOrderTotalPrice ? Number(item.preOrderTotalPrice) : Number(item.price || 0),
+        })),
+        summaryRows: [
+          { label: "Subtotal (Full Value)", value: fullSubtotal },
+          ...(discount ? [{ label: "Discount", value: -discount }] : []),
+          ...(shipping ? [{ label: "Shipping", value: shipping }] : []),
+          { label: "Total Order Value", value: fullOrderValue },
+          { label: "Amount Paid (Deposit)", value: -paidDeposit },
+        ],
+        total: balanceDue,
+        totalLabel: "Balance Due",
+      });
+      if (!printed) toast({ title: "Print window blocked", description: "Allow pop-ups and try again.", variant: "destructive" });
+      return;
+     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to generate balance invoice", variant: "destructive" });
     }
   };
@@ -1168,6 +1119,33 @@ export default function AdminPanel() {
     `);
     printWindow.document.close();
 
+  };
+
+  const handlePrintDeliveryNote = (order: typeof orders[0]) => {
+    const address = [
+      order.shippingAddress,
+      order.customerAtollIsland ? `Atoll & Island: ${order.customerAtollIsland}` : "",
+      order.deliveryType === "boat" && order.boatName ? `Boat: ${order.boatName}` : "",
+      order.deliveryType === "boat" && order.boatNumber ? `Boat contact: ${order.boatNumber}` : "",
+      order.deliveryType === "boat" && order.boatLocation ? `Mooring: ${order.boatLocation}` : "",
+      order.deliveryType === "boat" && order.boatAtollIsland ? `Boat atoll & island: ${order.boatAtollIsland}` : "",
+    ].filter(Boolean).join("\n");
+    const printed = openBusinessPrint({
+      kind: "delivery_note",
+      number: order.orderNumber,
+      date: new Date().toLocaleDateString("en-MV"),
+      partyName: order.customerName,
+      contactLines: [order.customerEmail, order.customerPhone, address].filter(Boolean),
+      referenceLabel: "Order",
+      reference: order.orderNumber,
+      notes: [order.notes, order.trackingNumber ? `Tracking reference: ${order.trackingNumber}` : ""].filter(Boolean).join("\n"),
+      items: (order.items as any[]).map((item: any) => ({
+        description: [item.name, item.size && item.size !== "Standard" ? item.size : "", item.color && item.color !== "Default" ? item.color : ""].filter(Boolean).join(" · "),
+        quantity: Number(item.qty || 0),
+      })),
+      signature: true,
+    });
+    if (!printed) toast({ title: "Print window blocked", description: "Allow pop-ups and try again.", variant: "destructive" });
   };
 
   const handleCreateCategory = async () => {
@@ -4024,6 +4002,15 @@ export default function AdminPanel() {
                             variant="outline"
                             size="sm"
                             className="rounded-none text-xs gap-2"
+                            onClick={() => handlePrintDeliveryNote(order)}
+                            data-testid={`button-delivery-note-${order.id}`}
+                          >
+                            <Truck size={14} /> Delivery Note
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-none text-xs gap-2"
                             onClick={() => setSelectedOrder(order)}
                             data-testid={`button-order-details-${order.id}`}
                           >
@@ -4440,6 +4427,16 @@ export default function AdminPanel() {
                               >
                                 <Printer className="h-3.5 w-3.5 mr-1.5" />
                                 Invoice
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-none text-xs uppercase tracking-widest"
+                                data-testid={`button-print-delivery-note-${order.id}`}
+                                onClick={() => handlePrintDeliveryNote(order)}
+                              >
+                                <Truck className="h-3.5 w-3.5 mr-1.5" />
+                                Delivery Note
                               </Button>
                               <Button
                                 variant="default"
@@ -5236,206 +5233,65 @@ export default function AdminPanel() {
             >
               <Printer size={16} className="mr-2" /> Shipping Label
             </Button>
+            {selectedTransaction.labelAddress && (
+              <Button
+                variant="outline"
+                className="rounded-none"
+                onClick={() => {
+                  if (!selectedTransaction) return;
+                  const printed = openBusinessPrint({
+                    kind: "delivery_note",
+                    number: selectedTransaction.transactionNumber,
+                    date: new Date().toLocaleDateString("en-MV"),
+                    partyName: selectedTransaction.labelRecipientName || selectedTransaction.customerName || "Walk-in Customer",
+                    contactLines: [selectedTransaction.labelPhone || selectedTransaction.customerPhone, selectedTransaction.labelAddress].filter(Boolean),
+                    referenceLabel: "Transaction",
+                    reference: selectedTransaction.transactionNumber,
+                    items: (selectedTransaction.items || []).map((item: any) => ({
+                      description: [item.name, item.size && item.size !== "Standard" ? item.size : "", item.color && item.color !== "Default" ? item.color : ""].filter(Boolean).join(" · "),
+                      quantity: Number(item.qty || 0),
+                    })),
+                    notes: selectedTransaction.trackingNumber ? `Tracking reference: ${selectedTransaction.trackingNumber}` : undefined,
+                    signature: true,
+                  });
+                  if (!printed) toast({ title: "Print window blocked", description: "Allow pop-ups and try again.", variant: "destructive" });
+                }}
+              >
+                <Truck size={16} className="mr-2" /> Delivery Note
+              </Button>
+            )}
             <Button
               className="rounded-none bg-stone-900 hover:bg-stone-800"
               onClick={() => {
-                const printContent = document.getElementById("invoice-content");
-                if (printContent) {
-                  const printWindow = window.open("", "_blank");
-                  if (printWindow) {
-                    printWindow.document.write(`
-                      <!DOCTYPE html>
-                      <html>
-                      <head>
-                        <title>Invoice ${selectedTransaction?.transactionNumber || ""}</title>
-                        <style>
-                          @page { size: A4; margin: 0; }
-                          * { margin: 0; padding: 0; box-sizing: border-box; }
-                          html, body { height: 100%; }
-                          body { 
-                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                            line-height: 1.5;
-                            color: #1c1917;
-                            background: white;
-                          }
-                          .invoice-wrapper { display: flex; flex-direction: column; min-height: 100vh; }
-                          .invoice-body { flex: 1 1 auto; }
-                          .footer { flex-shrink: 0; margin-top: auto; }
-                          .header { background: linear-gradient(to right, #1c1917, #292524); color: white; padding: 2rem 2.5rem; }
-                          .header h1 { font-size: 1.5rem; font-weight: 300; letter-spacing: 0.3em; text-transform: uppercase; }
-                          .header-subtitle { color: #a8a29e; font-size: 0.75rem; letter-spacing: 0.1em; margin-top: 0.25rem; }
-                          .header-invoice { font-size: 1.875rem; font-weight: 300; letter-spacing: 0.1em; }
-                          .details-bar { background: #f5f5f4; padding: 1rem 2.5rem; border-bottom: 1px solid #e7e5e4; display: flex; justify-content: space-between; }
-                          .detail-item { }
-                          .detail-label { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: #78716c; margin-bottom: 0.25rem; }
-                          .detail-value { font-size: 0.875rem; }
-                          .detail-value.mono { font-family: monospace; font-weight: 600; }
-                          .status-badge { display: inline-block; padding: 0.25rem 0.75rem; background: #d1fae5; color: #047857; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 9999px; }
-                          .customer-section { padding: 1.5rem 2.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-                          .section-label { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: #78716c; margin-bottom: 0.5rem; }
-                          .customer-name { font-weight: 600; color: #1c1917; }
-                          .customer-phone { font-size: 0.875rem; color: #57534e; margin-top: 0.25rem; }
-                          .text-right { text-align: right; }
-                          table { width: 100%; border-collapse: collapse; margin: 0 2.5rem; width: calc(100% - 5rem); }
-                          thead tr { border-top: 1px solid #e7e5e4; border-bottom: 1px solid #e7e5e4; background: #fafaf9; }
-                          th { padding: 0.75rem 0.5rem; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; color: #57534e; }
-                          th:first-child { text-align: left; }
-                          th:nth-child(2) { text-align: center; width: 5rem; }
-                          th:nth-child(3), th:nth-child(4) { text-align: right; width: 7rem; }
-                          td { padding: 1rem 0.5rem; border-bottom: 1px solid #f5f5f4; }
-                          td:first-child { }
-                          td:nth-child(2) { text-align: center; color: #44403c; }
-                          td:nth-child(3) { text-align: right; color: #44403c; }
-                          td:nth-child(4) { text-align: right; font-weight: 600; color: #1c1917; }
-                          .item-name { font-weight: 500; color: #1c1917; }
-                          .item-variant { font-size: 0.75rem; color: #78716c; margin-top: 0.125rem; }
-                          .totals-section { padding: 1.5rem 2.5rem; display: flex; justify-content: flex-end; }
-                          .totals-box { width: 18rem; }
-                          .total-row { display: flex; justify-content: space-between; font-size: 0.875rem; color: #57534e; padding: 0.25rem 0; }
-                          .total-row.discount { color: #059669; }
-                          .grand-total { display: flex; justify-content: space-between; align-items: center; padding-top: 0.75rem; margin-top: 0.75rem; border-top: 2px solid #1c1917; }
-                          .grand-total-label { font-size: 1.125rem; font-weight: 600; color: #1c1917; }
-                          .grand-total-value { font-size: 1.25rem; font-weight: 700; color: #1c1917; }
-                          .cash-details { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #e7e5e4; }
-                          .notes-section { margin: 0 2.5rem 1.5rem; padding: 1rem; background: #fffbeb; border: 1px solid #fde68a; border-radius: 0.25rem; }
-                          .notes-label { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: #b45309; font-weight: 600; margin-bottom: 0.25rem; }
-                          .notes-text { font-size: 0.875rem; color: #92400e; }
-                          .footer { background: #fafaf9; padding: 1.5rem 2.5rem; text-align: center; border-top: 1px solid #e7e5e4; }
-                          .footer-thanks { font-weight: 500; color: #1c1917; margin-bottom: 0.25rem; }
-                          .footer-contact { font-size: 0.75rem; color: #78716c; }
-                          @media print {
-                            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                            .invoice-wrapper { min-height: 100vh; }
-                            .footer { position: fixed; bottom: 0; left: 0; right: 0; }
-                            .invoice-body { padding-bottom: 5rem; }
-                          }
-                        </style>
-                      </head>
-                      <body>
-                        <div class="invoice-wrapper">
-                        <div class="invoice-body">
-                        <div class="header" style="display: flex; justify-content: space-between; align-items: center;">
-                          <div>
-                            <h1>Infinite Home</h1>
-                            <p class="header-subtitle">Premium Home Essentials</p>
-                          </div>
-                          <div style="text-align: right;">
-                            <p class="header-invoice">INVOICE</p>
-                          </div>
-                        </div>
-                        <div class="details-bar">
-                          <div style="display: flex; gap: 2rem;">
-                            <div class="detail-item">
-                              <p class="detail-label">Invoice No.</p>
-                              <p class="detail-value mono">${selectedTransaction?.transactionNumber || ""}</p>
-                            </div>
-                            <div class="detail-item">
-                              <p class="detail-label">Date</p>
-                              <p class="detail-value">${selectedTransaction?.createdAt ? new Date(selectedTransaction.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : "-"}</p>
-                            </div>
-                            <div class="detail-item">
-                              <p class="detail-label">Time</p>
-                              <p class="detail-value">${selectedTransaction?.createdAt ? new Date(selectedTransaction.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : "-"}</p>
-                            </div>
-                          </div>
-                          <div>
-                            <span class="status-badge">${selectedTransaction?.status || "Completed"}</span>
-                          </div>
-                        </div>
-                        <div class="customer-section">
-                          <div>
-                            <p class="section-label">Billed To</p>
-                            <p class="customer-name">${selectedTransaction?.customerName || "Walk-in Customer"}</p>
-                            ${selectedTransaction?.customerPhone ? `<p class="customer-phone">${selectedTransaction.customerPhone}</p>` : ""}
-                          </div>
-                          <div class="text-right">
-                            <p class="section-label">Payment Details</p>
-                            <p class="customer-name" style="text-transform: capitalize;">${selectedTransaction?.paymentMethod || ""}</p>
-                            <p class="customer-phone">Served by ${selectedTransaction?.cashierName || ""}</p>
-                          </div>
-                        </div>
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Item Description</th>
-                              <th>Qty</th>
-                              <th>Price</th>
-                              <th>Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            ${selectedTransaction?.items?.map((item: any) => `
-                              <tr>
-                                <td>
-                                  <p class="item-name">${item.name}</p>
-                                  ${(item.size && item.size !== 'Standard') || (item.color && item.color !== 'Default') ? `<p class="item-variant">${[item.size !== 'Standard' ? item.size : '', item.color !== 'Default' ? item.color : ''].filter(Boolean).join(" • ")}</p>` : ""}
-                                </td>
-                                <td>${item.qty}</td>
-                                <td>${formatCurrency(item.price)}</td>
-                                <td>${formatCurrency(item.price * item.qty)}</td>
-                              </tr>
-                            `).join("") || ""}
-                          </tbody>
-                        </table>
-                        <div class="totals-section">
-                          <div class="totals-box">
-                            <div class="total-row">
-                              <span>Subtotal</span>
-                              <span>${formatCurrency(selectedTransaction?.subtotal || 0)}</span>
-                            </div>
-                            ${(selectedTransaction?.discount || 0) > 0 ? `
-                              <div class="total-row discount">
-                                <span>Discount</span>
-                                <span>-${formatCurrency(selectedTransaction?.discount || 0)}</span>
-                              </div>
-                            ` : ""}
-                            ${(selectedTransaction?.gstPercentage || 0) > 0 ? `
-                              <div class="total-row">
-                                <span>GST (${selectedTransaction?.gstPercentage}%)</span>
-                                <span>${formatCurrency(selectedTransaction?.gstAmount || 0)}</span>
-                              </div>
-                            ` : ""}
-                            <div class="grand-total">
-                              <span class="grand-total-label">Total</span>
-                              <span class="grand-total-value">${formatCurrency(selectedTransaction?.total || 0)}</span>
-                            </div>
-                            ${selectedTransaction?.paymentMethod === "cash" && selectedTransaction?.amountReceived ? `
-                              <div class="cash-details">
-                                <div class="total-row">
-                                  <span>Cash Received</span>
-                                  <span>${formatCurrency(selectedTransaction.amountReceived)}</span>
-                                </div>
-                                <div class="total-row" style="font-weight: 500; color: #1c1917;">
-                                  <span>Change Due</span>
-                                  <span>${formatCurrency(selectedTransaction?.change || 0)}</span>
-                                </div>
-                              </div>
-                            ` : ""}
-                          </div>
-                        </div>
-                        ${selectedTransaction?.notes ? `
-                          <div class="notes-section">
-                            <p class="notes-label">Notes</p>
-                            <p class="notes-text">${selectedTransaction.notes}</p>
-                          </div>
-                        ` : ""}
-                        </div>
-                        <div class="footer">
-                          <p class="footer-thanks">Thank you for shopping with us!</p>
-                          <p class="footer-contact">Male', Maldives • support@infinitehome.mv</p>
-                        </div>
-                        </div>
-                      </body>
-                      </html>
-                    `);
-                    printWindow.document.close();
-                    printWindow.focus();
-                    setTimeout(() => {
-                      printWindow.print();
-                      printWindow.close();
-                    }, 250);
-                  }
-                }
+                if (!selectedTransaction) return;
+                const subtotal = Number(selectedTransaction.subtotal || 0);
+                const discount = Number(selectedTransaction.discount || 0);
+                const gst = Number(selectedTransaction.gstAmount || 0);
+                const printed = openBusinessPrint({
+                  kind: "invoice",
+                  number: selectedTransaction.transactionNumber,
+                  date: new Date(selectedTransaction.createdAt || Date.now()).toLocaleDateString("en-MV"),
+                  partyName: selectedTransaction.customerName || "Walk-in Customer",
+                  contactLines: [selectedTransaction.customerPhone].filter(Boolean),
+                  items: (selectedTransaction.items || []).map((item: any) => ({
+                    description: [item.name, item.size && item.size !== "Standard" ? item.size : "", item.color && item.color !== "Default" ? item.color : ""].filter(Boolean).join(" · "),
+                    quantity: Number(item.qty || 0),
+                    unitPrice: Number(item.price || 0),
+                  })),
+                  summaryRows: [
+                    { label: "Subtotal", value: subtotal },
+                    ...(discount > 0 ? [{ label: "Discount", value: -discount }] : []),
+                    ...((selectedTransaction.gstPercentage || 0) > 0 ? [{ label: `GST (${selectedTransaction.gstPercentage}%)`, value: gst }] : []),
+                  ],
+                  paymentRows: selectedTransaction.paymentMethod === "cash" && selectedTransaction.amountReceived ? [
+                      { label: "Cash Received", value: Number(selectedTransaction.amountReceived) },
+                      { label: "Change Due", value: Number(selectedTransaction.change || 0) },
+                    ] : [],
+                  total: Number(selectedTransaction.total || 0),
+                  closingText: selectedTransaction.notes,
+                });
+                if (!printed) toast({ title: "Print window blocked", description: "Allow pop-ups and try again.", variant: "destructive" });
+                return;
               }}
             >
               <Printer size={16} className="mr-2" /> Print Invoice
