@@ -1,23 +1,23 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { Order, PosTransaction } from "@/lib/api";
 import { formatCurrency } from "@/lib/products";
+import { matchesReportFacets, type ReportSource } from "@/lib/report-filters";
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart,
   Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
 type View = "Analytics" | "Finance" | "Charts";
-type Source = "orders" | "pos" | "both";
 type PosRuntime = PosTransaction & { convertedToOrderId?: string | null };
 type Filters = {
   period: "7" | "30" | "90" | "all" | "custom";
-  from: string; to: string; status: string; payment: string;
-  delivery: string; source: Source; search: string;
+  from: string; to: string; status: string[]; payment: string[];
+  delivery: string[]; source: ReportSource[]; search: string;
 };
 
 const initialFilters: Filters = {
-  period: "30", from: "", to: "", status: "all", payment: "all",
-  delivery: "all", source: "both", search: "",
+  period: "30", from: "", to: "", status: [], payment: [],
+  delivery: [], source: [], search: "",
 };
 const palette = ["#16877f", "#12334a", "#c38d55", "#7b9b9d", "#bd5d4e", "#5d6d80"];
 const label = (value: string) => value.replace(/[_-]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
@@ -35,25 +35,53 @@ function SelectFilter({ label: title, value, onChange, children }: {
   </label>;
 }
 
+function MultiSelectFilter({ title, values, options, allLabel, onChange }: {
+  title: string; values: string[]; options: { value: string; name: string }[];
+  allLabel: string; onChange: (values: string[]) => void;
+}) {
+  const summary = values.length === 0 ? allLabel :
+    values.length === 1 ? options.find(option => option.value === values[0])?.name || values[0] :
+    `${values.length} selected`;
+  return <details className="group relative min-w-[150px] flex-1">
+    <summary aria-label={`${title}: ${summary}`} className="flex h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition hover:border-[#16877f] focus-visible:ring-2 focus-visible:ring-[#16877f]/30 [&::-webkit-details-marker]:hidden">
+      <span className="truncate"><span className="mr-2 text-[10px] font-semibold uppercase tracking-[.12em] text-slate-500">{title}</span>{summary}</span>
+      <span aria-hidden="true" className="text-slate-500 group-open:rotate-180">⌄</span>
+    </summary>
+    <div className="absolute left-0 top-full z-30 mt-1 w-full min-w-[190px] rounded-md border border-slate-200 bg-white p-2 shadow-lg">
+      <button type="button" onClick={() => onChange([])} disabled={values.length === 0} className="w-full rounded px-2 py-2 text-left text-xs font-semibold text-[#16877f] hover:bg-slate-50 disabled:text-slate-400">Show all</button>
+      <div className="max-h-56 overflow-y-auto">
+        {options.map(option => <label key={option.value} className="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm text-slate-700 hover:bg-slate-50">
+          <input type="checkbox" checked={values.includes(option.value)} onChange={() => onChange(values.includes(option.value) ? values.filter(value => value !== option.value) : [...values, option.value])} className="accent-[#16877f]" />
+          {option.name}
+        </label>)}
+        {options.length === 0 && <p className="px-2 py-2 text-xs text-slate-500">No values available</p>}
+      </div>
+    </div>
+  </details>;
+}
+
 function FiltersBar({ filters, setFilters, statuses, payments, deliveries, hasPos }: {
-  filters: Filters; setFilters: (next: Filters) => void; statuses: string[];
+  filters: Filters; setFilters: Dispatch<SetStateAction<Filters>>; statuses: string[];
   payments: string[]; deliveries: string[]; hasPos: boolean;
 }) {
-  const set = (key: keyof Filters, value: string) => setFilters({ ...filters, [key]: value });
+  const set = (key: "period" | "from" | "to" | "search", value: string) => setFilters(current => ({ ...current, [key]: value }));
+  const setMany = (key: "status" | "payment" | "delivery" | "source", values: string[]) =>
+    setFilters(current => ({ ...current, [key]: values }));
   return <section aria-label="Report filters" className="mb-7 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_8px_25px_rgba(18,51,74,.05)]">
-    <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
+    <div className="flex flex-wrap gap-3">
       <SelectFilter label="Period" value={filters.period} onChange={v => set("period", v)}>
         <option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option>
         <option value="all">All time</option><option value="custom">Custom range</option>
       </SelectFilter>
       {filters.period === "custom" && <><label className="flex flex-1 flex-col gap-1.5 text-[10px] font-semibold uppercase tracking-[.12em] text-slate-500">From<input aria-label="From date" type="date" value={filters.from} onChange={e => set("from", e.target.value)} className="h-10 rounded-md border border-slate-200 px-3 text-sm tracking-normal outline-none focus:border-[#16877f]" /></label>
         <label className="flex flex-1 flex-col gap-1.5 text-[10px] font-semibold uppercase tracking-[.12em] text-slate-500">To<input aria-label="To date" type="date" value={filters.to} onChange={e => set("to", e.target.value)} className="h-10 rounded-md border border-slate-200 px-3 text-sm tracking-normal outline-none focus:border-[#16877f]" /></label></>}
-      <SelectFilter label="Status" value={filters.status} onChange={v => set("status", v)}><option value="all">All statuses</option>{statuses.map(v => <option key={v} value={v}>{label(v)}</option>)}</SelectFilter>
-      <SelectFilter label="Payment" value={filters.payment} onChange={v => set("payment", v)}><option value="all">All methods</option>{payments.map(v => <option key={v} value={v}>{label(v)}</option>)}</SelectFilter>
-      <SelectFilter label="Delivery" value={filters.delivery} onChange={v => set("delivery", v)}><option value="all">All types</option>{deliveries.map(v => <option key={v} value={v}>{label(v)}</option>)}</SelectFilter>
-      {hasPos && <SelectFilter label="Source" value={filters.source} onChange={v => set("source", v as Source)}><option value="both">Orders + POS</option><option value="orders">Orders only</option><option value="pos">POS only</option></SelectFilter>}
+      <MultiSelectFilter title="Status" values={filters.status} onChange={v => setMany("status", v)} options={statuses.map(value => ({ value, name: label(value) }))} allLabel="All statuses" />
+      <MultiSelectFilter title="Payment" values={filters.payment} onChange={v => setMany("payment", v)} options={payments.map(value => ({ value, name: label(value) }))} allLabel="All methods" />
+      <MultiSelectFilter title="Delivery" values={filters.delivery} onChange={v => setMany("delivery", v)} options={deliveries.map(value => ({ value, name: label(value) }))} allLabel="All types" />
+      {hasPos && <MultiSelectFilter title="Source" values={filters.source} onChange={v => setMany("source", v)} options={[{ value: "orders", name: "Orders" }, { value: "pos", name: "POS" }]} allLabel="Orders + POS" />}
       <button type="button" onClick={() => setFilters(initialFilters)} className="h-10 shrink-0 rounded-md border border-slate-300 px-4 text-xs font-bold uppercase tracking-[.1em] text-slate-600 transition hover:border-[#16877f] hover:text-[#16877f]">Reset</button>
     </div>
+    <p className="mt-3 text-xs text-slate-500">Select multiple options in any filter. Matches within a filter are combined; filters work together.</p>
     <label className="mt-3 flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 text-slate-500 focus-within:border-[#16877f]">
       <span aria-hidden="true" className="text-base">⌕</span><span className="sr-only">Search reports</span><input value={filters.search} onChange={e => set("search", e.target.value)} placeholder="Search order number, customer, product or transaction" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400" />
     </label>
@@ -86,13 +114,12 @@ export function AdminReports({ view, orders, posTransactions, canViewPos }: {
   }, [filters.period, filters.from, filters.to]);
   const filtered = useMemo(() => {
     const query = filters.search.trim().toLowerCase();
-    const source = canViewPos ? filters.source : "orders";
-    const match = (date: string | undefined, status: string, payment: string, delivery: string, haystack: string) =>
+    const facets = canViewPos ? filters : { ...filters, source: [] };
+    const match = (date: string | undefined, status: string, payment: string, delivery: string, source: ReportSource, haystack: string) =>
       dateValue(date) >= bounds.from && dateValue(date) <= bounds.to &&
-      (filters.status === "all" || status === filters.status) && (filters.payment === "all" || payment === filters.payment) &&
-      (filters.delivery === "all" || delivery === filters.delivery) && (!query || haystack.toLowerCase().includes(query));
-    const fo = source !== "pos" ? orders.filter(o => match(o.createdAt, o.status, o.paymentMethod, o.deliveryType || "", `${o.orderNumber} ${o.customerName} ${o.items.map(i => i.name).join(" ")}`)) : [];
-    const fp = canViewPos && source !== "orders" ? pos.filter(p => match(p.createdAt, p.status, p.paymentMethod, p.labelDeliveryType || "", `${p.transactionNumber} ${p.customerName || ""} ${p.items.map(i => i.name).join(" ")}`)) : [];
+      matchesReportFacets(facets, { status, payment, delivery, source }) && (!query || haystack.toLowerCase().includes(query));
+    const fo = orders.filter(o => match(o.createdAt, o.status, o.paymentMethod, o.deliveryType || "", "orders", `${o.orderNumber} ${o.customerName} ${o.items.map(i => i.name).join(" ")}`));
+    const fp = canViewPos ? pos.filter(p => match(p.createdAt, p.status, p.paymentMethod, p.labelDeliveryType || "", "pos", `${p.transactionNumber} ${p.customerName || ""} ${p.items.map(i => i.name).join(" ")}`)) : [];
     return { orders: fo, pos: fp };
   }, [orders, pos, canViewPos, filters, bounds]);
   const ineligibleConvertedOrderIds = new Set(pos.filter(p => p.convertedToOrderId && !isCompletedPos(p.status)).map(p => p.convertedToOrderId));
