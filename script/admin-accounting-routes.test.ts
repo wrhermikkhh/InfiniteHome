@@ -199,3 +199,38 @@ test("products without commercial metadata return a complete empty snapshot befo
     variants: [],
   });
 });
+
+test("accounting report resolves POS and manual FX rows from both database adapters", async () => {
+  let reportHandler: ((req: any, res: any) => Promise<void>) | undefined;
+  const app = {
+    get(path: string, handler: (req: any, res: any) => Promise<void>) {
+      if (path === "/api/admin/accounting/reports") reportHandler = handler;
+    },
+    put() {},
+    post() {},
+  };
+  const results = [
+    [], [], [], [], [{ landedCostMvr: 0 }], [{}],
+    [{ bookedOrdersMvr: 0, collectedMvr: 0, manualCollectedMvr: 0, convertedPosOrdersMvr: 0 }],
+    [{ openMvr: 0, openUsd: 0, verifiedRedotPayReceiptsUsd: 0 }],
+    { rows: [{ realizedFxMvr: 2 }] },
+    [{ realizedFxMvr: -0.5 }],
+  ];
+  let calls = 0;
+  const db = {
+    execute: async () => {
+      assert.ok(calls < results.length, "Unexpected accounting query");
+      return results[calls++];
+    },
+    transaction: async () => { throw new Error("Unexpected write"); },
+  };
+  registerAdminAccountingRoutes(app as any, () => db as any);
+  assert.ok(reportHandler);
+  let report: any;
+  await reportHandler({ query: { from: "2026-09-01", to: "2026-09-23" } }, {
+    json(value: unknown) { report = value; },
+    status(code: number) { throw new Error(`Unexpected HTTP ${code}`); },
+  });
+  assert.equal(calls, 10);
+  assert.equal(report.realizedFxMvr, 1.5);
+});

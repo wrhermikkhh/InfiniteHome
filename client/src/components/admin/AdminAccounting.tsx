@@ -80,15 +80,16 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="grid gap-1.5 text-xs font-semibold text-slate-600">
-    <span className="uppercase tracking-[.1em] text-[10px] text-slate-500">{label}</span>{children}
+  return <label className="grid min-w-0 gap-2 text-xs font-semibold text-slate-600">
+    <span className="font-bold uppercase tracking-[.14em] text-[10px] text-slate-500">{label}</span>{children}
   </label>;
 }
 function Panel({ title, kicker, children, action }: { title: string; kicker?: string; children: React.ReactNode; action?: React.ReactNode }) {
-  return <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-[0_8px_25px_rgba(18,51,74,.05)]">
-    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-      <div>{kicker && <p className="mb-1 text-[10px] font-semibold uppercase tracking-[.16em] text-[#16877f]">{kicker}</p>}
-        <h2 className="text-xl text-[#12334a]">{title}</h2></div>{action}
+  return <section className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_8px_25px_rgba(18,51,74,.05)] sm:p-6">
+    <div className="mb-6 flex flex-col gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>{kicker && <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[.16em] text-[#16877f]">{kicker}</p>}
+        <h2 className="font-serif text-xl text-[#12334a]">{title}</h2></div>
+      {action && <div className="flex flex-wrap items-center gap-2">{action}</div>}
     </div>{children}
   </section>;
 }
@@ -192,35 +193,35 @@ export default function AdminAccounting({ isSuperAdmin, className = "" }: AdminA
   const trackedPosResult = report?.landedCostMvr == null ? null : (report.offlineOperatingResultMvr ?? report.posOperatingResultMvr ?? report.profitMvr);
   const includesPaidManualSales = report?.offlineOperatingResultMvr != null;
   if (!isSuperAdmin) return null;
-  return <div className={`grid gap-6 ${className}`}>
-    {error && <div role="alert" className="rounded-lg border border-[#ebc4be] bg-[#fff0ee] px-4 py-3 text-sm text-[#a44539]">{error}</div>}
-    {notice && <div role="status" className="rounded-lg border border-[#b9ded8] bg-[#f1f8f7] px-4 py-3 text-sm text-[#126f69]">{notice}</div>}
+  return <div className={`grid w-full gap-6 text-[#12334a] ${className}`}>
+    {error && <div role="alert" className="rounded-xl border border-[#ebc4be] bg-[#fff0ee] px-4 py-3 text-sm leading-relaxed text-[#a44539]">{error}</div>}
+    {notice && <div role="status" className="rounded-xl border border-[#b9ded8] bg-[#f1f8f7] px-4 py-3 text-sm leading-relaxed text-[#126f69]">{notice}</div>}
     <Panel title="Accounting controls" kicker="Configuration" action={<button type="button" className={adminButtonClass("primary")} onClick={saveSettings} disabled={saving || loading}><Save size={15} /> Save settings</button>}>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-[#12334a]"><input type="checkbox" checked={settings.taxEnabled} onChange={e => setSettings({ ...settings, taxEnabled: e.target.checked })} className="accent-[#16877f]" /> Enable GST/TGST</label>
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50/50 px-3 text-sm font-semibold text-[#12334a]"><input type="checkbox" checked={settings.taxEnabled} onChange={e => setSettings({ ...settings, taxEnabled: e.target.checked })} className="size-4 accent-[#16877f]" /> Enable GST/TGST</label>
         <Field label="GST rate (%)"><input className={adminControlClass} type="number" min="0" max="100" step="0.01" value={settings.gstRate} onChange={e => setSettings({ ...settings, gstRate: Number(e.target.value) })} disabled={!settings.taxEnabled} /></Field>
         <Field label="TGST rate (%)"><input className={adminControlClass} type="number" min="0" max="100" step="0.01" value={settings.tgstRate} onChange={e => setSettings({ ...settings, tgstRate: Number(e.target.value) })} disabled={!settings.taxEnabled} /></Field>
          <Field label="USD → MVR rate for new sales"><input className={adminControlClass} type="number" min="0" step="0.000001" value={settings.usdToMvrRate ?? 15.42} onChange={e => setSettings({ ...settings, usdToMvrRate: e.target.value ? Number(e.target.value) : 15.42 })} /></Field>
         <Field label="Inventory costing"><select className={adminControlClass} value={settings.costingMethod} onChange={e => setSettings({ ...settings, costingMethod: e.target.value as CostingMethod })}><option value="FIFO">FIFO — first received</option><option value="AVERAGE">Average cost</option></select></Field>
       </div>
-       <p className="mt-3 text-xs text-slate-500">Tax is disabled by default. The USD rate applies only to new RedotPay hosted USD quotes and new admin POS/manual orders and invoices; older orders and invoices retain their snapshots unchanged. FX settlement is recorded separately.</p>
+       <p className="mt-4 border-l-2 border-[#b9ded8] pl-3 text-xs leading-relaxed text-slate-500">Tax is disabled by default. The USD rate applies only to new RedotPay hosted USD quotes and new admin POS/manual orders and invoices; older orders and invoices retain their snapshots unchanged. FX settlement is recorded separately.</p>
     </Panel>
 
     <Panel title="Settle USD cash" kicker="Audited FX revaluation" action={<WalletCards size={20} className="text-[#16877f]" />}>
-      <form onSubmit={settleUsdCash} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+       <form onSubmit={settleUsdCash} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Settlement source"><select className={adminControlClass} value={fxSettlement.source} onChange={e => setFxSettlement({ ...fxSettlement, source: e.target.value as FxSettlementSource, id: "" })}><option value="pos">POS sale</option><option value="manual-order">Paid manual order</option></select></Field>
         <Field label={`${fxSettlement.source === "pos" ? "POS sale" : "Paid manual order"} ID`}><input required className={adminControlClass} value={fxSettlement.id} onChange={e => setFxSettlement({ ...fxSettlement, id: e.target.value })} placeholder={`${fxSettlement.source === "pos" ? "POS sale" : "Manual order"} UUID`} /></Field>
         <Field label="Final MVR per USD rate"><input required className={adminControlClass} type="number" min="0.000001" step="0.000001" value={fxSettlement.settlementRate} onChange={e => setFxSettlement({ ...fxSettlement, settlementRate: e.target.value })} placeholder="Manual final rate" /></Field>
         <Field label="Required reason"><input required minLength={3} className={adminControlClass} value={fxSettlement.reason} onChange={e => setFxSettlement({ ...fxSettlement, reason: e.target.value })} placeholder="Why is this cash being revalued?" /></Field>
         <div className="self-end"><button type="submit" className={adminButtonClass("primary")} disabled={saving}><Save size={15} /> Record settlement</button></div>
       </form>
-      <p className="mt-3 text-xs text-slate-500">USD cash has no realized gain or loss until the cash is actually converted and this final rate is explicitly entered. This changes FX reporting only; it does not change the sale total or sales margin.</p>
+       <p className="mt-4 border-l-2 border-[#b9ded8] pl-3 text-xs leading-relaxed text-slate-500">USD cash has no realized gain or loss until the cash is actually converted and this final rate is explicitly entered. This changes FX reporting only; it does not change the sale total or sales margin.</p>
       {fxResult && <div role="status" className="mt-4 rounded-lg border border-[#b9ded8] bg-[#f1f8f7] p-3 text-sm text-[#126f69]">Realized FX gain/loss: <strong>{money(fxResult.realizedFxMvr ?? fxResult.gainLossMvr ?? fxResult.fxVarianceMvr ?? 0)}</strong></div>}
     </Panel>
 
     <Panel title="Accounting report" kicker="Admin finance" action={<div className="flex flex-wrap gap-2"><button type="button" className={adminButtonClass("outline")} onClick={() => void load()} disabled={loading}><RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh</button><button type="button" className={adminButtonClass("outline")} onClick={() => void downloadCsv()}><Download size={14} /> Summary CSV</button><button type="button" className={adminButtonClass("outline")} onClick={() => void downloadTaxWorksheet()}><Download size={14} /> GST/TGST worksheet</button></div>}>
-      <div className="mb-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"><Field label="From"><input className={adminControlClass} type="date" value={from} onChange={e => setFrom(e.target.value)} /></Field><Field label="To"><input className={adminControlClass} type="date" value={to} onChange={e => setTo(e.target.value)} /></Field></div>
-       {report ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+       <div className="mb-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4"><Field label="From"><input className={adminControlClass} type="date" value={from} onChange={e => setFrom(e.target.value)} /></Field><Field label="To"><input className={adminControlClass} type="date" value={to} onChange={e => setTo(e.target.value)} /></Field></div>
+        {report ? <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <Metric title="Open receivables (MVR)" value={report.openReceivables ? money(report.openReceivables.MVR, "MVR") : "Unavailable"} detail="Open / unverified MVR balances" /><Metric title="Open receivables (USD)" value={report.openReceivables ? money(report.openReceivables.USD, "USD") : "Unavailable"} detail="Open / unverified USD balances" /><Metric title="Verified RedotPay receipts (USD)" value={report.verifiedRedotPayReceiptsUsd == null ? "Unavailable" : money(report.verifiedRedotPayReceiptsUsd, "USD")} detail="Native USD only; excluded from MVR totals" />
           <Metric title="Collected POS (MVR equivalent)" value={money(report.collectedMvr)} detail="Completed POS receipts, reported as MVR equivalent" /><Metric title="Paid manual offline orders (MVR equivalent)" value={report.manualCollectedMvr == null ? "Unavailable" : money(report.manualCollectedMvr)} detail="Separate offline cashflow; not online bookings" /><Metric title="Booked online orders (MVR equivalent)" value={report.bookedOrdersMvr == null ? "Unavailable" : money(report.bookedOrdersMvr)} detail="Booked value; never added to collected cash" /><Metric title="GST / TGST" value={money(totalTax)} /><Metric title="Operating overhead" value={operatingOverhead == null ? "Unavailable" : money(operatingOverhead)} detail={report.landedCostMvr == null ? "Waiting for landed-cost separation" : `Excludes landed batch costs: ${money(report.landedCostMvr)}`} />
         <Metric title="MVR tenders" value={money(report.tenderCurrencies.MVR?.amountMvr)} detail={`${money(report.tenderCurrencies.MVR?.amount, "MVR")} entered`} /><Metric title="USD tenders" value={money(report.tenderCurrencies.USD?.amount, "USD")} detail={`${money(report.tenderCurrencies.USD?.amountMvr)} equivalent`} />
@@ -232,7 +233,7 @@ export default function AdminAccounting({ isSuperAdmin, className = "" }: AdminA
     </Panel>
 
     <Panel title="Log an expense" kicker="Costs & landed COGS" action={<ReceiptText size={20} className="text-[#16877f]" />}>
-      <form onSubmit={addExpense} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+       <form onSubmit={addExpense} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Category"><input required className={adminControlClass} value={expense.category} onChange={e => setExpense({ ...expense, category: e.target.value })} /></Field>
         <Field label="Description"><input required className={adminControlClass} value={expense.description} onChange={e => setExpense({ ...expense, description: e.target.value })} placeholder="Supplier bill, customs, gateway fee…" /></Field>
         <Field label="Amount"><input required className={adminControlClass} type="number" min="0.01" step="0.01" value={expense.amount} onChange={e => setExpense({ ...expense, amount: e.target.value })} /></Field>
@@ -243,12 +244,12 @@ export default function AdminAccounting({ isSuperAdmin, className = "" }: AdminA
         <label className="flex min-h-11 items-center gap-3 self-end rounded-lg border border-slate-200 px-3 text-sm font-semibold text-[#12334a]"><input type="checkbox" checked={expense.isLanded} onChange={e => setExpense({ ...expense, isLanded: e.target.checked })} className="accent-[#16877f]" /> Allocate to landed COGS</label>
         <div className="sm:col-span-2 lg:col-span-4"><button type="submit" className={adminButtonClass("primary")} disabled={saving}><Plus size={15} /> Record expense</button></div>
       </form>
-      <div className="mt-6 overflow-x-auto"><table className="w-full min-w-[680px] text-left text-sm"><thead><tr className="border-b border-slate-200"><th className="pb-2">Date</th><th className="pb-2">Description</th><th className="pb-2">Category</th><th className="pb-2">Amount</th><th className="pb-2">MVR equivalent</th></tr></thead><tbody>{expenses.slice(0, 12).map(item => <tr key={item.id} className="border-b border-slate-100"><td className="py-2 text-slate-500">{item.expenseDate}</td><td className="py-2 font-medium text-[#12334a]">{item.description}{item.isLanded && <span className="ml-2 rounded bg-[#e8f5f2] px-1.5 py-0.5 text-[10px] text-[#126f69]">LANDED</span>}</td><td className="py-2 text-slate-500">{item.category}</td><td className="py-2">{money(item.amount, item.currency)}</td><td className="py-2">{money(item.amountMvr)}</td></tr>)}{expenses.length === 0 && <tr><td colSpan={5} className="py-6 text-center text-slate-500">No expenses recorded.</td></tr>}</tbody></table></div>
+       <div className="mt-7 overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[680px] text-left text-sm"><thead className="bg-slate-50/80"><tr className="border-b border-slate-200"><th className="px-3 py-3 text-[10px] font-bold uppercase tracking-[.12em] text-slate-500">Date</th><th className="px-3 py-3 text-[10px] font-bold uppercase tracking-[.12em] text-slate-500">Description</th><th className="px-3 py-3 text-[10px] font-bold uppercase tracking-[.12em] text-slate-500">Category</th><th className="px-3 py-3 text-[10px] font-bold uppercase tracking-[.12em] text-slate-500">Amount</th><th className="px-3 py-3 text-[10px] font-bold uppercase tracking-[.12em] text-slate-500">MVR equivalent</th></tr></thead><tbody>{expenses.slice(0, 12).map(item => <tr key={item.id} className="border-b border-slate-100 last:border-0"><td className="px-3 py-3 text-slate-500">{item.expenseDate}</td><td className="px-3 py-3 font-medium text-[#12334a]">{item.description}{item.isLanded && <span className="ml-2 rounded bg-[#e8f5f2] px-1.5 py-0.5 text-[10px] text-[#126f69]">LANDED</span>}</td><td className="px-3 py-3 text-slate-500">{item.category}</td><td className="px-3 py-3">{money(item.amount, item.currency)}</td><td className="px-3 py-3">{money(item.amountMvr)}</td></tr>)}{expenses.length === 0 && <tr><td colSpan={5} className="px-3 py-8 text-center text-slate-500">No expenses recorded.</td></tr>}</tbody></table></div>
     </Panel>
     <p className="flex items-center gap-2 text-xs text-slate-500"><WalletCards size={14} className="text-[#16877f]" /> POS tenders, processing fees, GST/TGST, and COGS are recorded separately so collected money is not confused with booked sales.</p>
   </div>;
 }
 
 function Metric({ title, value, detail }: { title: string; value: string; detail?: string }) {
-  return <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3"><p className="text-[10px] font-semibold uppercase tracking-[.1em] text-slate-500">{title}</p><p className="mt-1 text-lg font-semibold text-[#12334a]">{value}</p>{detail && <p className="mt-1 text-xs text-slate-500">{detail}</p>}</div>;
+  return <div className="rounded-xl border border-slate-200 bg-[#f8fafb] p-4 transition-colors hover:border-[#b9ded8]"><p className="text-[10px] font-bold uppercase tracking-[.12em] text-slate-500">{title}</p><p className="mt-2 font-serif text-xl text-[#12334a]">{value}</p>{detail && <p className="mt-2 text-xs leading-relaxed text-slate-500">{detail}</p>}</div>;
 }

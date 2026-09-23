@@ -614,6 +614,15 @@ export function registerAdminAccountingRoutes(app: Express, getDb: () => Databas
            )
            AND o.created_at::date BETWEEN ${from} AND ${to}`),
     ]);
+     const [posFx, manualFx] = await Promise.all([
+       db.execute(sql`SELECT COALESCE(SUM(a.fx_variance_mvr), 0)::float8 AS "realizedFxMvr"
+         FROM pos_accounting a JOIN pos_transactions p ON p.id = a.pos_id
+         WHERE p.status='completed' AND p.converted_to_order_id IS NULL AND p.created_at::date BETWEEN ${from} AND ${to}`),
+       db.execute(sql`SELECT COALESCE(SUM(a.fx_variance_mvr), 0)::float8 AS "realizedFxMvr"
+         FROM manual_order_accounting a JOIN orders o ON o.id = a.order_id
+         WHERE o.status IN ('confirmed', 'paid', 'completed')
+           AND o.created_at::date BETWEEN ${from} AND ${to}`),
+     ]);
     const totalsRow = rows(totals)[0] || {};
     const summary = accountingReportSummary({
       gst: rows(gst), tenders: rows(tenders), cogs: rows(cogs), expenses: rows(expenses),
@@ -635,18 +644,7 @@ export function registerAdminAccountingRoutes(app: Express, getDb: () => Databas
         USD: Number(rows(receivables)[0]?.openUsd || 0),
       },
       verifiedRedotPayReceiptsUsd: Number(rows(receivables)[0]?.verifiedRedotPayReceiptsUsd || 0),
-        realizedFxMvr: Number((await db.execute(sql`SELECT COALESCE(SUM(a.fx_variance_mvr), 0)::float8 AS "realizedFxMvr"
-        FROM pos_accounting a JOIN pos_transactions p ON p.id = a.pos_id
-        WHERE p.status='completed' AND p.converted_to_order_id IS NULL AND p.created_at::date BETWEEN ${from} AND ${to}`
-        )).then(async (result: any) => {
-          const posFx = Number(rows(result)[0]?.realizedFxMvr || 0);
-          const manualFx = rows(await db.execute(sql`SELECT COALESCE(SUM(a.fx_variance_mvr), 0)::float8 AS "realizedFxMvr"
-            FROM manual_order_accounting a JOIN orders o ON o.id = a.order_id
-            WHERE o.status IN ('confirmed', 'paid', 'completed')
-              AND o.status NOT IN ('cancelled', 'refunded')
-              AND o.created_at::date BETWEEN ${from} AND ${to}`))[0]?.realizedFxMvr || 0;
-          return posFx + Number(manualFx);
-        })),
+       realizedFxMvr: Number(rows(posFx)[0]?.realizedFxMvr || 0) + Number(rows(manualFx)[0]?.realizedFxMvr || 0),
     });
     if (req.query.format === "csv") {
        const lines = [
