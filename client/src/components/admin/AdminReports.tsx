@@ -27,12 +27,25 @@ const isCompletedPos = (status: string) => status.trim().toLowerCase() === "comp
 const isExcludedOrder = (status: string) => ["cancelled", "canceled", "refunded"].includes(status.trim().toLowerCase());
 const money = (value: number) => formatCurrency(Number.isFinite(value) ? value : 0);
 
+const inlineFieldClass = "flex h-10 min-w-[150px] flex-1 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-sm text-slate-800 transition focus-within:border-[#16877f] focus-within:ring-2 focus-within:ring-[#16877f]/15";
+const inlineLabelClass = "shrink-0 text-[10px] font-semibold uppercase tracking-[.12em] text-slate-500";
+
 function SelectFilter({ label: title, value, onChange, children }: {
   label: string; value: string; onChange: (value: string) => void; children: React.ReactNode;
 }) {
-  return <label className="flex min-w-[130px] flex-1 flex-col gap-1.5 text-[10px] font-semibold uppercase tracking-[.12em] text-slate-500">
-    {title}<select aria-label={title} value={value} onChange={e => onChange(e.target.value)}
-      className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium normal-case tracking-normal text-slate-800 outline-none transition focus:border-[#16877f] focus:ring-2 focus:ring-[#16877f]/15">{children}</select>
+  return <label className={inlineFieldClass}>
+    <span className={inlineLabelClass}>{title}</span>
+    <select aria-label={title} value={value} onChange={e => onChange(e.target.value)}
+      className="min-w-0 flex-1 cursor-pointer appearance-none bg-transparent text-sm font-medium text-slate-800 outline-none">{children}</select>
+    <span aria-hidden="true" className="text-slate-500">⌄</span>
+  </label>;
+}
+
+function DateFilter({ title, value, onChange }: { title: string; value: string; onChange: (value: string) => void }) {
+  return <label className={inlineFieldClass}>
+    <span className={inlineLabelClass}>{title}</span>
+    <input aria-label={`${title} date`} type="date" value={value} onChange={e => onChange(e.target.value)}
+      className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-800 outline-none" />
   </label>;
 }
 
@@ -46,8 +59,8 @@ function MultiSelectFilter({ title, values, options, allLabel, onChange, open, o
     `${values.length} selected`;
   const id = `report-filter-${title.toLowerCase()}`;
   return <div data-report-filter className="relative min-w-[150px] flex-1">
-    <button type="button" aria-label={`${title}: ${summary}`} aria-expanded={open} aria-controls={id} onClick={onToggle} className="flex h-10 w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 text-left text-sm font-medium text-slate-800 outline-none transition hover:border-[#16877f] focus-visible:ring-2 focus-visible:ring-[#16877f]/30">
-      <span className="truncate"><span className="mr-2 text-[10px] font-semibold uppercase tracking-[.12em] text-slate-500">{title}</span>{summary}</span>
+    <button type="button" aria-label={`${title}: ${summary}`} aria-expanded={open} aria-controls={id} onClick={onToggle} className="flex h-10 w-full items-center justify-between gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-left text-sm font-medium text-slate-800 outline-none transition hover:border-[#16877f] focus-visible:ring-2 focus-visible:ring-[#16877f]/30">
+      <span className="truncate"><span className="mr-1.5 text-[10px] font-semibold uppercase tracking-[.12em] text-slate-500">{title}</span>{summary}</span>
       <span aria-hidden="true" className="text-slate-500">{open ? "⌃" : "⌄"}</span>
     </button>
     {open && <div id={id} className="relative z-30 mt-1 w-full min-w-0 rounded-md border border-slate-200 bg-white p-2 shadow-lg sm:absolute sm:left-0 sm:top-full sm:mt-1 sm:min-w-[190px]">
@@ -83,13 +96,15 @@ function FiltersBar({ filters, setFilters, statuses, payments, deliveries, hasPo
   return <section ref={barRef} aria-label="Report filters" onKeyDown={event => { if (event.key === "Escape") setOpenFilter(null); }} onPointerDown={event => {
     if (!(event.target as HTMLElement).closest("[data-report-filter]")) setOpenFilter(null);
   }} className="mb-7 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_8px_25px_rgba(18,51,74,.05)]">
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-wrap gap-2.5">
       <SelectFilter label="Period" value={filters.period} onChange={v => set("period", v)}>
         <option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option>
         <option value="all">All time</option><option value="custom">Custom range</option>
       </SelectFilter>
-      {filters.period === "custom" && <><label className="flex flex-1 flex-col gap-1.5 text-[10px] font-semibold uppercase tracking-[.12em] text-slate-500">From<input aria-label="From date" type="date" value={filters.from} onChange={e => set("from", e.target.value)} className="h-10 rounded-md border border-slate-200 px-3 text-sm tracking-normal outline-none focus:border-[#16877f]" /></label>
-        <label className="flex flex-1 flex-col gap-1.5 text-[10px] font-semibold uppercase tracking-[.12em] text-slate-500">To<input aria-label="To date" type="date" value={filters.to} onChange={e => set("to", e.target.value)} className="h-10 rounded-md border border-slate-200 px-3 text-sm tracking-normal outline-none focus:border-[#16877f]" /></label></>}
+      {filters.period === "custom" && <>
+        <DateFilter title="From" value={filters.from} onChange={v => set("from", v)} />
+        <DateFilter title="To" value={filters.to} onChange={v => set("to", v)} />
+      </>}
       <MultiSelectFilter title="Status" values={filters.status} onChange={v => setMany("status", v)} options={statuses.map(value => ({ value, name: label(value) }))} allLabel="All statuses" {...selectProps("Status")} />
       <MultiSelectFilter title="Payment" values={filters.payment} onChange={v => setMany("payment", v)} options={payments.map(value => ({ value, name: label(value) }))} allLabel="All methods" {...selectProps("Payment")} />
       <MultiSelectFilter title="Delivery" values={filters.delivery} onChange={v => setMany("delivery", v)} options={deliveries.map(value => ({ value, name: label(value) }))} allLabel="All types" {...selectProps("Delivery")} />
