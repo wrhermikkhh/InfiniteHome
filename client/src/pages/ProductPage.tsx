@@ -11,6 +11,8 @@ import { useCart } from "@/lib/cart";
 import { motion } from "framer-motion";
 import { getCertificationInfo } from "@/lib/certifications";
 import { useCartAnimation, FlyingItems, CartConfirmation } from "@/components/ui/cart-animation";
+import { ProductSizeGuideDialog } from "@/components/product/ProductSizeGuideDialog";
+import { ProductRecommendations } from "@/components/product/ProductRecommendations";
 
 export default function ProductPage() {
   const [match, params] = useRoute("/product/:id");
@@ -30,6 +32,13 @@ export default function ProductPage() {
   const [isZoomed, setIsZoomed] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
 
+  useEffect(() => {
+    setSelectedSize("");
+    setSelectedColor("");
+    setActiveImageIndex(0);
+    setColorSwatchActive(false);
+  }, [productId]);
+
   const variantStockObj = (product?.variantStock || {}) as { [key: string]: number };
   const colors: string[] = (() => {
     const productColors = product?.colors && product.colors.length > 0 ? [...product.colors] : [];
@@ -43,7 +52,7 @@ export default function ProductPage() {
   
   // Auto-select first size/color combination that has stock (runs once when product loads)
   useEffect(() => {
-    if (!product) return;
+    if (!product || product.id !== productId) return;
     // Only auto-select if nothing selected yet
     if (selectedSize || selectedColor) return;
     
@@ -99,7 +108,7 @@ export default function ProductPage() {
   }, [product, selectedColor, selectedSize, cartItems, quantity]);
 
   if (!match || !params) return <NotFound />;
-  if (loading) return (
+  if (loading || (product && product.id !== productId)) return (
     <div className="min-h-screen bg-background font-body">
       <Navbar />
       <div className="pt-32 pb-16 container mx-auto px-4 text-center">
@@ -448,7 +457,11 @@ export default function ProductPage() {
               <div className="space-y-3">
                  <div className="flex items-center justify-between">
                    <span className="text-sm font-bold uppercase tracking-widest">Size: <span className="text-muted-foreground font-normal normal-case">{selectedSize}</span></span>
-                   <a href="/size-guide" className="text-sm text-primary hover:underline transition-colors" data-testid="link-size-guide">Size Guide</a>
+                    {product.sizeGuide?.length ? (
+                      <ProductSizeGuideDialog key={product.id} product={product} />
+                    ) : (
+                      <a href="/size-guide" className="text-sm text-primary hover:underline transition-colors" data-testid="link-size-guide">Size Guide</a>
+                    )}
                  </div>
                  <div className="flex flex-wrap gap-2">
                    {variants.map((v: ProductVariant) => {
@@ -698,6 +711,8 @@ export default function ProductPage() {
           </motion.div>
         </div>
       </div>
+
+      <ProductRecommendations product={product} />
 
       {/* Zoom Modal */}
       {isZoomed && (
