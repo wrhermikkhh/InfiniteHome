@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
-import { Search, ShoppingBag, User, Menu, X, Trash2, Plus, Minus, LogOut, AlertCircle } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { Search, ShoppingBag, User, Menu, X, Trash2, Plus, Minus, LogOut, AlertCircle, ArrowRight } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
@@ -68,13 +69,50 @@ export function Navbar() {
   const inStockItems = items.filter((item) => getItemStock(item) > 0);
   const total = inStockItems.reduce((sum, item) => sum + item.price * (item.quantity || 0), 0);
   const hasOutOfStockItems = items.some((item) => getItemStock(item) <= 0);
+  const isHome = location === "/";
+  const headerRaised = isScrolled || mobileMenuOpen || searchOpen || !isHome;
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
-    window.addEventListener("scroll", handleScroll);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location]);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileMenuOpen(false);
+        setSearchOpen(false);
+        if (mobileMenuOpen) menuButtonRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => {
+      if (desktop.matches) setMobileMenuOpen(false);
+    };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
   }, []);
 
   useEffect(() => {
@@ -116,31 +154,51 @@ export function Navbar() {
   ];
 
   return (
+    <>
+    <div
+      aria-hidden="true"
+      onClick={() => setMobileMenuOpen(false)}
+      className={cn(
+        "fixed inset-0 z-40 bg-[#293329]/20 backdrop-blur-[2px] transition-opacity duration-300 lg:hidden",
+        mobileMenuOpen ? "opacity-100" : "pointer-events-none opacity-0"
+      )}
+    />
     <header
       className={cn(
-        "fixed w-full z-50 transition-all duration-300 border-b border-transparent",
-        isScrolled || mobileMenuOpen || location !== "/"
-          ? "bg-background/95 backdrop-blur-sm border-border py-3 shadow-sm top-0" 
-          : "bg-transparent py-4 text-white top-0"
+        "fixed inset-x-0 top-0 z-50 border-b transition-[background-color,box-shadow,padding,color] duration-500",
+        headerRaised
+          ? isHome
+            ? "bg-[#f4f0e8]/95 border-[#293329]/15 py-3 text-[#293329] shadow-[0_8px_30px_rgba(41,51,41,0.08)] backdrop-blur-md"
+            : "bg-background/95 backdrop-blur-sm border-border py-3 shadow-sm"
+          : "bg-transparent border-transparent py-4 text-white"
       )}
     >
-      <div className="container mx-auto px-4 flex items-center justify-between">
+      <div className={cn("mx-auto flex items-center justify-between", isHome ? "max-w-[1440px] px-3 sm:px-8 lg:px-12" : "container px-3 sm:px-4")}>
         <button 
-          className="lg:hidden p-2"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          ref={menuButtonRef}
+          type="button"
+          className={cn("lg:hidden p-2.5 transition-colors", isHome && (headerRaised ? "hover:bg-[#293329]/10" : "hover:bg-white/10"))}
+          onClick={() => {
+            setSearchOpen(false);
+            setMobileMenuOpen(!mobileMenuOpen);
+          }}
+          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+          aria-controls="mobile-site-navigation"
+          aria-expanded={mobileMenuOpen}
         >
           {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
 
         <Link 
           href="/"
-          className="text-xl md:text-2xl font-serif font-bold tracking-widest uppercase cursor-pointer whitespace-nowrap"
+          className={cn("font-serif uppercase cursor-pointer whitespace-nowrap text-[14px] min-[375px]:text-[17px] sm:text-[22px] md:text-2xl tracking-[0.08em]", isHome ? "font-semibold sm:tracking-[0.2em]" : "font-bold sm:tracking-widest")}
+          onClick={() => setMobileMenuOpen(false)}
         >
           {searchOpen ? "IH" : "INFINITE HOME"}
         </Link>
 
         {searchOpen ? (
-          <div className="flex-1 max-w-2xl mx-8 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="absolute inset-x-0 top-full bg-background px-3 py-3 text-foreground shadow-lg sm:relative sm:inset-auto sm:mx-8 sm:max-w-2xl sm:flex-1 sm:bg-transparent sm:p-0 sm:shadow-none animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="relative group">
               <Input
                 placeholder="Search for products..."
@@ -197,14 +255,15 @@ export function Navbar() {
           </div>
         ) : (
           <>
-            <nav className="hidden lg:flex items-center space-x-8">
+            <nav className={cn("hidden lg:flex items-center", isHome ? "gap-8" : "space-x-8")} aria-label="Main navigation">
               {navLinks.map((link) => (
                 <Link 
                   key={link.name} 
                   href={link.href}
                   className={cn(
-                    "text-sm font-medium tracking-wide hover:opacity-70 transition-opacity uppercase",
-                    isScrolled || location !== "/" ? "text-foreground" : "text-white"
+                    isHome ? "text-[11px] font-medium tracking-[0.16em]" : "text-sm font-medium tracking-wide",
+                    "hover:opacity-70 transition-opacity uppercase",
+                    headerRaised ? (isHome ? "text-[#293329]" : "text-foreground") : "text-white"
                   )}
                 >
                   {link.name}
@@ -214,21 +273,26 @@ export function Navbar() {
           </>
         )}
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-0 sm:gap-4">
           <button 
             className={cn(
-              "p-2 hover:opacity-70 transition-opacity",
+              "p-3",
+              "hover:opacity-70 transition-opacity",
               searchOpen && "text-primary"
             )}
-            onClick={() => setSearchOpen(!searchOpen)}
+            onClick={() => {
+              setMobileMenuOpen(false);
+              setSearchOpen(!searchOpen);
+            }}
             data-testid="button-search"
+            aria-label={searchOpen ? "Close search" : "Search products"}
           >
             {searchOpen ? <X size={20} /> : <Search size={20} />}
           </button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="p-2 hover:opacity-70 transition-opacity" data-testid="button-user-menu">
+              <button className="p-3 hover:opacity-70 transition-opacity" onClick={() => setMobileMenuOpen(false)} data-testid="button-user-menu" aria-label="Account menu">
                 <User size={20} />
               </button>
             </DropdownMenuTrigger>
@@ -275,7 +339,7 @@ export function Navbar() {
 
           <Sheet>
             <SheetTrigger asChild>
-              <button className="p-2 hover:opacity-70 transition-all duration-300 relative" data-testid="button-cart">
+              <button className="relative p-3 hover:opacity-70 transition-all duration-300" onClick={() => setMobileMenuOpen(false)} data-testid="button-cart" aria-label="Shopping bag">
                 <ShoppingBag size={20} />
                 {items.length > 0 && (
                   <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold w-5 h-5 flex items-center justify-center">
@@ -390,30 +454,43 @@ export function Navbar() {
       </div>
 
       
-      {mobileMenuOpen && (
-        <div className="absolute top-full left-0 w-full bg-background border-b border-border p-4 flex flex-col space-y-4 lg:hidden animate-in slide-in-from-top-5">
+      <nav
+        id="mobile-site-navigation"
+        aria-label="Mobile navigation"
+        aria-hidden={!mobileMenuOpen}
+        className={cn(
+          "absolute top-full left-0 w-full max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain border-b px-6 py-5 flex flex-col lg:hidden origin-top transition-[opacity,transform,visibility] duration-300 ease-out",
+          isHome ? "bg-[#f4f0e8] text-[#293329] border-[#293329]/10 shadow-lg" : "bg-background border-border text-foreground",
+          mobileMenuOpen ? "visible translate-y-0 opacity-100" : "invisible pointer-events-none -translate-y-2 opacity-0"
+        )}
+      >
           {navLinks.map((link) => (
             <Link 
               key={link.name} 
               href={link.href}
-              className="text-foreground font-medium py-2 border-b border-border/50 uppercase text-sm"
+              className={cn("font-medium py-4 border-b uppercase text-sm", isHome ? "border-[#293329]/10" : "border-border/50")}
               onClick={() => setMobileMenuOpen(false)}
             >
               {link.name}
             </Link>
           ))}
+          {isHome && (
+            <Link href="/bamboo-bedding" className="flex items-center gap-2 py-4 text-sm uppercase tracking-wider" onClick={() => setMobileMenuOpen(false)}>
+              Explore bedding <ArrowRight size={16} />
+            </Link>
+          )}
           <div className="pt-4 flex flex-col space-y-3">
             {isAuthenticated ? (
               <>
                 <Button 
-                  className="w-full rounded-none" 
+                  className="w-full h-11 rounded-none"
                   variant="outline"
                   onClick={() => { setMobileMenuOpen(false); setLocation("/account"); }}
                 >
                   My Account
                 </Button>
                 <Button 
-                  className="w-full rounded-none" 
+                  className="w-full h-11 rounded-none"
                   variant="ghost"
                   onClick={() => { logout(); setMobileMenuOpen(false); }}
                 >
@@ -423,14 +500,14 @@ export function Navbar() {
             ) : (
               <>
                 <Button 
-                  className="w-full rounded-none" 
+                  className="w-full h-11 rounded-none"
                   variant="outline"
                   onClick={() => { setMobileMenuOpen(false); setLocation("/login"); }}
                 >
                   Sign In
                 </Button>
                 <Button 
-                  className="w-full rounded-none"
+                  className="w-full h-11 rounded-none"
                   onClick={() => { setMobileMenuOpen(false); setLocation("/signup"); }}
                 >
                   Create Account
@@ -438,8 +515,8 @@ export function Navbar() {
               </>
             )}
           </div>
-        </div>
-      )}
+      </nav>
     </header>
+    </>
   );
 }
